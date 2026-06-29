@@ -1,7 +1,7 @@
 {
-  "versionCode": 17,
-  "versionName": "3.3",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.3/AUnloadRescue-3.3.apk",
+  "versionCode": 18,
+  "versionName": "3.4",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.4/AUnloadRescue-3.4.apk",
   "updateRequired": false,
-  "message": "🚀 Nueva versión 3.3\n\n• Reconoce automáticamente el número de container (Receiving / Put Away) y asigna todo al container correcto, sin crearlo a mano.\n• Auto-actualización: la app avisa y se actualiza sola.\n\n¿Descargar e instalar ahora?"
+  "message": "✨ Nueva versión 3.4\n\n• Ahora puedes poner tu nombre en Ajustes y tus compañeros verán quién está trabajando en cada container.\n• El banner de cada container muestra de quién es el trabajo que estás viendo; tócalo para ver la lista de personas o elegir \"Mostrar todo\".\n• Los SKU que ya tienen ubicación aparecen de primero.\n• Mejoras de estabilidad y sincronización en vivo.\n\n¿Descargar e instalar ahora?"
 }
