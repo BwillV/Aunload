@@ -1,0 +1,7 @@
+{
+  "versionCode": 17,
+  "versionName": "3.3",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.3/AUnloadRescue-3.3.apk",
+  "updateRequired": false,
+  "message": "🚀 Nueva versión 3.3\n\n• Reconoce automáticamente el número de container (Receiving / Put Away) y asigna todo al container correcto, sin crearlo a mano.\n• Auto-actualización: la app avisa y se actualiza sola.\n\n¿Descargar e instalar ahora?"
+}
