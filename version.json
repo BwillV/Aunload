@@ -1,7 +1,7 @@
 {
-  "versionCode": 23,
-  "versionName": "3.7.2",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.2/AUnloadRescue-3.7.2.apk",
-  "updateRequired": true,
-  "message": "🔧 Important fix 3.7.2\n\n• Fixed a serious bug: changing the TEAM CODE no longer copies your old team's containers into the new team. Each team code now stays isolated.\n\n• Also includes 3.7.1: 'Hide OTHERS' now updates the list instantly.\n\nPlease update now."
+  "versionCode": 24,
+  "versionName": "3.7.3",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.3/AUnloadRescue-3.7.3.apk",
+  "updateRequired": false,
+  "message": "🔧 Update 3.7.3\n\n• Improves sync so container RENAMES made from the Manager panel now reach all phones.\n\n• Works together with new Manager super-user tools (move SKUs/pallets between containers, edit pallets, rename and merge containers).\n\nRecommended update."
 }

@@ -128,7 +128,7 @@
   .container-card.abierto .flecha{transform:rotate(90deg);}
   .container-body{display:none; border-top:1px solid var(--borde);}
   .container-card.abierto .container-body{display:block;}
-  .cont-tools{display:flex; gap:6px; padding:10px 14px; background:#fafbfc; border-top:1px solid var(--gris-claro);}
+  .cont-tools{display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px; background:#fafbfc; border-top:1px solid var(--gris-claro);}
   .sku-grupo{border-bottom:1px solid var(--gris-claro);}
   .sku-grupo:last-child{border-bottom:none;}
   .sku-head{display:flex; align-items:center; gap:8px; padding:10px 14px; background:#fafbfc;}
@@ -142,6 +142,10 @@
   .reg-quien{font-size:10.5px; color:var(--gris); flex-shrink:0; text-align:right; line-height:1.4;}
   .reg-del{background:none; border:none; color:#bbb; font-size:16px; cursor:pointer; flex-shrink:0; padding:2px 4px;}
   .reg-del:hover{color:var(--rojo);}
+  .reg-btn{background:none; border:none; color:#bbb; font-size:15px; cursor:pointer; flex-shrink:0; padding:2px 4px;}
+  .reg-btn:hover{color:var(--azul);}
+  .sku-acc{background:none; border:1px solid var(--borde); color:var(--azul); font-size:11px; font-weight:700; cursor:pointer; flex-shrink:0; padding:3px 8px; border-radius:7px;}
+  .sku-acc:hover{background:#f0f6ff; border-color:#bbdefb;}
   .sin-cont{text-align:center; padding:40px 20px; color:var(--texto2);}
   .sin-cont .emoji{font-size:46px; display:block; margin-bottom:10px;}
   /* tabla personas */
@@ -176,8 +180,11 @@
   .modal{background:#fff; border-radius:18px; padding:22px; width:100%; max-width:360px; box-shadow:0 12px 40px rgba(0,0,0,.3);}
   .modal h3{margin:0 0 6px 0; font-size:17px;}
   .modal p{margin:0 0 14px 0; font-size:13px; color:var(--texto2);}
-  .modal input,.modal textarea{width:100%; padding:12px; font-size:15px; border:1px solid var(--borde); border-radius:10px; outline:none; margin-bottom:12px; font-family:inherit;}
-  .modal input:focus,.modal textarea:focus{border-color:var(--azul);}
+  .modal input,.modal textarea,.modal select{width:100%; padding:12px; font-size:15px; border:1px solid var(--borde); border-radius:10px; outline:none; margin-bottom:12px; font-family:inherit; background:#fff;}
+  .modal input:focus,.modal textarea:focus,.modal select:focus{border-color:var(--azul);}
+  #modalHtml .campo{margin-bottom:12px;}
+  #modalHtml label{display:block; font-size:12px; font-weight:700; color:var(--texto2); margin-bottom:4px;}
+  #modalHtml input{margin-bottom:0;}
   .modal-acc{display:flex; gap:8px;}
   .modal-acc button{flex:1; padding:12px; font-size:14px; font-weight:700; border:none; border-radius:10px; cursor:pointer;}
   .m-cancel{background:var(--gris-claro); color:var(--texto2);}
@@ -272,6 +279,8 @@
     <p id="modalMsg"></p>
     <input id="modalInput" type="text" style="display:none;">
     <textarea id="modalArea" rows="3" style="display:none;"></textarea>
+    <select id="modalSelect" style="display:none;"></select>
+    <div id="modalHtml" style="display:none;"></div>
     <div class="modal-acc">
       <button class="m-cancel" id="modalCancel">Cancelar</button>
       <button class="m-ok" id="modalOk">Aceptar</button>
@@ -341,14 +350,26 @@ function toast(msg){
 // ---------- modal ----------
 let modalCb = null;
 function modal(opts){
-  // opts: {tit, msg, input:'text'|'area'|null, valor, okTxt, rojo, onOk(valor)}
+  // opts: {tit, msg, input:'text'|'area'|'select'|'html'|null, valor, okTxt, rojo, onOk(valor)}
+  //   - input:'select'  -> opts.opciones = [{v, txt}], opts.valor = valor inicial
+  //   - input:'html'    -> opts.html = HTML del cuerpo; onOk recibe true y el caller
+  //                        lee los campos del DOM por id.
   document.getElementById('modalTit').textContent = opts.tit||'';
   document.getElementById('modalMsg').textContent = opts.msg||'';
   const inp = document.getElementById('modalInput');
   const area = document.getElementById('modalArea');
-  inp.style.display='none'; area.style.display='none';
+  const sel = document.getElementById('modalSelect');
+  const htmlBox = document.getElementById('modalHtml');
+  inp.style.display='none'; area.style.display='none'; sel.style.display='none'; htmlBox.style.display='none';
+  htmlBox.innerHTML='';
   if(opts.input==='text'){ inp.style.display='block'; inp.value=opts.valor||''; inp.type=opts.password?'password':'text'; setTimeout(()=>inp.focus(),50); }
   else if(opts.input==='area'){ area.style.display='block'; area.value=opts.valor||''; setTimeout(()=>area.focus(),50); }
+  else if(opts.input==='select'){
+    sel.style.display='block';
+    sel.innerHTML = (opts.opciones||[]).map(o=>`<option value="${esc(o.v)}"${o.v===opts.valor?' selected':''}>${esc(o.txt)}</option>`).join('');
+    setTimeout(()=>sel.focus(),50);
+  }
+  else if(opts.input==='html'){ htmlBox.style.display='block'; htmlBox.innerHTML=opts.html||''; setTimeout(()=>{ const f=htmlBox.querySelector('input,select,textarea'); if(f) f.focus(); },50); }
   const ok=document.getElementById('modalOk');
   ok.textContent = opts.okTxt||'Aceptar';
   ok.className = 'm-ok'+(opts.rojo?' rojo':'');
@@ -358,8 +379,11 @@ function modal(opts){
 function cerrarModal(){ document.getElementById('modalBg').classList.remove('show'); modalCb=null; }
 document.getElementById('modalCancel').onclick = cerrarModal;
 document.getElementById('modalOk').onclick = ()=>{
-  const inp=document.getElementById('modalInput'), area=document.getElementById('modalArea');
-  let val = inp.style.display!=='none' ? inp.value : (area.style.display!=='none' ? area.value : true);
+  const inp=document.getElementById('modalInput'), area=document.getElementById('modalArea'), sel=document.getElementById('modalSelect');
+  let val = true;
+  if(inp.style.display!=='none') val = inp.value;
+  else if(area.style.display!=='none') val = area.value;
+  else if(sel.style.display!=='none') val = sel.value;
   const cb = modalCb; cerrarModal();
   if(cb) cb(val);
 };
@@ -551,11 +575,15 @@ function render(){
             ${ubic}
             <span class="reg-cant">${(parseInt(r.q)||0)} CTNs · ${esc(r.c||'')}</span>
             ${quien}
+            <button class="reg-btn" title="Editar pallet" onclick="editarPallet('${esc(clave)}','${esc(r.rid)}')">✏️</button>
+            <button class="reg-btn" title="Mover pallet a otro container" onclick="moverPallet('${esc(clave)}','${esc(r.rid)}')">↗️</button>
             <button class="reg-del" title="Borrar pallet" onclick="borrarPallet('${esc(clave)}','${esc(r.rid)}')">🗑</button>
           </div>`;
         });
+        const skuMover = sku!=='(sin SKU)'
+          ? `<button class="sku-acc" title="Mover todos los pallets de este SKU a otro container" onclick="moverSku('${esc(clave)}','${esc(sku)}')">↗️ Mover SKU</button>` : '';
         cuerpo += `<div class="sku-grupo">
-          <div class="sku-head"><span class="sku-nom">${esc(sku)}</span><span class="sku-tot">${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs</span></div>
+          <div class="sku-head"><span class="sku-nom">${esc(sku)}</span><span class="sku-tot">${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs</span>${skuMover}</div>
           ${filas}
         </div>`;
       });
@@ -573,8 +601,10 @@ function render(){
         </div>
         <div class="container-body">
           <div class="cont-tools">
-            <button class="accion azul" onclick="moverContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">➡️ Mover a otro equipo</button>
-            <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🗑 Borrar container completo</button>
+            <button class="accion" onclick="renombrarContainer('${esc(clave)}')">✏️ Renombrar</button>
+            <button class="accion azul" onclick="moverContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">➡️ Otro equipo</button>
+            <button class="accion warn" onclick="fusionarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🔀 Fusionar</button>
+            <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🗑 Borrar</button>
           </div>
           ${cuerpo||'<div class="reg-fila"><span class="reg-cant">Sin pallets todavía.</span></div>'}
         </div>
@@ -751,6 +781,133 @@ function moverContainer(clave, nom){
         return equipoRef.update(up);
       }).then(()=>toast('Container movido al equipo '+destPin))
         .catch(e=>toast('Error al mover: '+(e&&e.message?e.message:e)));
+    });
+  }});
+}
+
+// ====================== Súper usuario: pallets / SKUs / containers ======================
+
+// Devuelve [{v:clave, txt:nombre}] de los containers del equipo actual, EXCLUYENDO
+// (opcionalmente) una clave (el origen). Sirve para los selectores de destino.
+function opcionesContainers(excluir){
+  return Object.keys(datosContainers)
+    .filter(k=>k!==excluir)
+    .sort((a,b)=>(datosContainers[b].cr||0)-(datosContainers[a].cr||0))
+    .map(k=>{ const c=datosContainers[k]; return {v:k, txt:(c.num||c.n||k)}; });
+}
+
+// Genera un rid único nuevo para el destino al mover pallets.
+// IMPORTANTE: al mover un pallet hay que darle un rid NUEVO en el destino y poner
+// LÁPIDA al rid viejo. Las lápidas borran el rid en TODOS los containers de los
+// teléfonos (offline-first hace unión por rid), así el origen queda limpio incluso
+// en teléfonos que tenían el pallet en local. Si reusáramos el mismo rid, la lápida
+// también borraría la copia del destino.
+let _ridSeq = 0;
+function nuevoRid(){ return 'mgr_' + Date.now().toString(36) + '_' + (_ridSeq++).toString(36) + Math.random().toString(36).slice(2,6); }
+
+// Mueve un pallet (registro) individual a otro container del MISMO equipo.
+function moverPallet(clave, rid){
+  const ops = opcionesContainers(clave);
+  if(ops.length===0){ toast('No hay otro container al cual mover'); return; }
+  const r = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r[rid]:null;
+  const etq = r ? (r.s||r.c||'pallet') : 'pallet';
+  modal({tit:'↗️ Mover pallet', msg:'Mueve "'+etq+'" a otro container de este equipo.', input:'select', opciones:ops, valor:ops[0].v, okTxt:'Mover', onOk:(dest)=>{
+    if(!dest) return;
+    conPin(()=>{
+      const reg = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r[rid]:null;
+      if(!reg){ toast('Pallet no encontrado'); return; }
+      const nrid = nuevoRid();
+      const up={};
+      up['containers/'+dest+'/r/'+nrid] = reg;        // copia al destino con rid nuevo
+      up['containers/'+clave+'/r/'+rid] = null;        // borra del origen
+      up['tombstones/regs/'+rid] = Date.now();         // lápida al rid viejo (limpia teléfonos)
+      equipoRef.update(up).then(()=>toast('Pallet movido')).catch(e=>toast('Error: '+(e.message||e)));
+    });
+  }});
+}
+
+// Mueve TODOS los pallets de un SKU dado a otro container del mismo equipo.
+function moverSku(clave, sku){
+  const ops = opcionesContainers(clave);
+  if(ops.length===0){ toast('No hay otro container al cual mover'); return; }
+  const c = datosContainers[clave];
+  const rids = c&&c.r ? Object.keys(c.r).filter(rid=>{ const s=(c.r[rid].s||'').trim(); return s===sku; }) : [];
+  if(rids.length===0){ toast('No hay pallets de ese SKU'); return; }
+  modal({tit:'↗️ Mover SKU', msg:'Mueve los '+rids.length+' pallet(s) del SKU "'+sku+'" a otro container.', input:'select', opciones:ops, valor:ops[0].v, okTxt:'Mover '+rids.length, onOk:(dest)=>{
+    if(!dest) return;
+    conPin(()=>{
+      const cc = datosContainers[clave];
+      if(!cc||!cc.r){ toast('Container no encontrado'); return; }
+      const up={};
+      rids.forEach(rid=>{
+        if(!cc.r[rid]) return;
+        const nrid = nuevoRid();
+        up['containers/'+dest+'/r/'+nrid] = cc.r[rid];   // destino con rid nuevo
+        up['containers/'+clave+'/r/'+rid] = null;         // borra del origen
+        up['tombstones/regs/'+rid] = Date.now();          // lápida al rid viejo
+      });
+      equipoRef.update(up).then(()=>toast(rids.length+' pallet(s) movidos')).catch(e=>toast('Error: '+(e.message||e)));
+    });
+  }});
+}
+
+// Edita los campos de un pallet: AUnload, SKU, ubicación y cantidad (CTNs).
+function editarPallet(clave, rid){
+  const r = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r[rid]:null;
+  if(!r){ toast('Pallet no encontrado'); return; }
+  const html = `
+    <div class="campo"><label>AUnload</label><input id="edC" type="text" value="${esc(r.c||'')}"></div>
+    <div class="campo"><label>SKU</label><input id="edS" type="text" value="${esc(r.s||'')}"></div>
+    <div class="campo"><label>Ubicación</label><input id="edU" type="text" value="${esc(r.u||'')}"></div>
+    <div class="campo"><label>CTNs (cantidad)</label><input id="edQ" type="number" inputmode="numeric" value="${parseInt(r.q)||0}"></div>`;
+  modal({tit:'✏️ Editar pallet', msg:'Corrige los datos de este pallet para todo el equipo.', input:'html', html:html, okTxt:'Guardar', onOk:()=>{
+    const nc=(document.getElementById('edC').value||'').trim();
+    const ns=(document.getElementById('edS').value||'').trim();
+    const nu=(document.getElementById('edU').value||'').trim().toUpperCase();
+    const nq=parseInt(document.getElementById('edQ').value)||0;
+    conPin(()=>{
+      const up={};
+      up['containers/'+clave+'/r/'+rid+'/c']=nc;
+      up['containers/'+clave+'/r/'+rid+'/s']=ns;
+      up['containers/'+clave+'/r/'+rid+'/u']=nu;
+      up['containers/'+clave+'/r/'+rid+'/q']=nq;
+      // Sube el timestamp para que la edición GANE el merge en todos los teléfonos
+      // (la app solo acepta el registro remoto si su tiempo es mayor que el local).
+      up['containers/'+clave+'/r/'+rid+'/t']=Date.now();
+      equipoRef.update(up).then(()=>toast('Pallet actualizado')).catch(e=>toast('Error: '+(e.message||e)));
+    });
+  }});
+}
+
+// Renombra el número/nombre visible del container.
+function renombrarContainer(clave){
+  const c = datosContainers[clave];
+  if(!c){ toast('Container no encontrado'); return; }
+  modal({tit:'✏️ Renombrar container', msg:'Cambia el número/nombre visible del container.', input:'text', valor:(c.num||c.n||''), okTxt:'Guardar', onOk:(v)=>{
+    const nuevo=(v||'').trim();
+    if(!nuevo){ toast('Escribe un nombre'); return; }
+    conPin(()=>{
+      equipoRef.child('containers/'+clave+'/num').set(nuevo).then(()=>toast('Container renombrado')).catch(e=>toast('Error: '+(e.message||e)));
+    });
+  }});
+}
+
+// Fusiona TODOS los pallets de este container dentro de OTRO container del equipo,
+// y luego borra el container de origen (con lápida).
+function fusionarContainer(clave, nom){
+  const ops = opcionesContainers(clave);
+  if(ops.length===0){ toast('No hay otro container para fusionar'); return; }
+  modal({tit:'🔀 Fusionar container', msg:'Mueve todos los pallets de "'+nom+'" a otro container y elimina "'+nom+'".', input:'select', opciones:ops, valor:ops[0].v, okTxt:'Fusionar', rojo:true, onOk:(dest)=>{
+    if(!dest) return;
+    conPin(()=>{
+      const c = datosContainers[clave];
+      if(!c){ toast('Container no encontrado'); return; }
+      const up={};
+      const regs = c.r||{};
+      Object.keys(regs).forEach(rid=>{ up['containers/'+dest+'/r/'+rid]=regs[rid]; });
+      up['containers/'+clave]=null;
+      up['tombstones/containers/'+clave]=Date.now();
+      equipoRef.update(up).then(()=>toast('Container fusionado')).catch(e=>toast('Error: '+(e.message||e)));
     });
   }});
 }
