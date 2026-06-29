@@ -246,6 +246,17 @@
         <textarea id="txtAnuncio" rows="2" placeholder="Escribe tu aviso… (ej: Reunión en 10 min)"></textarea>
         <button class="btn-accion" id="btnAnuncio">Enviar aviso</button>
       </div>
+      <div class="card-acc">
+        <h3>⚙️ Ajustes del equipo</h3>
+        <p>Estos ajustes se aplican a TODOS los escáneres del equipo.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px">
+          <div>
+            <div style="font-weight:600">Ocultar grupo «OTHERS» (sin SKU)</div>
+            <div style="font-size:12px;color:#5a6b7a">Oculta los pallets sin SKU en todos los teléfonos.</div>
+          </div>
+          <button class="btn-accion" id="btnOcultarOthers" style="min-width:120px">…</button>
+        </div>
+      </div>
       <div class="seccion-tit">🟢 Trabajando ahora</div>
       <div id="vivo"></div>
     </section>
@@ -312,6 +323,7 @@ let pinActual = null;
 let datosContainers = {};
 let datosPresencia = {};
 let datosDevices = {};
+let datosConfig = {};            // configuración global del equipo (ej: ocultarOthers)
 let adminPinGuardado = null;     // hash del PIN admin (o null si no hay)
 let abiertos = {};
 let todoExpandido = false;
@@ -419,6 +431,7 @@ function conectar(pin){
     equipoRef.child('presence').off();
     equipoRef.child('devices').off();
     equipoRef.child('admin/pin').off();
+    equipoRef.child('config').off();
   }
   equipoRef = db.ref('equipos/'+pinActual);
 
@@ -426,6 +439,7 @@ function conectar(pin){
   equipoRef.child('presence').on('value', s=>{ datosPresencia = s.val()||{}; render(); });
   equipoRef.child('devices').on('value', s=>{ datosDevices = s.val()||{}; render(); });
   equipoRef.child('admin/pin').on('value', s=>{ adminPinGuardado = s.val()||null; });
+  equipoRef.child('config').on('value', s=>{ datosConfig = s.val()||{}; pintarOcultarOthers(); });
 
   db.ref('.info/connected').on('value', s=>{
     const on = s.val()===true;
@@ -551,6 +565,8 @@ function render(){
       // agrupar por SKU
       const grupos = {};
       regs.forEach(r=>{ const sku=(r.s&&r.s.trim())?r.s.trim():'(sin SKU)'; (grupos[sku]=grupos[sku]||[]).push(r); });
+      // Si el ajuste global "ocultarOthers" está activo, también lo ocultamos en este panel.
+      if(datosConfig && datosConfig.ocultarOthers===true){ delete grupos['(sin SKU)']; }
       const skus = Object.keys(grupos);
       skus.sort((a,b)=>{
         if(a==='(sin SKU)') return 1; if(b==='(sin SKU)') return -1;
@@ -720,6 +736,19 @@ function desbloquearDev(id){
 }
 function forzarUpdate(id, yaPedido){
   conPin(()=> equipoRef.child('devices/'+id+'/forceUpdate').set(!yaPedido).then(()=>toast(!yaPedido?'Se pidió actualizar':'Cancelado')) );
+}
+function pintarOcultarOthers(){
+  const b = document.getElementById('btnOcultarOthers');
+  if(!b) return;
+  const on = datosConfig && datosConfig.ocultarOthers===true;
+  b.textContent = on ? '✅ Oculto' : '👁️ Visible';
+  b.style.background = on ? '#1f8a4c' : '';
+}
+function toggleOcultarOthers(){
+  const on = datosConfig && datosConfig.ocultarOthers===true;
+  conPin(()=> equipoRef.child('config/ocultarOthers').set(!on)
+    .then(()=>toast(!on ? 'OTHERS oculto en todos los teléfonos' : 'OTHERS visible de nuevo'))
+    .catch(e=>toast('Error: '+(e&&e.message?e.message:e))) );
 }
 function enviarAnuncio(){
   const txt = document.getElementById('txtAnuncio').value.trim();
@@ -948,6 +977,7 @@ document.getElementById('btnCambiar').onclick = ()=>{ localStorage.removeItem('a
 document.getElementById('btnExpandir').onclick = ()=>{ todoExpandido=!todoExpandido; document.getElementById('btnExpandir').textContent = todoExpandido?'⊖ Contraer todo':'⊕ Expandir todo'; render(); };
 document.getElementById('btnCSV').onclick = exportarCSV;
 document.getElementById('btnAnuncio').onclick = enviarAnuncio;
+document.getElementById('btnOcultarOthers').onclick = toggleOcultarOthers;
 document.getElementById('buscarGlobal').addEventListener('input', e=>{ filtroGlobal=e.target.value; render(); });
 document.getElementById('tabs').addEventListener('click', e=>{ const b=e.target.closest('.tab'); if(b) cambiarVista(b.dataset.vista); });
 
