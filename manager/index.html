@@ -109,6 +109,7 @@
   .accion.peli{border-color:#ffcdd2; color:var(--rojo); background:#fff5f5;}
   .accion.ok{border-color:#c8e6c9; color:var(--verde); background:#f1f8f1;}
   .accion.warn{border-color:#ffe0b2; color:var(--naranja); background:#fff8f0;}
+  .accion.azul{border-color:#bbdefb; color:var(--azul); background:#f0f6ff;}
   /* containers */
   .buscar-glob{
     width:100%; padding:12px 14px; font-size:14px; border:1px solid var(--borde);
@@ -571,7 +572,10 @@ function render(){
           <span class="flecha">▶</span>
         </div>
         <div class="container-body">
-          <div class="cont-tools"><button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🗑 Borrar container completo</button></div>
+          <div class="cont-tools">
+            <button class="accion azul" onclick="moverContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">➡️ Mover a otro equipo</button>
+            <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🗑 Borrar container completo</button>
+          </div>
           ${cuerpo||'<div class="reg-fila"><span class="reg-cant">Sin pallets todavía.</span></div>'}
         </div>
       </div>`;
@@ -707,6 +711,46 @@ function borrarContainer(clave, nom){
     conPin(()=>{
       const up={}; up['tombstones/containers/'+clave]=Date.now(); up['containers/'+clave]=null;
       equipoRef.update(up).then(()=>toast('Container borrado'));
+    });
+  }});
+}
+
+// Mueve un container completo (con todos sus pallets) a OTRO equipo (otro código).
+// Lo escribe en el equipo destino y lo borra del actual con lápida (tombstone),
+// para que los teléfonos del equipo de origen también lo eliminen al sincronizar.
+function moverContainer(clave, nom){
+  modal({tit:'➡️ Mover container', msg:'Escribe el CÓDIGO del equipo de destino. Se moverá "'+nom+'" con todos sus pallets a ese equipo y desaparecerá de este.', input:'text', okTxt:'Continuar', onOk:(v)=>{
+    const destPin = (v||'').trim().toUpperCase().replace(/[.#$\[\]\/\s]/g,'_');
+    if(!destPin){ toast('Escribe un código de equipo'); return; }
+    if(destPin===pinActual){ toast('El container ya está en este equipo'); return; }
+    conPin(()=>{
+      const srcCont = datosContainers[clave];
+      if(!srcCont){ toast('Container no encontrado'); return; }
+      const destContRef = db.ref('equipos/'+destPin+'/containers/'+clave);
+      // Si el destino ya tiene un container con la misma clave, se FUSIONAN los
+      // pallets (no se pierde nada); si no, se copia tal cual.
+      destContRef.once('value').then(snap=>{
+        const destCont = snap.val();
+        let payload;
+        if(destCont){
+          payload = destCont;
+          payload.r = Object.assign({}, destCont.r||{}, srcCont.r||{});
+        } else {
+          payload = srcCont;
+        }
+        // Escribe el container en destino y limpia cualquier lápida vieja allí.
+        const destUp = {};
+        destUp['containers/'+clave] = payload;
+        destUp['tombstones/containers/'+clave] = null;
+        return db.ref('equipos/'+destPin).update(destUp);
+      }).then(()=>{
+        // Borra del equipo actual con lápida para que los teléfonos lo eliminen.
+        const up = {};
+        up['tombstones/containers/'+clave] = Date.now();
+        up['containers/'+clave] = null;
+        return equipoRef.update(up);
+      }).then(()=>toast('Container movido al equipo '+destPin))
+        .catch(e=>toast('Error al mover: '+(e&&e.message?e.message:e)));
     });
   }});
 }
