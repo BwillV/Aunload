@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AUnload Manager">
+<meta name="theme-color" content="#0d47a1">
+<link rel="manifest" href="manifest.json">
+<title>AUnload Manager</title>
+<style>
+  :root{
+    --azul:#0d47a1; --azul2:#1565c0; --verde:#2e7d32; --verde-claro:#e8f5e9;
+    --rojo:#c62828; --naranja:#ef6c00; --gris:#607d8b; --gris-claro:#eceff1;
+    --fondo:#f4f6f8; --tarjeta:#ffffff; --texto:#1a2027; --texto2:#5f6b76;
+    --borde:#e0e6ea;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--fondo); color:var(--texto);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  /* ---------- Cabecera ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:linear-gradient(135deg,var(--azul),var(--azul2));
+    color:#fff; padding:14px 16px calc(14px) 16px;
+    padding-top:calc(14px + env(safe-area-inset-top));
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+  }
+  .h-fila{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .h-tit{font-size:18px; font-weight:700; display:flex; align-items:center; gap:8px;}
+  .h-tit .logo{
+    background:#fff; color:var(--azul); width:30px; height:30px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;
+  }
+  .h-sub{font-size:12px; opacity:.9; margin-top:2px;}
+  .estado{
+    display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    background:rgba(255,255,255,.18); padding:5px 10px; border-radius:20px;
+  }
+  .punto{width:9px; height:9px; border-radius:50%; background:#9e9e9e;}
+  .punto.on{background:#69f0ae; box-shadow:0 0 8px #69f0ae;}
+  .punto.off{background:#ff5252;}
+  /* ---------- Tarjetas de resumen ---------- */
+  .resumen{display:flex; gap:8px; margin-top:12px;}
+  .res-item{
+    flex:1; background:rgba(255,255,255,.14); border-radius:12px; padding:8px 6px;
+    text-align:center;
+  }
+  .res-num{font-size:20px; font-weight:800; line-height:1;}
+  .res-lbl{font-size:10px; opacity:.85; margin-top:3px; text-transform:uppercase; letter-spacing:.4px;}
+  /* ---------- Contenido ---------- */
+  main{padding:14px 14px 30px 14px;}
+  .seccion-tit{
+    font-size:13px; font-weight:700; color:var(--texto2); text-transform:uppercase;
+    letter-spacing:.6px; margin:18px 4px 10px 4px; display:flex; align-items:center; gap:7px;
+  }
+  /* ---------- En vivo ---------- */
+  .vivo-vacio{
+    background:var(--tarjeta); border:1px dashed var(--borde); border-radius:14px;
+    padding:18px; text-align:center; color:var(--texto2); font-size:14px;
+  }
+  .persona{
+    display:flex; align-items:center; gap:12px; background:var(--tarjeta);
+    border-radius:14px; padding:12px 14px; margin-bottom:8px;
+    box-shadow:0 1px 4px rgba(0,0,0,.05); border-left:4px solid var(--verde);
+  }
+  .avatar{
+    width:42px; height:42px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:16px;
+  }
+  .persona-info{flex:1; min-width:0;}
+  .persona-nom{font-weight:700; font-size:15px;}
+  .persona-cont{font-size:12.5px; color:var(--texto2); margin-top:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .latido{
+    display:flex; align-items:center; gap:5px; font-size:11px; color:var(--verde); font-weight:600;
+    flex-shrink:0;
+  }
+  .latido .pulso{width:8px; height:8px; border-radius:50%; background:var(--verde);
+    animation:pulso 1.4s infinite;}
+  @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(46,125,50,.5);}70%{box-shadow:0 0 0 8px rgba(46,125,50,0);}100%{box-shadow:0 0 0 0 rgba(46,125,50,0);}}
+  /* ---------- Containers ---------- */
+  .container-card{
+    background:var(--tarjeta); border-radius:14px; margin-bottom:10px; overflow:hidden;
+    box-shadow:0 1px 5px rgba(0,0,0,.06); border:1px solid var(--borde);
+  }
+  .container-head{
+    display:flex; align-items:center; gap:12px; padding:13px 14px; cursor:pointer;
+    user-select:none;
+  }
+  .cont-icono{
+    width:40px; height:40px; border-radius:10px; background:var(--azul);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    font-size:20px;
+  }
+  .cont-info{flex:1; min-width:0;}
+  .cont-num{font-weight:700; font-size:15px; word-break:break-all;}
+  .cont-meta{font-size:12px; color:var(--texto2); margin-top:2px;}
+  .cont-badge{
+    background:var(--gris-claro); color:var(--texto2); font-size:11px; font-weight:700;
+    padding:3px 9px; border-radius:20px; flex-shrink:0;
+  }
+  .cont-badge.activo{background:var(--verde-claro); color:var(--verde);}
+  .flecha{color:var(--texto2); font-size:14px; transition:transform .2s; flex-shrink:0;}
+  .container-card.abierto .flecha{transform:rotate(90deg);}
+  .container-body{display:none; border-top:1px solid var(--borde);}
+  .container-card.abierto .container-body{display:block;}
+  /* ---------- Grupos SKU ---------- */
+  .sku-grupo{border-bottom:1px solid var(--gris-claro);}
+  .sku-grupo:last-child{border-bottom:none;}
+  .sku-head{
+    display:flex; align-items:center; gap:8px; padding:10px 14px; background:#fafbfc;
+  }
+  .sku-nom{font-weight:700; font-size:13.5px; font-family:ui-monospace,monospace; flex:1; word-break:break-all;}
+  .sku-tot{font-size:11px; color:var(--texto2); font-weight:600; flex-shrink:0;}
+  .reg-fila{
+    display:flex; align-items:center; gap:10px; padding:9px 14px 9px 24px; font-size:13px;
+    border-top:1px solid #f1f4f6;
+  }
+  .ubic{
+    font-weight:700; font-family:ui-monospace,monospace; color:var(--azul);
+    background:#e3f2fd; padding:3px 8px; border-radius:6px; font-size:12.5px; flex-shrink:0;
+  }
+  .ubic.vacia{color:var(--naranja); background:#fff3e0; font-weight:600;}
+  .reg-cant{font-size:12px; color:var(--texto2); flex:1;}
+  .reg-quien{font-size:11px; color:var(--gris); flex-shrink:0; display:flex; align-items:center; gap:4px;}
+  .sin-cont{
+    text-align:center; padding:40px 20px; color:var(--texto2);
+  }
+  .sin-cont .emoji{font-size:46px; display:block; margin-bottom:10px;}
+  /* ---------- Login ---------- */
+  .overlay{
+    position:fixed; inset:0; background:linear-gradient(135deg,var(--azul),var(--azul2));
+    display:flex; align-items:center; justify-content:center; z-index:100; padding:24px;
+  }
+  .login-card{
+    background:#fff; border-radius:20px; padding:28px 24px; width:100%; max-width:340px;
+    text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.3);
+  }
+  .login-logo{
+    width:62px; height:62px; border-radius:16px; background:var(--azul); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px;
+    margin:0 auto 14px auto;
+  }
+  .login-card h1{font-size:20px; margin:0 0 4px 0;}
+  .login-card p{font-size:13px; color:var(--texto2); margin:0 0 20px 0;}
+  .login-card input{
+    width:100%; padding:14px; font-size:18px; text-align:center; border:2px solid var(--borde);
+    border-radius:12px; margin-bottom:14px; font-weight:700; letter-spacing:1px;
+    outline:none;
+  }
+  .login-card input:focus{border-color:var(--azul);}
+  .btn{
+    width:100%; padding:14px; font-size:16px; font-weight:700; color:#fff; background:var(--verde);
+    border:none; border-radius:12px; cursor:pointer;
+  }
+  .btn:active{opacity:.85;}
+  .toolbar{display:flex; gap:8px; align-items:center; margin-top:12px;}
+  .btn-mini{
+    background:rgba(255,255,255,.18); color:#fff; border:none; padding:7px 12px;
+    border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
+  }
+  .actualizado{font-size:11px; color:var(--texto2); text-align:center; margin-top:16px;}
+</style>
+</head>
+<body>
+
+<!-- Pantalla de inicio (código de equipo) -->
+<div class="overlay" id="login">
+  <div class="login-card">
+    <div class="login-logo">AU</div>
+    <h1>AUnload Manager</h1>
+    <p>Panel de control en tiempo real.<br>Escribe el código de tu equipo.</p>
+    <input id="inputPin" type="text" inputmode="text" placeholder="Código de equipo" autocomplete="off">
+    <button class="btn" id="btnEntrar">Entrar</button>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none;">
+  <header>
+    <div class="h-fila">
+      <div>
+        <div class="h-tit"><span class="logo">AU</span> AUnload Manager</div>
+        <div class="h-sub">Equipo <b id="lblPin">—</b></div>
+      </div>
+      <div class="estado"><span class="punto" id="punto"></span><span id="lblEstado">Conectando…</span></div>
+    </div>
+    <div class="resumen">
+      <div class="res-item"><div class="res-num" id="numContainers">0</div><div class="res-lbl">Containers</div></div>
+      <div class="res-item"><div class="res-num" id="numPallets">0</div><div class="res-lbl">Pallets</div></div>
+      <div class="res-item"><div class="res-num" id="numCtns">0</div><div class="res-lbl">CTNs</div></div>
+      <div class="res-item"><div class="res-num" id="numVivo">0</div><div class="res-lbl">En vivo</div></div>
+    </div>
+    <div class="toolbar">
+      <button class="btn-mini" id="btnCambiar">↺ Cambiar equipo</button>
+      <button class="btn-mini" id="btnExpandir">⊕ Expandir todo</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="seccion-tit">🟢 Trabajando ahora</div>
+    <div id="vivo"></div>
+
+    <div class="seccion-tit">📦 Containers</div>
+    <div id="containers"></div>
+
+    <div class="actualizado" id="actualizado"></div>
+  </main>
+</div>
+
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBnAHU2lBl9TaWUb8LKbVx_gxepiE80ut8",
+  databaseURL: "https://aunload-rescue-default-rtdb.firebaseio.com",
+  projectId: "aunload-rescue",
+  storageBucket: "aunload-rescue.firebasestorage.app",
+  messagingSenderId: "963708693750",
+  appId: "1:963708693750:android:a4967bd15b6385184310d7"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const PRESENCIA_VIVA_MS = 90000;
+let equipoRef = null;
+let pinActual = null;
+let datosContainers = {};
+let datosPresencia = {};
+let abiertos = {};       // claveGlobal -> bool (container expandido)
+let todoExpandido = false;
+
+// ---------- utilidades ----------
+function colorAvatar(nombre){
+  const cols = ['#1565c0','#2e7d32','#6a1b9a','#ef6c00','#c62828','#00838f','#558b2f','#4527a0'];
+  let h=0; for(let i=0;i<(nombre||'?').length;i++) h=(h*31+nombre.charCodeAt(i))%cols.length;
+  return cols[h];
+}
+function iniciales(nombre){
+  if(!nombre) return '?';
+  const p = nombre.trim().split(/\s+/);
+  return (p[0][0] + (p[1]?p[1][0]:'')).toUpperCase();
+}
+function tiempoRelativo(ms){
+  const d = Date.now()-ms;
+  if(d<60000) return 'hace un momento';
+  const min = Math.floor(d/60000);
+  if(min<60) return 'hace '+min+' min';
+  const h = Math.floor(min/60);
+  if(h<24) return 'hace '+h+' h';
+  const dd = Math.floor(h/24);
+  return 'hace '+dd+' d';
+}
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ---------- conexión ----------
+function conectar(pin){
+  pinActual = pin.trim().toUpperCase().replace(/[.#$\[\]\/\s]/g,'_');
+  if(!pinActual) return;
+  localStorage.setItem('aunload_pin', pin.trim());
+  document.getElementById('lblPin').textContent = pin.trim();
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+
+  if(equipoRef){
+    equipoRef.child('containers').off();
+    equipoRef.child('presence').off();
+  }
+  equipoRef = db.ref('equipos/'+pinActual);
+
+  equipoRef.child('containers').on('value', s=>{ datosContainers = s.val()||{}; render(); });
+  equipoRef.child('presence').on('value', s=>{ datosPresencia = s.val()||{}; render(); });
+
+  // estado de conexión
+  db.ref('.info/connected').on('value', s=>{
+    const on = s.val()===true;
+    document.getElementById('punto').className = 'punto '+(on?'on':'off');
+    document.getElementById('lblEstado').textContent = on?'En línea':'Sin conexión';
+  });
+}
+
+// ---------- presencia ----------
+function presenciaDeContainer(clave){
+  const mapa = datosPresencia[clave]||{};
+  const out = [];
+  const ahora = Date.now();
+  for(const dev in mapa){
+    const v = mapa[dev];
+    let t, u;
+    if(v && typeof v==='object'){ t=v.t||0; u=v.u||''; } else { t=v||0; u=''; }
+    if(ahora - t <= PRESENCIA_VIVA_MS) out.push({dev,t,u});
+  }
+  return out;
+}
+
+// ---------- render ----------
+function render(){
+  // estadísticas
+  let totalCont=0, totalPallets=0, totalCtns=0;
+  const claves = Object.keys(datosContainers);
+  totalCont = claves.length;
+
+  // presencia en vivo (todas)
+  const vivoLista = [];
+  for(const clave in datosPresencia){
+    presenciaDeContainer(clave).forEach(p=>{
+      vivoLista.push({...p, clave});
+    });
+  }
+  // numero de personas únicas trabajando
+  const personasVivas = new Set(vivoLista.map(p=>p.u||p.dev));
+  document.getElementById('numVivo').textContent = personasVivas.size;
+
+  // ----- sección EN VIVO -----
+  const vivoEl = document.getElementById('vivo');
+  if(vivoLista.length===0){
+    vivoEl.innerHTML = '<div class="vivo-vacio">Nadie está trabajando en este momento.</div>';
+  } else {
+    // ordenar por más reciente
+    vivoLista.sort((a,b)=>b.t-a.t);
+    vivoEl.innerHTML = vivoLista.map(p=>{
+      const cont = datosContainers[p.clave];
+      const nomCont = cont ? (cont.num||cont.n||p.clave) : p.clave;
+      const nombre = p.u || 'Sin nombre';
+      return `<div class="persona">
+        <div class="avatar" style="background:${colorAvatar(nombre)}">${esc(iniciales(nombre))}</div>
+        <div class="persona-info">
+          <div class="persona-nom">${esc(nombre)}</div>
+          <div class="persona-cont">📦 ${esc(nomCont)}</div>
+        </div>
+        <div class="latido"><span class="pulso"></span>en vivo</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ----- sección CONTAINERS -----
+  const contEl = document.getElementById('containers');
+  if(totalCont===0){
+    contEl.innerHTML = '<div class="sin-cont"><span class="emoji">📭</span>Todavía no hay containers en este equipo.</div>';
+    document.getElementById('numContainers').textContent='0';
+    document.getElementById('numPallets').textContent='0';
+    document.getElementById('numCtns').textContent='0';
+    sello();
+    return;
+  }
+
+  // ordenar containers por creación (más reciente primero)
+  claves.sort((a,b)=>(datosContainers[b].cr||0)-(datosContainers[a].cr||0));
+
+  let html='';
+  claves.forEach(clave=>{
+    const c = datosContainers[clave];
+    const regs = c.r ? Object.values(c.r) : [];
+    totalPallets += regs.length;
+    regs.forEach(r=> totalCtns += (parseInt(r.q)||0));
+
+    const vivos = presenciaDeContainer(clave);
+    const abierto = todoExpandido || abiertos[clave];
+
+    // agrupar por SKU, los que tienen ubicación primero
+    const grupos = {};
+    regs.forEach(r=>{
+      const sku = (r.s&&r.s.trim())? r.s.trim() : '(sin SKU)';
+      (grupos[sku]=grupos[sku]||[]).push(r);
+    });
+    const skus = Object.keys(grupos);
+    skus.sort((a,b)=>{
+      if(a==='(sin SKU)') return 1; if(b==='(sin SKU)') return -1;
+      const ta = grupos[a].some(r=>r.u&&r.u.trim());
+      const tb = grupos[b].some(r=>r.u&&r.u.trim());
+      if(ta!==tb) return ta?-1:1;
+      return a.localeCompare(b);
+    });
+
+    let cuerpo='';
+    skus.forEach(sku=>{
+      const lista = grupos[sku];
+      let ctns=0; lista.forEach(r=>ctns+=(parseInt(r.q)||0));
+      // dentro del grupo: con ubicación primero
+      lista.sort((a,b)=>{
+        const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim();
+        if(!!ua!==!!ub) return ua?-1:1;
+        return (b.t||0)-(a.t||0);
+      });
+      let filas='';
+      lista.forEach(r=>{
+        const ubic = (r.u&&r.u.trim())
+          ? `<span class="ubic">${esc(r.u)}</span>`
+          : `<span class="ubic vacia">📍 sin ubicación</span>`;
+        filas += `<div class="reg-fila">
+          ${ubic}
+          <span class="reg-cant">${(parseInt(r.q)||0)} CTNs</span>
+        </div>`;
+      });
+      cuerpo += `<div class="sku-grupo">
+        <div class="sku-head">
+          <span class="sku-nom">${esc(sku)}</span>
+          <span class="sku-tot">${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs</span>
+        </div>
+        ${filas}
+      </div>`;
+    });
+
+    html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
+      <div class="container-head" onclick="toggle('${esc(clave)}')">
+        <div class="cont-icono">📦</div>
+        <div class="cont-info">
+          <div class="cont-num">${esc(c.num||c.n||clave)}</div>
+          <div class="cont-meta">${regs.length} pallets · ${esc(c.n||'')}</div>
+        </div>
+        ${vivos.length>0 ? `<span class="cont-badge activo">🟢 ${vivos.length}</span>` : ''}
+        <span class="flecha">▶</span>
+      </div>
+      <div class="container-body">${cuerpo||'<div class="reg-fila"><span class="reg-cant">Sin pallets todavía.</span></div>'}</div>
+    </div>`;
+  });
+  contEl.innerHTML = html;
+
+  document.getElementById('numContainers').textContent = totalCont;
+  document.getElementById('numPallets').textContent = totalPallets;
+  document.getElementById('numCtns').textContent = totalCtns;
+  sello();
+}
+
+function sello(){
+  const d = new Date();
+  document.getElementById('actualizado').textContent =
+    'Actualizado en vivo · '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function toggle(clave){
+  if(todoExpandido){
+    // si estaba todo expandido, al tocar uno se sale del modo y se cierra ese
+    todoExpandido=false;
+    Object.keys(datosContainers).forEach(k=>abiertos[k]=true);
+    document.getElementById('btnExpandir').textContent='⊕ Expandir todo';
+  }
+  abiertos[clave]=!abiertos[clave];
+  render();
+}
+
+// ---------- eventos ----------
+document.getElementById('btnEntrar').onclick = ()=>{
+  const v = document.getElementById('inputPin').value;
+  if(v.trim()) conectar(v);
+};
+document.getElementById('inputPin').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ const v=e.target.value; if(v.trim()) conectar(v); }
+});
+document.getElementById('btnCambiar').onclick = ()=>{
+  localStorage.removeItem('aunload_pin');
+  location.reload();
+};
+document.getElementById('btnExpandir').onclick = ()=>{
+  todoExpandido=!todoExpandido;
+  document.getElementById('btnExpandir').textContent = todoExpandido?'⊖ Contraer todo':'⊕ Expandir todo';
+  render();
+};
+
+// refresco periódico para caducar presencias y tiempos
+setInterval(()=>{ if(equipoRef) render(); }, 15000);
+
+// auto-entrar si ya hay código guardado
+const guardado = localStorage.getItem('aunload_pin');
+if(guardado){
+  document.getElementById('inputPin').value = guardado;
+  conectar(guardado);
+}
+</script>
+</body>
+</html>
