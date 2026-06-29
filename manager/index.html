@@ -23,11 +23,10 @@
     background:var(--fondo); color:var(--texto);
     padding-bottom:env(safe-area-inset-bottom);
   }
-  /* ---------- Cabecera ---------- */
   header{
     position:sticky; top:0; z-index:50;
     background:linear-gradient(135deg,var(--azul),var(--azul2));
-    color:#fff; padding:14px 16px calc(14px) 16px;
+    color:#fff; padding:14px 16px 10px 16px;
     padding-top:calc(14px + env(safe-area-inset-top));
     box-shadow:0 2px 10px rgba(0,0,0,.15);
   }
@@ -45,21 +44,29 @@
   .punto{width:9px; height:9px; border-radius:50%; background:#9e9e9e;}
   .punto.on{background:#69f0ae; box-shadow:0 0 8px #69f0ae;}
   .punto.off{background:#ff5252;}
-  /* ---------- Tarjetas de resumen ---------- */
   .resumen{display:flex; gap:8px; margin-top:12px;}
-  .res-item{
-    flex:1; background:rgba(255,255,255,.14); border-radius:12px; padding:8px 6px;
-    text-align:center;
-  }
+  .res-item{flex:1; background:rgba(255,255,255,.14); border-radius:12px; padding:8px 6px; text-align:center;}
   .res-num{font-size:20px; font-weight:800; line-height:1;}
   .res-lbl{font-size:10px; opacity:.85; margin-top:3px; text-transform:uppercase; letter-spacing:.4px;}
-  /* ---------- Contenido ---------- */
-  main{padding:14px 14px 30px 14px;}
+  .toolbar{display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap;}
+  .btn-mini{
+    background:rgba(255,255,255,.18); color:#fff; border:none; padding:7px 12px;
+    border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
+  }
+  /* tabs */
+  .tabs{display:flex; gap:6px; margin-top:12px; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .tab{
+    flex:0 0 auto; background:rgba(255,255,255,.12); color:#fff; border:none;
+    padding:8px 14px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
+  .tab.activa{background:#fff; color:var(--azul);}
+  main{padding:14px 14px 40px 14px;}
   .seccion-tit{
     font-size:13px; font-weight:700; color:var(--texto2); text-transform:uppercase;
     letter-spacing:.6px; margin:18px 4px 10px 4px; display:flex; align-items:center; gap:7px;
   }
-  /* ---------- En vivo ---------- */
+  .vista{display:none;}
+  .vista.activa{display:block;}
   .vivo-vacio{
     background:var(--tarjeta); border:1px dashed var(--borde); border-radius:14px;
     padding:18px; text-align:center; color:var(--texto2); font-size:14px;
@@ -75,97 +82,109 @@
   }
   .persona-info{flex:1; min-width:0;}
   .persona-nom{font-weight:700; font-size:15px;}
-  .persona-cont{font-size:12.5px; color:var(--texto2); margin-top:2px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .latido{
-    display:flex; align-items:center; gap:5px; font-size:11px; color:var(--verde); font-weight:600;
-    flex-shrink:0;
-  }
-  .latido .pulso{width:8px; height:8px; border-radius:50%; background:var(--verde);
-    animation:pulso 1.4s infinite;}
+  .persona-cont{font-size:12.5px; color:var(--texto2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .latido{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--verde); font-weight:600; flex-shrink:0;}
+  .latido .pulso{width:8px; height:8px; border-radius:50%; background:var(--verde); animation:pulso 1.4s infinite;}
   @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(46,125,50,.5);}70%{box-shadow:0 0 0 8px rgba(46,125,50,0);}100%{box-shadow:0 0 0 0 rgba(46,125,50,0);}}
-  /* ---------- Containers ---------- */
-  .container-card{
-    background:var(--tarjeta); border-radius:14px; margin-bottom:10px; overflow:hidden;
-    box-shadow:0 1px 5px rgba(0,0,0,.06); border:1px solid var(--borde);
+  /* dispositivos */
+  .dev{
+    background:var(--tarjeta); border-radius:14px; padding:12px 14px; margin-bottom:9px;
+    box-shadow:0 1px 4px rgba(0,0,0,.05); border-left:4px solid var(--gris);
   }
-  .container-head{
-    display:flex; align-items:center; gap:12px; padding:13px 14px; cursor:pointer;
-    user-select:none;
+  .dev.online{border-left-color:var(--verde);}
+  .dev.bloq{border-left-color:var(--rojo); background:#fff5f5;}
+  .dev-top{display:flex; align-items:center; gap:11px;}
+  .dev-info{flex:1; min-width:0;}
+  .dev-nom{font-weight:700; font-size:15px; display:flex; align-items:center; gap:6px;}
+  .dev-meta{font-size:11.5px; color:var(--texto2); margin-top:2px;}
+  .badge-est{font-size:10px; font-weight:800; padding:3px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px;}
+  .badge-est.on{background:var(--verde-claro); color:var(--verde);}
+  .badge-est.off{background:var(--gris-claro); color:var(--gris);}
+  .badge-est.bl{background:#ffebee; color:var(--rojo);}
+  .dev-acc{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+  .accion{
+    border:1px solid var(--borde); background:#fff; color:var(--texto);
+    padding:7px 11px; border-radius:9px; font-size:12px; font-weight:700; cursor:pointer;
   }
-  .cont-icono{
-    width:40px; height:40px; border-radius:10px; background:var(--azul);
-    display:flex; align-items:center; justify-content:center; flex-shrink:0;
-    font-size:20px;
+  .accion.peli{border-color:#ffcdd2; color:var(--rojo); background:#fff5f5;}
+  .accion.ok{border-color:#c8e6c9; color:var(--verde); background:#f1f8f1;}
+  .accion.warn{border-color:#ffe0b2; color:var(--naranja); background:#fff8f0;}
+  /* containers */
+  .buscar-glob{
+    width:100%; padding:12px 14px; font-size:14px; border:1px solid var(--borde);
+    border-radius:12px; margin-bottom:12px; outline:none;
   }
+  .buscar-glob:focus{border-color:var(--azul);}
+  .container-card{background:var(--tarjeta); border-radius:14px; margin-bottom:10px; overflow:hidden; box-shadow:0 1px 5px rgba(0,0,0,.06); border:1px solid var(--borde);}
+  .container-head{display:flex; align-items:center; gap:12px; padding:13px 14px; cursor:pointer; user-select:none;}
+  .cont-icono{width:40px; height:40px; border-radius:10px; background:var(--azul); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:20px;}
   .cont-info{flex:1; min-width:0;}
   .cont-num{font-weight:700; font-size:15px; word-break:break-all;}
   .cont-meta{font-size:12px; color:var(--texto2); margin-top:2px;}
-  .cont-badge{
-    background:var(--gris-claro); color:var(--texto2); font-size:11px; font-weight:700;
-    padding:3px 9px; border-radius:20px; flex-shrink:0;
-  }
+  .cont-badge{background:var(--gris-claro); color:var(--texto2); font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0;}
   .cont-badge.activo{background:var(--verde-claro); color:var(--verde);}
   .flecha{color:var(--texto2); font-size:14px; transition:transform .2s; flex-shrink:0;}
   .container-card.abierto .flecha{transform:rotate(90deg);}
   .container-body{display:none; border-top:1px solid var(--borde);}
   .container-card.abierto .container-body{display:block;}
-  /* ---------- Grupos SKU ---------- */
+  .cont-tools{display:flex; gap:6px; padding:10px 14px; background:#fafbfc; border-top:1px solid var(--gris-claro);}
   .sku-grupo{border-bottom:1px solid var(--gris-claro);}
   .sku-grupo:last-child{border-bottom:none;}
-  .sku-head{
-    display:flex; align-items:center; gap:8px; padding:10px 14px; background:#fafbfc;
-  }
+  .sku-head{display:flex; align-items:center; gap:8px; padding:10px 14px; background:#fafbfc;}
   .sku-nom{font-weight:700; font-size:13.5px; font-family:ui-monospace,monospace; flex:1; word-break:break-all;}
   .sku-tot{font-size:11px; color:var(--texto2); font-weight:600; flex-shrink:0;}
-  .reg-fila{
-    display:flex; align-items:center; gap:10px; padding:9px 14px 9px 24px; font-size:13px;
-    border-top:1px solid #f1f4f6;
-  }
-  .ubic{
-    font-weight:700; font-family:ui-monospace,monospace; color:var(--azul);
-    background:#e3f2fd; padding:3px 8px; border-radius:6px; font-size:12.5px; flex-shrink:0;
-  }
+  .reg-fila{display:flex; align-items:center; gap:10px; padding:9px 14px 9px 18px; font-size:13px; border-top:1px solid #f1f4f6;}
+  .ubic{font-weight:700; font-family:ui-monospace,monospace; color:var(--azul); background:#e3f2fd; padding:3px 8px; border-radius:6px; font-size:12.5px; flex-shrink:0;}
   .ubic.vacia{color:var(--naranja); background:#fff3e0; font-weight:600;}
+  .ubic.dup{color:var(--rojo); background:#ffebee;}
   .reg-cant{font-size:12px; color:var(--texto2); flex:1;}
-  .reg-quien{font-size:11px; color:var(--gris); flex-shrink:0; display:flex; align-items:center; gap:4px;}
-  .sin-cont{
-    text-align:center; padding:40px 20px; color:var(--texto2);
-  }
+  .reg-quien{font-size:10.5px; color:var(--gris); flex-shrink:0; text-align:right; line-height:1.4;}
+  .reg-del{background:none; border:none; color:#bbb; font-size:16px; cursor:pointer; flex-shrink:0; padding:2px 4px;}
+  .reg-del:hover{color:var(--rojo);}
+  .sin-cont{text-align:center; padding:40px 20px; color:var(--texto2);}
   .sin-cont .emoji{font-size:46px; display:block; margin-bottom:10px;}
-  /* ---------- Login ---------- */
-  .overlay{
-    position:fixed; inset:0; background:linear-gradient(135deg,var(--azul),var(--azul2));
-    display:flex; align-items:center; justify-content:center; z-index:100; padding:24px;
-  }
-  .login-card{
-    background:#fff; border-radius:20px; padding:28px 24px; width:100%; max-width:340px;
-    text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.3);
-  }
-  .login-logo{
-    width:62px; height:62px; border-radius:16px; background:var(--azul); color:#fff;
-    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px;
-    margin:0 auto 14px auto;
-  }
+  /* tabla personas */
+  .tabla{width:100%; background:var(--tarjeta); border-radius:14px; overflow:hidden; box-shadow:0 1px 5px rgba(0,0,0,.06); border:1px solid var(--borde); border-collapse:collapse;}
+  .tabla th,.tabla td{padding:11px 12px; text-align:left; font-size:13px; border-bottom:1px solid var(--gris-claro);}
+  .tabla th{background:#fafbfc; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--texto2);}
+  .tabla td.n{text-align:center; font-weight:700; font-variant-numeric:tabular-nums;}
+  .tabla tr:last-child td{border-bottom:none;}
+  .nom-cel{display:flex; align-items:center; gap:9px;}
+  .avatar-sm{width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:12px;}
+  /* composer anuncio */
+  .card-acc{background:var(--tarjeta); border-radius:14px; padding:14px; margin-bottom:14px; box-shadow:0 1px 5px rgba(0,0,0,.06); border:1px solid var(--borde);}
+  .card-acc h3{margin:0 0 4px 0; font-size:15px;}
+  .card-acc p{margin:0 0 10px 0; font-size:12.5px; color:var(--texto2);}
+  .card-acc textarea, .card-acc input[type=text]{width:100%; padding:11px; font-size:14px; border:1px solid var(--borde); border-radius:10px; outline:none; font-family:inherit; resize:vertical;}
+  .card-acc textarea:focus, .card-acc input:focus{border-color:var(--azul);}
+  .btn-accion{margin-top:10px; width:100%; padding:12px; font-size:15px; font-weight:700; color:#fff; background:var(--azul); border:none; border-radius:11px; cursor:pointer;}
+  .btn-accion.rojo{background:var(--rojo);}
+  .btn-accion.verde{background:var(--verde);}
+  /* login + modal */
+  .overlay{position:fixed; inset:0; background:linear-gradient(135deg,var(--azul),var(--azul2)); display:flex; align-items:center; justify-content:center; z-index:100; padding:24px;}
+  .login-card{background:#fff; border-radius:20px; padding:28px 24px; width:100%; max-width:340px; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  .login-logo{width:62px; height:62px; border-radius:16px; background:var(--azul); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; margin:0 auto 14px auto;}
   .login-card h1{font-size:20px; margin:0 0 4px 0;}
   .login-card p{font-size:13px; color:var(--texto2); margin:0 0 20px 0;}
-  .login-card input{
-    width:100%; padding:14px; font-size:18px; text-align:center; border:2px solid var(--borde);
-    border-radius:12px; margin-bottom:14px; font-weight:700; letter-spacing:1px;
-    outline:none;
-  }
+  .login-card input{width:100%; padding:14px; font-size:18px; text-align:center; border:2px solid var(--borde); border-radius:12px; margin-bottom:14px; font-weight:700; letter-spacing:1px; outline:none;}
   .login-card input:focus{border-color:var(--azul);}
-  .btn{
-    width:100%; padding:14px; font-size:16px; font-weight:700; color:#fff; background:var(--verde);
-    border:none; border-radius:12px; cursor:pointer;
-  }
+  .btn{width:100%; padding:14px; font-size:16px; font-weight:700; color:#fff; background:var(--verde); border:none; border-radius:12px; cursor:pointer;}
   .btn:active{opacity:.85;}
-  .toolbar{display:flex; gap:8px; align-items:center; margin-top:12px;}
-  .btn-mini{
-    background:rgba(255,255,255,.18); color:#fff; border:none; padding:7px 12px;
-    border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
-  }
+  .modal-bg{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:120; padding:24px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff; border-radius:18px; padding:22px; width:100%; max-width:360px; box-shadow:0 12px 40px rgba(0,0,0,.3);}
+  .modal h3{margin:0 0 6px 0; font-size:17px;}
+  .modal p{margin:0 0 14px 0; font-size:13px; color:var(--texto2);}
+  .modal input,.modal textarea{width:100%; padding:12px; font-size:15px; border:1px solid var(--borde); border-radius:10px; outline:none; margin-bottom:12px; font-family:inherit;}
+  .modal input:focus,.modal textarea:focus{border-color:var(--azul);}
+  .modal-acc{display:flex; gap:8px;}
+  .modal-acc button{flex:1; padding:12px; font-size:14px; font-weight:700; border:none; border-radius:10px; cursor:pointer;}
+  .m-cancel{background:var(--gris-claro); color:var(--texto2);}
+  .m-ok{background:var(--azul); color:#fff;}
+  .m-ok.rojo{background:var(--rojo);}
   .actualizado{font-size:11px; color:var(--texto2); text-align:center; margin-top:16px;}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#263238; color:#fff; padding:12px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:200; opacity:0; transition:opacity .25s; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,.3);}
+  .toast.show{opacity:1;}
 </style>
 </head>
 <body>
@@ -197,22 +216,69 @@
       <div class="res-item"><div class="res-num" id="numCtns">0</div><div class="res-lbl">CTNs</div></div>
       <div class="res-item"><div class="res-num" id="numVivo">0</div><div class="res-lbl">En vivo</div></div>
     </div>
+    <div class="tabs" id="tabs">
+      <button class="tab activa" data-vista="vivo">🟢 En vivo</button>
+      <button class="tab" data-vista="dispositivos">📱 Dispositivos</button>
+      <button class="tab" data-vista="containers">📦 Containers</button>
+      <button class="tab" data-vista="personas">👥 Personas</button>
+    </div>
     <div class="toolbar">
       <button class="btn-mini" id="btnCambiar">↺ Cambiar equipo</button>
       <button class="btn-mini" id="btnExpandir">⊕ Expandir todo</button>
+      <button class="btn-mini" id="btnCSV">⬇ Exportar CSV</button>
     </div>
   </header>
 
   <main>
-    <div class="seccion-tit">🟢 Trabajando ahora</div>
-    <div id="vivo"></div>
+    <!-- VISTA EN VIVO -->
+    <section class="vista activa" id="vista-vivo">
+      <div class="card-acc">
+        <h3>📢 Enviar aviso a todos</h3>
+        <p>El mensaje aparecerá en todos los escáneres del equipo.</p>
+        <textarea id="txtAnuncio" rows="2" placeholder="Escribe tu aviso… (ej: Reunión en 10 min)"></textarea>
+        <button class="btn-accion" id="btnAnuncio">Enviar aviso</button>
+      </div>
+      <div class="seccion-tit">🟢 Trabajando ahora</div>
+      <div id="vivo"></div>
+    </section>
 
-    <div class="seccion-tit">📦 Containers</div>
-    <div id="containers"></div>
+    <!-- VISTA DISPOSITIVOS -->
+    <section class="vista" id="vista-dispositivos">
+      <div class="seccion-tit">📱 Dispositivos del equipo</div>
+      <div id="dispositivos"></div>
+    </section>
+
+    <!-- VISTA CONTAINERS -->
+    <section class="vista" id="vista-containers">
+      <input class="buscar-glob" id="buscarGlobal" type="text" placeholder="🔎 Buscar AUnload, SKU o ubicación en todo el equipo…">
+      <div id="containers"></div>
+    </section>
+
+    <!-- VISTA PERSONAS -->
+    <section class="vista" id="vista-personas">
+      <div class="seccion-tit">👥 Totales por persona</div>
+      <div id="personas"></div>
+    </section>
 
     <div class="actualizado" id="actualizado"></div>
   </main>
 </div>
+
+<!-- Modal genérico -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="modalTit">Título</h3>
+    <p id="modalMsg"></p>
+    <input id="modalInput" type="text" style="display:none;">
+    <textarea id="modalArea" rows="3" style="display:none;"></textarea>
+    <div class="modal-acc">
+      <button class="m-cancel" id="modalCancel">Cancelar</button>
+      <button class="m-ok" id="modalOk">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -230,17 +296,22 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 const PRESENCIA_VIVA_MS = 90000;
+const DEV_ONLINE_MS = 120000;   // un dispositivo se considera "en línea" si su seen es reciente
 let equipoRef = null;
 let pinActual = null;
 let datosContainers = {};
 let datosPresencia = {};
-let abiertos = {};       // claveGlobal -> bool (container expandido)
+let datosDevices = {};
+let adminPinGuardado = null;     // hash del PIN admin (o null si no hay)
+let abiertos = {};
 let todoExpandido = false;
+let filtroGlobal = '';
+let vistaActual = 'vivo';
 
 // ---------- utilidades ----------
 function colorAvatar(nombre){
   const cols = ['#1565c0','#2e7d32','#6a1b9a','#ef6c00','#c62828','#00838f','#558b2f','#4527a0'];
-  let h=0; for(let i=0;i<(nombre||'?').length;i++) h=(h*31+nombre.charCodeAt(i))%cols.length;
+  let h=0; const s=(nombre||'?'); for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%cols.length;
   return cols[h];
 }
 function iniciales(nombre){
@@ -249,6 +320,7 @@ function iniciales(nombre){
   return (p[0][0] + (p[1]?p[1][0]:'')).toUpperCase();
 }
 function tiempoRelativo(ms){
+  if(!ms) return 'nunca';
   const d = Date.now()-ms;
   if(d<60000) return 'hace un momento';
   const min = Math.floor(d/60000);
@@ -259,6 +331,54 @@ function tiempoRelativo(ms){
   return 'hace '+dd+' d';
 }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function hash(s){ let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return 'h'+(h>>>0); }
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ---------- modal ----------
+let modalCb = null;
+function modal(opts){
+  // opts: {tit, msg, input:'text'|'area'|null, valor, okTxt, rojo, onOk(valor)}
+  document.getElementById('modalTit').textContent = opts.tit||'';
+  document.getElementById('modalMsg').textContent = opts.msg||'';
+  const inp = document.getElementById('modalInput');
+  const area = document.getElementById('modalArea');
+  inp.style.display='none'; area.style.display='none';
+  if(opts.input==='text'){ inp.style.display='block'; inp.value=opts.valor||''; inp.type=opts.password?'password':'text'; setTimeout(()=>inp.focus(),50); }
+  else if(opts.input==='area'){ area.style.display='block'; area.value=opts.valor||''; setTimeout(()=>area.focus(),50); }
+  const ok=document.getElementById('modalOk');
+  ok.textContent = opts.okTxt||'Aceptar';
+  ok.className = 'm-ok'+(opts.rojo?' rojo':'');
+  modalCb = opts.onOk||null;
+  document.getElementById('modalBg').classList.add('show');
+}
+function cerrarModal(){ document.getElementById('modalBg').classList.remove('show'); modalCb=null; }
+document.getElementById('modalCancel').onclick = cerrarModal;
+document.getElementById('modalOk').onclick = ()=>{
+  const inp=document.getElementById('modalInput'), area=document.getElementById('modalArea');
+  let val = inp.style.display!=='none' ? inp.value : (area.style.display!=='none' ? area.value : true);
+  const cb = modalCb; cerrarModal();
+  if(cb) cb(val);
+};
+
+// ---------- PIN admin ----------
+// Pide el PIN admin antes de una acción sensible. Si no hay PIN configurado,
+// pide crear uno la primera vez.
+function conPin(accion){
+  if(!adminPinGuardado){
+    modal({tit:'🔐 Crea un PIN de encargado', msg:'Para proteger las acciones de control, crea un PIN. Te lo pedirá antes de bloquear, borrar o forzar actualización.', input:'text', password:true, okTxt:'Guardar PIN', onOk:(v)=>{
+      v=(v||'').trim(); if(v.length<3){ toast('El PIN debe tener al menos 3 caracteres'); return; }
+      equipoRef.child('admin/pin').set(hash(v)).then(()=>{ adminPinGuardado=hash(v); toast('PIN guardado'); accion(); });
+    }});
+    return;
+  }
+  modal({tit:'🔐 PIN de encargado', msg:'Escribe tu PIN para continuar.', input:'text', password:true, okTxt:'Continuar', onOk:(v)=>{
+    if(hash((v||'').trim())===adminPinGuardado){ accion(); }
+    else toast('PIN incorrecto');
+  }});
+}
 
 // ---------- conexión ----------
 function conectar(pin){
@@ -272,13 +392,16 @@ function conectar(pin){
   if(equipoRef){
     equipoRef.child('containers').off();
     equipoRef.child('presence').off();
+    equipoRef.child('devices').off();
+    equipoRef.child('admin/pin').off();
   }
   equipoRef = db.ref('equipos/'+pinActual);
 
   equipoRef.child('containers').on('value', s=>{ datosContainers = s.val()||{}; render(); });
   equipoRef.child('presence').on('value', s=>{ datosPresencia = s.val()||{}; render(); });
+  equipoRef.child('devices').on('value', s=>{ datosDevices = s.val()||{}; render(); });
+  equipoRef.child('admin/pin').on('value', s=>{ adminPinGuardado = s.val()||null; });
 
-  // estado de conexión
   db.ref('.info/connected').on('value', s=>{
     const on = s.val()===true;
     document.getElementById('punto').className = 'punto '+(on?'on':'off');
@@ -289,41 +412,51 @@ function conectar(pin){
 // ---------- presencia ----------
 function presenciaDeContainer(clave){
   const mapa = datosPresencia[clave]||{};
-  const out = [];
-  const ahora = Date.now();
+  const out = []; const ahora = Date.now();
   for(const dev in mapa){
-    const v = mapa[dev];
-    let t, u;
+    const v = mapa[dev]; let t, u;
     if(v && typeof v==='object'){ t=v.t||0; u=v.u||''; } else { t=v||0; u=''; }
     if(ahora - t <= PRESENCIA_VIVA_MS) out.push({dev,t,u});
   }
   return out;
 }
 
+// ---------- helpers de datos ----------
+function todosLosRegistros(){
+  // Devuelve [{clave, rid, c, u, s, q, t, ur, up, contNom}]
+  const out=[];
+  for(const clave in datosContainers){
+    const c = datosContainers[clave];
+    const nom = c.num||c.n||clave;
+    if(!c.r) continue;
+    for(const rid in c.r){
+      const r = c.r[rid];
+      out.push({clave, rid, contNom:nom,
+        c:r.c||'', u:r.u||'', s:r.s||'', q:parseInt(r.q)||0, t:r.t||0,
+        ur:r.ur||'', up:r.up||'', dr:r.dr||'', dp:r.dp||''});
+    }
+  }
+  return out;
+}
+
 // ---------- render ----------
 function render(){
-  // estadísticas
-  let totalCont=0, totalPallets=0, totalCtns=0;
   const claves = Object.keys(datosContainers);
-  totalCont = claves.length;
+  let totalCont = claves.length, totalPallets=0, totalCtns=0;
 
-  // presencia en vivo (todas)
+  // presencia en vivo
   const vivoLista = [];
   for(const clave in datosPresencia){
-    presenciaDeContainer(clave).forEach(p=>{
-      vivoLista.push({...p, clave});
-    });
+    presenciaDeContainer(clave).forEach(p=> vivoLista.push({...p, clave}));
   }
-  // numero de personas únicas trabajando
   const personasVivas = new Set(vivoLista.map(p=>p.u||p.dev));
   document.getElementById('numVivo').textContent = personasVivas.size;
 
-  // ----- sección EN VIVO -----
+  // ----- EN VIVO -----
   const vivoEl = document.getElementById('vivo');
   if(vivoLista.length===0){
     vivoEl.innerHTML = '<div class="vivo-vacio">Nadie está trabajando en este momento.</div>';
   } else {
-    // ordenar por más reciente
     vivoLista.sort((a,b)=>b.t-a.t);
     vivoEl.innerHTML = vivoLista.map(p=>{
       const cont = datosContainers[p.clave];
@@ -340,93 +473,181 @@ function render(){
     }).join('');
   }
 
-  // ----- sección CONTAINERS -----
+  // ----- DISPOSITIVOS -----
+  renderDispositivos();
+
+  // ----- CONTAINERS -----
   const contEl = document.getElementById('containers');
-  if(totalCont===0){
-    contEl.innerHTML = '<div class="sin-cont"><span class="emoji">📭</span>Todavía no hay containers en este equipo.</div>';
-    document.getElementById('numContainers').textContent='0';
-    document.getElementById('numPallets').textContent='0';
-    document.getElementById('numCtns').textContent='0';
-    sello();
-    return;
-  }
-
-  // ordenar containers por creación (más reciente primero)
-  claves.sort((a,b)=>(datosContainers[b].cr||0)-(datosContainers[a].cr||0));
-
-  let html='';
+  // totales (siempre, aunque la vista no esté activa)
   claves.forEach(clave=>{
     const c = datosContainers[clave];
     const regs = c.r ? Object.values(c.r) : [];
     totalPallets += regs.length;
     regs.forEach(r=> totalCtns += (parseInt(r.q)||0));
+  });
 
-    const vivos = presenciaDeContainer(clave);
-    const abierto = todoExpandido || abiertos[clave];
+  if(totalCont===0){
+    contEl.innerHTML = '<div class="sin-cont"><span class="emoji">📭</span>Todavía no hay containers en este equipo.</div>';
+  } else {
+    const q = filtroGlobal.trim().toLowerCase();
+    const ordenadas = claves.slice().sort((a,b)=>(datosContainers[b].cr||0)-(datosContainers[a].cr||0));
+    let html='';
+    ordenadas.forEach(clave=>{
+      const c = datosContainers[clave];
+      let regs = c.r ? Object.entries(c.r).map(([rid,r])=>({rid,...r})) : [];
+      // filtro global
+      if(q){
+        regs = regs.filter(r=>
+          (r.c&&r.c.toLowerCase().includes(q)) ||
+          (r.s&&r.s.toLowerCase().includes(q)) ||
+          (r.u&&r.u.toLowerCase().includes(q)) ||
+          (r.ur&&r.ur.toLowerCase().includes(q)) ||
+          (r.up&&r.up.toLowerCase().includes(q)) ||
+          ((c.num||c.n||'').toLowerCase().includes(q))
+        );
+        if(regs.length===0) return;
+      }
+      const vivos = presenciaDeContainer(clave);
+      const abierto = todoExpandido || abiertos[clave] || !!q;
 
-    // agrupar por SKU, los que tienen ubicación primero
-    const grupos = {};
-    regs.forEach(r=>{
-      const sku = (r.s&&r.s.trim())? r.s.trim() : '(sin SKU)';
-      (grupos[sku]=grupos[sku]||[]).push(r);
-    });
-    const skus = Object.keys(grupos);
-    skus.sort((a,b)=>{
-      if(a==='(sin SKU)') return 1; if(b==='(sin SKU)') return -1;
-      const ta = grupos[a].some(r=>r.u&&r.u.trim());
-      const tb = grupos[b].some(r=>r.u&&r.u.trim());
-      if(ta!==tb) return ta?-1:1;
-      return a.localeCompare(b);
-    });
+      // ubicaciones duplicadas en este container
+      const conteoU = {};
+      regs.forEach(r=>{ if(r.u&&r.u.trim()){ const k=r.u.trim().toUpperCase(); conteoU[k]=(conteoU[k]||0)+1; } });
 
-    let cuerpo='';
-    skus.forEach(sku=>{
-      const lista = grupos[sku];
-      let ctns=0; lista.forEach(r=>ctns+=(parseInt(r.q)||0));
-      // dentro del grupo: con ubicación primero
-      lista.sort((a,b)=>{
-        const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim();
-        if(!!ua!==!!ub) return ua?-1:1;
-        return (b.t||0)-(a.t||0);
+      // agrupar por SKU
+      const grupos = {};
+      regs.forEach(r=>{ const sku=(r.s&&r.s.trim())?r.s.trim():'(sin SKU)'; (grupos[sku]=grupos[sku]||[]).push(r); });
+      const skus = Object.keys(grupos);
+      skus.sort((a,b)=>{
+        if(a==='(sin SKU)') return 1; if(b==='(sin SKU)') return -1;
+        const ta=grupos[a].some(r=>r.u&&r.u.trim()), tb=grupos[b].some(r=>r.u&&r.u.trim());
+        if(ta!==tb) return ta?-1:1; return a.localeCompare(b);
       });
-      let filas='';
-      lista.forEach(r=>{
-        const ubic = (r.u&&r.u.trim())
-          ? `<span class="ubic">${esc(r.u)}</span>`
-          : `<span class="ubic vacia">📍 sin ubicación</span>`;
-        filas += `<div class="reg-fila">
-          ${ubic}
-          <span class="reg-cant">${(parseInt(r.q)||0)} CTNs</span>
+
+      let cuerpo='';
+      skus.forEach(sku=>{
+        const lista = grupos[sku]; let ctns=0; lista.forEach(r=>ctns+=(parseInt(r.q)||0));
+        lista.sort((a,b)=>{ const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim(); if(!!ua!==!!ub) return ua?-1:1; return (b.t||0)-(a.t||0); });
+        let filas='';
+        lista.forEach(r=>{
+          const tieneU = r.u&&r.u.trim();
+          const veces = tieneU ? (conteoU[r.u.trim().toUpperCase()]||1) : 0;
+          const ubic = tieneU
+            ? `<span class="ubic">${esc(r.u)}${veces>1?(' <b style="color:#c62828">×'+veces+'</b>'):''}</span>`
+            : `<span class="ubic vacia">📍 sin ubicación</span>`;
+          const quien = (r.ur||r.up)
+            ? `<span class="reg-quien">${r.ur?('📥 '+esc(r.ur)):''}${r.ur&&r.up?'<br>':''}${r.up?('📦 '+esc(r.up)):''}</span>` : '';
+          filas += `<div class="reg-fila">
+            ${ubic}
+            <span class="reg-cant">${(parseInt(r.q)||0)} CTNs · ${esc(r.c||'')}</span>
+            ${quien}
+            <button class="reg-del" title="Borrar pallet" onclick="borrarPallet('${esc(clave)}','${esc(r.rid)}')">🗑</button>
+          </div>`;
+        });
+        cuerpo += `<div class="sku-grupo">
+          <div class="sku-head"><span class="sku-nom">${esc(sku)}</span><span class="sku-tot">${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs</span></div>
+          ${filas}
         </div>`;
       });
-      cuerpo += `<div class="sku-grupo">
-        <div class="sku-head">
-          <span class="sku-nom">${esc(sku)}</span>
-          <span class="sku-tot">${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs</span>
+
+      const totReg = (c.r?Object.keys(c.r).length:0);
+      html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
+        <div class="container-head" onclick="toggle('${esc(clave)}')">
+          <div class="cont-icono">📦</div>
+          <div class="cont-info">
+            <div class="cont-num">${esc(c.num||c.n||clave)}</div>
+            <div class="cont-meta">${totReg} pallets · ${esc(c.n||'')}</div>
+          </div>
+          ${vivos.length>0 ? `<span class="cont-badge activo">🟢 ${vivos.length}</span>` : ''}
+          <span class="flecha">▶</span>
         </div>
-        ${filas}
+        <div class="container-body">
+          <div class="cont-tools"><button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🗑 Borrar container completo</button></div>
+          ${cuerpo||'<div class="reg-fila"><span class="reg-cant">Sin pallets todavía.</span></div>'}
+        </div>
       </div>`;
     });
+    contEl.innerHTML = html || '<div class="sin-cont"><span class="emoji">🔎</span>Nada coincide con tu búsqueda.</div>';
+  }
 
-    html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
-      <div class="container-head" onclick="toggle('${esc(clave)}')">
-        <div class="cont-icono">📦</div>
-        <div class="cont-info">
-          <div class="cont-num">${esc(c.num||c.n||clave)}</div>
-          <div class="cont-meta">${regs.length} pallets · ${esc(c.n||'')}</div>
-        </div>
-        ${vivos.length>0 ? `<span class="cont-badge activo">🟢 ${vivos.length}</span>` : ''}
-        <span class="flecha">▶</span>
-      </div>
-      <div class="container-body">${cuerpo||'<div class="reg-fila"><span class="reg-cant">Sin pallets todavía.</span></div>'}</div>
-    </div>`;
-  });
-  contEl.innerHTML = html;
+  // ----- PERSONAS -----
+  renderPersonas();
 
   document.getElementById('numContainers').textContent = totalCont;
   document.getElementById('numPallets').textContent = totalPallets;
   document.getElementById('numCtns').textContent = totalCtns;
   sello();
+}
+
+function renderDispositivos(){
+  const el = document.getElementById('dispositivos');
+  const ids = Object.keys(datosDevices||{});
+  if(ids.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay dispositivos registrados. Aparecerán cuando abran la app.</div>'; return; }
+  const ahora = Date.now();
+  // ordenar: en línea primero, luego por seen reciente
+  ids.sort((a,b)=>{
+    const da=datosDevices[a], dbb=datosDevices[b];
+    const oa=(da.online && ahora-(da.seen||0)<=DEV_ONLINE_MS)?1:0;
+    const ob=(dbb.online && ahora-(dbb.seen||0)<=DEV_ONLINE_MS)?1:0;
+    if(oa!==ob) return ob-oa;
+    return (dbb.seen||0)-(da.seen||0);
+  });
+  el.innerHTML = ids.map(id=>{
+    const d = datosDevices[id];
+    const enLinea = d.online && (ahora-(d.seen||0)<=DEV_ONLINE_MS);
+    const bloq = d.blocked===true;
+    const nombre = d.name || d.u || 'Sin nombre';
+    const usuario = d.u ? esc(d.u) : 'sin nombre de usuario';
+    const ver = d.v ? ('v'+esc(d.v)) : 'versión ?';
+    let estBadge = bloq ? '<span class="badge-est bl">Bloqueado</span>'
+                  : enLinea ? '<span class="badge-est on">En línea</span>'
+                  : '<span class="badge-est off">Desconectado</span>';
+    const fu = d.forceUpdate===true;
+    return `<div class="dev ${enLinea?'online':''} ${bloq?'bloq':''}">
+      <div class="dev-top">
+        <div class="avatar" style="background:${colorAvatar(nombre)}">${esc(iniciales(nombre))}</div>
+        <div class="dev-info">
+          <div class="dev-nom">${esc(nombre)} ${estBadge}</div>
+          <div class="dev-meta">👤 ${usuario} · ${ver} · visto ${tiempoRelativo(d.seen||0)}</div>
+        </div>
+      </div>
+      <div class="dev-acc">
+        <button class="accion" onclick="renombrarDev('${esc(id)}','${esc(d.name||'')}')">✏️ Nombre</button>
+        ${bloq
+          ? `<button class="accion ok" onclick="desbloquearDev('${esc(id)}')">🔓 Desbloquear</button>`
+          : `<button class="accion peli" onclick="bloquearDev('${esc(id)}')">🔒 Bloquear</button>`}
+        <button class="accion ${fu?'ok':'warn'}" onclick="forzarUpdate('${esc(id)}',${fu?'true':'false'})">${fu?'✓ Update pedido':'⟳ Forzar update'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPersonas(){
+  const el = document.getElementById('personas');
+  const regs = todosLosRegistros();
+  if(regs.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay actividad registrada.</div>'; return; }
+  // agregar por persona (receiving y put away por separado)
+  const stats = {}; // nombre -> {recv, put, ctns}
+  function add(nombre, campo, ctns){
+    nombre = (nombre||'').trim(); if(!nombre) return;
+    if(!stats[nombre]) stats[nombre]={recv:0, put:0, ctns:0};
+    stats[nombre][campo]++; if(campo==='recv') stats[nombre].ctns+=ctns;
+  }
+  regs.forEach(r=>{ if(r.ur) add(r.ur,'recv',r.q); if(r.up) add(r.up,'put',0); });
+  const nombres = Object.keys(stats);
+  if(nombres.length===0){ el.innerHTML='<div class="vivo-vacio">Aún no hay nombres en los registros. Pídeles que pongan su nombre en Ajustes.</div>'; return; }
+  nombres.sort((a,b)=>(stats[b].recv+stats[b].put)-(stats[a].recv+stats[a].put));
+  let filas = nombres.map(n=>{
+    const s=stats[n];
+    return `<tr>
+      <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(n)}">${esc(iniciales(n))}</div>${esc(n)}</div></td>
+      <td class="n">${s.recv}</td><td class="n">${s.put}</td><td class="n">${s.ctns}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table class="tabla">
+    <tr><th>Persona</th><th style="text-align:center">📥 Receiving</th><th style="text-align:center">📦 Put away</th><th style="text-align:center">CTNs</th></tr>
+    ${filas}
+  </table>`;
 }
 
 function sello(){
@@ -436,43 +657,96 @@ function sello(){
 }
 
 function toggle(clave){
-  if(todoExpandido){
-    // si estaba todo expandido, al tocar uno se sale del modo y se cierra ese
-    todoExpandido=false;
-    Object.keys(datosContainers).forEach(k=>abiertos[k]=true);
-    document.getElementById('btnExpandir').textContent='⊕ Expandir todo';
-  }
-  abiertos[clave]=!abiertos[clave];
-  render();
+  if(todoExpandido){ todoExpandido=false; Object.keys(datosContainers).forEach(k=>abiertos[k]=true); document.getElementById('btnExpandir').textContent='⊕ Expandir todo'; }
+  abiertos[clave]=!abiertos[clave]; render();
+}
+
+// ---------- acciones del manager ----------
+function renombrarDev(id, actual){
+  modal({tit:'✏️ Nombre del dispositivo', msg:'Ponle un nombre para reconocerlo (ej: Escáner de Wilson).', input:'text', valor:actual, okTxt:'Guardar', onOk:(v)=>{
+    conPin(()=> equipoRef.child('devices/'+id+'/name').set((v||'').trim()).then(()=>toast('Nombre guardado')) );
+  }});
+}
+function bloquearDev(id){
+  modal({tit:'🔒 Bloquear dispositivo', msg:'El escáner mostrará una pantalla de bloqueo con tu mensaje y no podrá usarse.', input:'area', valor:'Comunícate con el encargado.', okTxt:'Bloquear', rojo:true, onOk:(v)=>{
+    conPin(()=> equipoRef.child('devices/'+id).update({blocked:true, blockMsg:(v||'').trim()}).then(()=>toast('Dispositivo bloqueado')) );
+  }});
+}
+function desbloquearDev(id){
+  conPin(()=> equipoRef.child('devices/'+id).update({blocked:false}).then(()=>toast('Dispositivo desbloqueado')) );
+}
+function forzarUpdate(id, yaPedido){
+  conPin(()=> equipoRef.child('devices/'+id+'/forceUpdate').set(!yaPedido).then(()=>toast(!yaPedido?'Se pidió actualizar':'Cancelado')) );
+}
+function enviarAnuncio(){
+  const txt = document.getElementById('txtAnuncio').value.trim();
+  if(!txt){ toast('Escribe un mensaje primero'); return; }
+  equipoRef.child('announce').set({id:String(Date.now()), text:txt, ts:Date.now()}).then(()=>{
+    document.getElementById('txtAnuncio').value=''; toast('Aviso enviado a todos');
+  });
+}
+function borrarPallet(clave, rid){
+  modal({tit:'🗑 Borrar pallet', msg:'Se borrará este pallet para todo el equipo. ¿Continuar?', okTxt:'Borrar', rojo:true, onOk:()=>{
+    conPin(()=>{
+      const up={}; up['tombstones/regs/'+rid]=Date.now(); up['containers/'+clave+'/r/'+rid]=null;
+      equipoRef.update(up).then(()=>toast('Pallet borrado'));
+    });
+  }});
+}
+function borrarContainer(clave, nom){
+  modal({tit:'🗑 Borrar container', msg:'Se borrará "'+nom+'" y TODOS sus pallets para todo el equipo. Esto no se puede deshacer. ¿Continuar?', okTxt:'Borrar todo', rojo:true, onOk:()=>{
+    conPin(()=>{
+      const up={}; up['tombstones/containers/'+clave]=Date.now(); up['containers/'+clave]=null;
+      equipoRef.update(up).then(()=>toast('Container borrado'));
+    });
+  }});
+}
+
+// ---------- CSV ----------
+function exportarCSV(){
+  const regs = todosLosRegistros();
+  if(regs.length===0){ toast('No hay datos para exportar'); return; }
+  const cab = ['Container','AUnload','SKU','Ubicacion','CTNs','Receiving_por','PutAway_por','Fecha'];
+  const filas = regs.sort((a,b)=>(b.t||0)-(a.t||0)).map(r=>{
+    const f = r.t? new Date(r.t).toLocaleString('es-CO') : '';
+    return [r.contNom, r.c, r.s, r.u, r.q, r.ur, r.up, f].map(x=>{
+      const s=String(x==null?'':x).replace(/"/g,'""'); return /[",\n;]/.test(s)?('"'+s+'"'):s;
+    }).join(',');
+  });
+  const csv = '\ufeff'+cab.join(',')+'\n'+filas.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fecha = new Date().toISOString().slice(0,10);
+  a.href=url; a.download='AUnload_'+(document.getElementById('lblPin').textContent||'equipo')+'_'+fecha+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('CSV descargado ('+regs.length+' filas)');
+}
+
+// ---------- tabs ----------
+function cambiarVista(v){
+  vistaActual=v;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('activa', t.dataset.vista===v));
+  document.querySelectorAll('.vista').forEach(s=>s.classList.toggle('activa', s.id==='vista-'+v));
 }
 
 // ---------- eventos ----------
-document.getElementById('btnEntrar').onclick = ()=>{
-  const v = document.getElementById('inputPin').value;
-  if(v.trim()) conectar(v);
-};
-document.getElementById('inputPin').addEventListener('keydown', e=>{
-  if(e.key==='Enter'){ const v=e.target.value; if(v.trim()) conectar(v); }
-});
-document.getElementById('btnCambiar').onclick = ()=>{
-  localStorage.removeItem('aunload_pin');
-  location.reload();
-};
-document.getElementById('btnExpandir').onclick = ()=>{
-  todoExpandido=!todoExpandido;
-  document.getElementById('btnExpandir').textContent = todoExpandido?'⊖ Contraer todo':'⊕ Expandir todo';
-  render();
-};
+document.getElementById('btnEntrar').onclick = ()=>{ const v=document.getElementById('inputPin').value; if(v.trim()) conectar(v); };
+document.getElementById('inputPin').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=e.target.value; if(v.trim()) conectar(v); } });
+document.getElementById('btnCambiar').onclick = ()=>{ localStorage.removeItem('aunload_pin'); location.reload(); };
+document.getElementById('btnExpandir').onclick = ()=>{ todoExpandido=!todoExpandido; document.getElementById('btnExpandir').textContent = todoExpandido?'⊖ Contraer todo':'⊕ Expandir todo'; render(); };
+document.getElementById('btnCSV').onclick = exportarCSV;
+document.getElementById('btnAnuncio').onclick = enviarAnuncio;
+document.getElementById('buscarGlobal').addEventListener('input', e=>{ filtroGlobal=e.target.value; render(); });
+document.getElementById('tabs').addEventListener('click', e=>{ const b=e.target.closest('.tab'); if(b) cambiarVista(b.dataset.vista); });
 
 // refresco periódico para caducar presencias y tiempos
 setInterval(()=>{ if(equipoRef) render(); }, 15000);
 
 // auto-entrar si ya hay código guardado
 const guardado = localStorage.getItem('aunload_pin');
-if(guardado){
-  document.getElementById('inputPin').value = guardado;
-  conectar(guardado);
-}
+if(guardado){ document.getElementById('inputPin').value = guardado; conectar(guardado); }
 </script>
 </body>
 </html>

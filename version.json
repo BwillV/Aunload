@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "3.4",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.4/AUnloadRescue-3.4.apk",
+  "versionCode": 19,
+  "versionName": "3.5",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.5/AUnloadRescue-3.5.apk",
   "updateRequired": false,
-  "message": "✨ New version 3.4\n\n• You can now set your name in Settings and your teammates will see who is working in each container.\n• In each container, the banner shows whose work you are viewing. Tap it to see the list of people working there or choose \"Show all\".\n• SKUs that already have a location now appear first.\n• Stability and live sync improvements.\n\nDownload and install now?"
+  "message": "✨ New version 3.5\n\n• Each container now has a search box: type an AUnload, SKU, location or name to filter instantly.\n• Tap the three dots (⋮) to show duplicate locations, SKUs in other unloads, and receiving (who did the receiving and who did the put away of each pallet).\n• The manager can now see connected devices, rename them, send announcements and, if needed, block them or request an update.\n• Stability and live sync improvements.\n\nDownload and install now?"
 }
