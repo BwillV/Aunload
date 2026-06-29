@@ -1,7 +1,7 @@
 {
-  "versionCode": 25,
-  "versionName": "3.7.4",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.4/AUnloadRescue-3.7.4.apk",
+  "versionCode": 26,
+  "versionName": "3.7.5",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.5/AUnloadRescue-3.7.5.apk",
   "updateRequired": false,
-  "message": "🔧 Update 3.7.4\n\n• The Manager panel can now HIDE the 'OTHERS' (no-SKU) group on ALL phones at once.\n\n• Fixed: hiding OTHERS now refreshes the list instantly (no need to leave the screen).\n\nRecommended update."
+  "message": "🔧 Update 3.7.5\n\n• CRITICAL FIX: The 'Hide OTHERS' setting now actually works. The previous version had a bug in the detection logic.\n\nPlease update now."
 }
