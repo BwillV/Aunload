@@ -1,7 +1,7 @@
 {
-  "versionCode": 21,
-  "versionName": "3.7",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7/AUnloadRescue-3.7.apk",
+  "versionCode": 22,
+  "versionName": "3.7.1",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.1/AUnloadRescue-3.7.1.apk",
   "updateRequired": false,
-  "message": "✨ New version 3.7\n\n• Hide OTHERS moved from the three dots (⋮) to SETTINGS as a saved switch. Turn it on once and OTHERS stops getting in the way when looking for duplicate locations.\n• Duplicate locations only now GROUPS pallets by location: each repeated spot shows together as 📍 LOC ×N.\n• Manager announcements now appear ON TOP of any app you are working in, not just inside AUnload Rescue.\n• In the manager panel, the pallet count no longer counts OTHERS.\n\nDownload and install now?"
+  "message": "✨ Update 3.7.1\n\n• Fixed: When you change the \"Hide OTHERS\" setting, the list now updates immediately without needing to exit and re-enter.\n\n(This was a quick fix for the 3.7 retroactive behavior)\n\nDownload and install now?"
 }
