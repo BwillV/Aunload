@@ -1,7 +1,7 @@
 {
-  "versionCode": 22,
-  "versionName": "3.7.1",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.1/AUnloadRescue-3.7.1.apk",
-  "updateRequired": false,
-  "message": "✨ Update 3.7.1\n\n• Fixed: When you change the \"Hide OTHERS\" setting, the list now updates immediately without needing to exit and re-enter.\n\n(This was a quick fix for the 3.7 retroactive behavior)\n\nDownload and install now?"
+  "versionCode": 23,
+  "versionName": "3.7.2",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.2/AUnloadRescue-3.7.2.apk",
+  "updateRequired": true,
+  "message": "🔧 Important fix 3.7.2\n\n• Fixed a serious bug: changing the TEAM CODE no longer copies your old team's containers into the new team. Each team code now stays isolated.\n\n• Also includes 3.7.1: 'Hide OTHERS' now updates the list instantly.\n\nPlease update now."
 }
