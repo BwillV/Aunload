@@ -422,6 +422,12 @@ function presenciaDeContainer(clave){
 }
 
 // ---------- helpers de datos ----------
+// OTHERS = mercancía variada que el sistema no reconoció con SKU propio.
+// No cuenta como pallet real en los totales.
+function esOtrosSku(s){
+  if(!s) return false;
+  return String(s).trim().toUpperCase().indexOf('OTHER') !== -1;
+}
 function todosLosRegistros(){
   // Devuelve [{clave, rid, c, u, s, q, t, ur, up, contNom}]
   const out=[];
@@ -482,8 +488,11 @@ function render(){
   claves.forEach(clave=>{
     const c = datosContainers[clave];
     const regs = c.r ? Object.values(c.r) : [];
-    totalPallets += regs.length;
-    regs.forEach(r=> totalCtns += (parseInt(r.q)||0));
+    regs.forEach(r=>{
+      if(esOtrosSku(r.s)) return;       // OTHERS no cuenta
+      totalPallets++;
+      totalCtns += (parseInt(r.q)||0);
+    });
   });
 
   if(totalCont===0){
@@ -550,7 +559,7 @@ function render(){
         </div>`;
       });
 
-      const totReg = (c.r?Object.keys(c.r).length:0);
+      const totReg = (c.r?Object.values(c.r).filter(r=>!esOtrosSku(r.s)).length:0);
       html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
         <div class="container-head" onclick="toggle('${esc(clave)}')">
           <div class="cont-icono">📦</div>
