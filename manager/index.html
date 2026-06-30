@@ -215,6 +215,7 @@
   .prod-filtro-tit{font-size:12px; font-weight:700; color:var(--texto2); margin-bottom:8px;}
   .prod-radio{display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:4px; cursor:pointer;}
   .prod-radio input[type=radio]{margin:0; cursor:pointer;}
+  .prod-modo-ayuda{font-size:11px; color:var(--texto2); margin-top:6px; line-height:1.4; font-style:italic;}
   .periodo-bar{display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;}
   .periodo-btn{flex:1; min-width:64px; padding:8px 6px; font-size:12.5px; font-weight:700; color:var(--texto2); background:var(--tarjeta); border:1px solid var(--borde); border-radius:10px; cursor:pointer;}
   .periodo-btn.on{background:var(--azul); color:#fff; border-color:var(--azul);}
@@ -390,6 +391,7 @@ let vistaActual = 'vivo';
 // Filtros de productividad (persisten en localStorage)
 let prodTasaFiltro = localStorage.getItem('prodTasaFiltro') || 'put';     // 'put', 'recv', 'ambos'
 let prodPeriodo = localStorage.getItem('prodPeriodo') || 'hoy';           // 'hoy', 'semana', 'mes', 'todo'
+let prodModoTiempo = localStorage.getItem('prodModoTiempo') || 'total';   // 'total' (bruto, sin cortar) | 'neto' (suma por container)
 let datosHistorico = {};         // estadísticas archivadas por día (persisten aunque se borren containers)
 let filtroActividad = null;      // {tipo:'persona'|'disp', valor, label} para ver actividad de uno solo
 let prodContAbierto = null;      // container expandido en Productividad (drill-down por persona)
@@ -475,6 +477,11 @@ const I18N = {
   optPut:        ['📦 Put-away','📦 Put-away','📦 上架'],
   optRecv:       ['📥 Receiving','📥 Receiving','📥 收货'],
   optAmbos:      ['📊 Ambos','📊 Both','📊 两者'],
+  prodTiempo:    ['Tiempo a usar:','Time to use:','使用时间:'],
+  optTiempoTot:  ['⏱ Total del día','⏱ Whole day','⏱ 全天'],
+  optTiempoNeto: ['✂️ Solo containers','✂️ Containers only','✂️ 仅集装箱'],
+  ayudaTotal:    ['Total del día = del primer al último escaneo (incluye el tiempo muerto entre containers).','Whole day = from first to last scan (includes idle time between containers).','全天 = 从第一次到最后一次扫描(包含集装箱之间的空闲时间)。'],
+  ayudaNeto:     ['Solo containers = suma del tiempo dentro de cada container (no cuenta el tiempo entre containers).','Containers only = sum of time inside each container (does not count time between containers).','仅集装箱 = 每个集装箱内时间的总和(不计算集装箱之间的时间)。'],
   porPersona:    ['Por persona','By person','按人员'],
   porContainer: ['Por container','By container','按集装箱'],
   thPersona:     ['Persona','Person','人员'],
@@ -1071,10 +1078,13 @@ function renderProductividad(){
     return;
   }
 
-  // Horas activas (solo de los registros en vivo): suma de (max-min) de cada día.
+  // Horas TOTALES (bruto): del primer al último escaneo de cada día (incluye tiempo muerto entre containers).
   function horasActivas(store, nom){ const m=store[nom]; if(!m) return 0; let s=0; for(const d in m){ s+=(m[d].max-m[d].min); } return s/3600000; }
-  function tasa(o, store){
-    const horas = horasActivas(store, o.nom);
+  // Horas NETAS de una persona: suma del (max-min) DENTRO de cada container (no cuenta el tiempo entre containers).
+  function horasNeto(nom){ let s=0; for(const cont in actCP){ const pp=actCP[cont][nom]; if(pp){ for(const d in pp){ s+=(pp[d].max-pp[d].min); } } } return s/3600000; }
+  // esPersona=true en la tabla de personas: respeta el modo (total vs neto). En containers ambos coinciden.
+  function tasa(o, store, esPersona){
+    const horas = (esPersona && prodModoTiempo==='neto') ? horasNeto(o.nom) : horasActivas(store, o.nom);
     if(horas < 0.25) return '—';
     let cuenta = prodTasaFiltro==='put'?o.put : prodTasaFiltro==='recv'?o.recv : (o.put+o.recv);
     return (cuenta/horas).toFixed(1);
@@ -1089,7 +1099,7 @@ function renderProductividad(){
     return `<tr>
       <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(n)}">${esc(iniciales(n))}</div>${esc(n)}</div></td>
       <td class="n">${s.put}</td><td class="n">${s.recv}</td>
-      <td class="n"><b>${tasa(s, actP)}</b></td>
+      <td class="n"><b>${tasa(s, actP, true)}</b></td>
     </tr>`;
   }).join('');
 
@@ -1141,6 +1151,12 @@ function renderProductividad(){
         <label class="prod-radio"><input type="radio" name="prodTasa" value="put" ${prodTasaFiltro==='put'?'checked':''} onchange="cambiarProdTasa('put')"> ${t('optPut')}</label>
         <label class="prod-radio"><input type="radio" name="prodTasa" value="recv" ${prodTasaFiltro==='recv'?'checked':''} onchange="cambiarProdTasa('recv')"> ${t('optRecv')}</label>
         <label class="prod-radio"><input type="radio" name="prodTasa" value="ambos" ${prodTasaFiltro==='ambos'?'checked':''} onchange="cambiarProdTasa('ambos')"> ${t('optAmbos')}</label>
+      </div>
+      <div class="prod-filtro">
+        <div class="prod-filtro-tit">${t('prodTiempo')}</div>
+        <label class="prod-radio"><input type="radio" name="prodModo" value="total" ${prodModoTiempo==='total'?'checked':''} onchange="cambiarProdModo('total')"> ${t('optTiempoTot')}</label>
+        <label class="prod-radio"><input type="radio" name="prodModo" value="neto" ${prodModoTiempo==='neto'?'checked':''} onchange="cambiarProdModo('neto')"> ${t('optTiempoNeto')}</label>
+        <div class="prod-modo-ayuda">${prodModoTiempo==='neto'?t('ayudaNeto'):t('ayudaTotal')}</div>
       </div>
     </div>
     <h3 class="prod-tit">${t('porPersona')}</h3>
@@ -1253,6 +1269,11 @@ function cambiarProdTasa(v){
 function cambiarProdPeriodo(v){
   prodPeriodo = v;
   localStorage.setItem('prodPeriodo', v);
+  renderProductividad();
+}
+function cambiarProdModo(v){
+  prodModoTiempo = v;
+  localStorage.setItem('prodModoTiempo', v);
   renderProductividad();
 }
 
