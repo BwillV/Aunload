@@ -207,6 +207,9 @@
   .prod-filtro-tit{font-size:12px; font-weight:700; color:var(--texto2); margin-bottom:8px;}
   .prod-radio{display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:4px; cursor:pointer;}
   .prod-radio input[type=radio]{margin:0; cursor:pointer;}
+  .periodo-bar{display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;}
+  .periodo-btn{flex:1; min-width:64px; padding:8px 6px; font-size:12.5px; font-weight:700; color:var(--texto2); background:var(--tarjeta); border:1px solid var(--borde); border-radius:10px; cursor:pointer;}
+  .periodo-btn.on{background:var(--azul); color:#fff; border-color:var(--azul);}
   .prod-tit{font-size:14px; margin:18px 0 8px 0;}
   .tabla th.n{text-align:center;}
   .prod-nota{font-size:11px; color:var(--texto2); margin-top:10px; line-height:1.5;}
@@ -368,7 +371,8 @@ let filtroGlobal = '';
 let vistaActual = 'vivo';
 // Filtros de productividad (persisten en localStorage)
 let prodTasaFiltro = localStorage.getItem('prodTasaFiltro') || 'put';     // 'put', 'recv', 'ambos'
-let prodHoyFiltro = localStorage.getItem('prodHoyFiltro') || 'put';       // 'put', 'recv', 'ambos'
+let prodPeriodo = localStorage.getItem('prodPeriodo') || 'hoy';           // 'hoy', 'semana', 'mes', 'todo'
+let datosHistorico = {};         // estadísticas archivadas por día (persisten aunque se borren containers)
 
 // ---------- utilidades ----------
 function colorAvatar(nombre){
@@ -472,6 +476,7 @@ function conectar(pin){
     equipoRef.child('devices').off();
     equipoRef.child('admin/pin').off();
     equipoRef.child('config').off();
+    equipoRef.child('historico').off();
   }
   equipoRef = db.ref('equipos/'+pinActual);
 
@@ -480,6 +485,7 @@ function conectar(pin){
   equipoRef.child('devices').on('value', s=>{ datosDevices = s.val()||{}; render(); });
   equipoRef.child('admin/pin').on('value', s=>{ adminPinGuardado = s.val()||null; });
   equipoRef.child('config').on('value', s=>{ datosConfig = s.val()||{}; pintarOcultarOthers(); });
+  equipoRef.child('historico').on('value', s=>{ datosHistorico = s.val()||{}; render(); });
 
   db.ref('.info/connected').on('value', s=>{
     const on = s.val()===true;
@@ -822,81 +828,159 @@ function renderPersonas(){
   </table>`;
 }
 
+// ----- HISTÓRICO / PERÍODOS -----
+// Clave de día local "YYYY-MM-DD" a partir de un timestamp en ms.
+function claveDia(t){
+  const d = new Date(t||Date.now());
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return d.getFullYear()+'-'+m+'-'+dd;
+}
+// Sanea un nombre para usarlo como clave de Firebase (sin . # $ [ ] / ni espacios raros).
+function keySan(s){ return String(s||'').trim().replace(/[.#$\[\]\/]/g,'_').replace(/\s+/g,'_') || '_'; }
+// ¿Una clave de día cae dentro del período seleccionado? (claves YYYY-MM-DD se comparan como texto)
+function enPeriodo(diaKey){
+  if(prodPeriodo==='todo') return true;
+  const now = new Date();
+  if(prodPeriodo==='hoy') return diaKey===claveDia(now.getTime());
+  if(prodPeriodo==='semana'){
+    const dow = (now.getDay()+6)%7;              // 0 = lunes
+    const lun = new Date(now); lun.setDate(now.getDate()-dow); lun.setHours(0,0,0,0);
+    return diaKey >= claveDia(lun.getTime());
+  }
+  if(prodPeriodo==='mes'){
+    const m1 = new Date(now.getFullYear(), now.getMonth(), 1);
+    return diaKey >= claveDia(m1.getTime());
+  }
+  return true;
+}
+// Actor (nombre) de un registro CRUDO de Firebase (no consolidado).
+function actorDeRaw(r){
+  const esPut = !!(r.s && String(r.s).trim());
+  if(esPut) return (r.up||'').trim() || nombreDisp(r.dp||r.d) || '—';
+  return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || '—';
+}
+// Agrega operaciones de incremento al objeto 'up' para archivar las estadísticas
+// de una lista de registros crudos en historico/<dia>/personas|containers/<key>.
+// Se agrega localmente primero (varios registros al mismo destino) y luego se emite
+// UN solo increment por destino (si no, en un update de Firebase el último gana).
+function archivarRegs(regsRaw, up){
+  const agg = {};
+  regsRaw.forEach(r=>{
+    const t = r.t||Date.now();
+    const dia = claveDia(t);
+    const esPut = !!(r.s && String(r.s).trim());
+    const q = parseInt(r.q)||0;
+    const persona = actorDeRaw(r);
+    const contNom = r.contNom||'';
+    [['personas', persona], ['containers', contNom]].forEach(par=>{
+      const tipo=par[0], nom=par[1];
+      if(!nom || nom==='—') return;
+      const path = dia+'|'+tipo+'|'+keySan(nom);
+      const a = agg[path] || (agg[path]={dia, tipo, key:keySan(nom), nom, put:0, recv:0, ctns:0});
+      if(esPut){ a.put++; a.ctns+=q; } else a.recv++;
+    });
+  });
+  Object.keys(agg).forEach(k=>{
+    const a = agg[k];
+    const base = 'historico/'+a.dia+'/'+a.tipo+'/'+a.key;
+    up[base+'/nom'] = a.nom;
+    if(a.put)  up[base+'/put']  = firebase.database.ServerValue.increment(a.put);
+    if(a.recv) up[base+'/recv'] = firebase.database.ServerValue.increment(a.recv);
+    if(a.ctns) up[base+'/ctns'] = firebase.database.ServerValue.increment(a.ctns);
+  });
+}
+
 // ----- PRODUCTIVIDAD: cuánto hace cada persona/equipo por hora -----
 function renderProductividad(){
   const el = document.getElementById('productividad');
   if(!el) return;
-  const regs = todosLosRegistros().filter(r=>r.t>0);
-  if(regs.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay actividad registrada.</div>'; return; }
-  const inicioDia = new Date(); inicioDia.setHours(0,0,0,0);
-  const t0 = inicioDia.getTime();
 
-  // Cada registro es UN evento: put-away si tiene SKU, receiving si no.
-  // actor = nombre de usuario (ur/up) o, si no hay, el nombre del dispositivo.
+  // Actor (nombre) de un registro: put-away si tiene SKU, receiving si no.
   function actorDe(r){
     const esPut = !!(r.s && r.s.trim());
     if(esPut) return (r.up||'').trim() || nombreDisp(r.dp||r.d) || '—';
     return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || '—';
   }
-  const porPersona = {};   // nombre -> {put, recv, ctns, min, max, putHoy, recvHoy}
-  const porCont = {};      // contNom -> {put, recv, ctns, min, max}
-  function ini(o,k){ if(!o[k]) o[k]={put:0,recv:0,ctns:0,min:Infinity,max:0,putHoy:0,recvHoy:0}; return o[k]; }
+
+  // --- 1) Datos EN VIVO (containers actuales), filtrados por período ---
+  const regs = todosLosRegistros().filter(r=>r.t>0 && enPeriodo(claveDia(r.t)));
+  const porPersona = {};   // nombre -> {nom, put, recv, ctns}
+  const porCont = {};      // contNom -> {nom, put, recv, ctns}
+  const actP = {};         // nombre -> dia -> {min,max}  (horas activas, solo en vivo)
+  const actC = {};
+  function ini(o,k){ if(!o[k]) o[k]={nom:k, put:0, recv:0, ctns:0}; return o[k]; }
+  function track(store,nom,dia,t){ const m=store[nom]||(store[nom]={}); const d=m[dia]||(m[dia]={min:t,max:t}); if(t<d.min)d.min=t; if(t>d.max)d.max=t; }
   regs.forEach(r=>{
     const esPut = !!(r.s && r.s.trim());
     const nom = actorDe(r);
+    const cont = r.contNom||r.clave;
+    const dia = claveDia(r.t);
     const p = ini(porPersona, nom);
-    const c = ini(porCont, r.contNom||r.clave);
-    if(esPut){ p.put++; c.put++; p.ctns+=r.q; c.ctns+=r.q; if(r.t>=t0) p.putHoy++; }
-    else { p.recv++; c.recv++; if(r.t>=t0) p.recvHoy++; }
-    p.min=Math.min(p.min,r.t); p.max=Math.max(p.max,r.t);
-    c.min=Math.min(c.min,r.t); c.max=Math.max(c.max,r.t);
+    const c = ini(porCont, cont);
+    if(esPut){ p.put++; c.put++; p.ctns+=r.q; c.ctns+=r.q; }
+    else { p.recv++; c.recv++; }
+    track(actP, nom, dia, r.t);
+    track(actC, cont, dia, r.t);
   });
-  function tasa(o){
-    const horas=(o.max-o.min)/3600000;
-    if(!isFinite(horas) || horas<0.25) return '—';
-    let cuenta;
-    if(prodTasaFiltro==='put') cuenta=o.put;
-    else if(prodTasaFiltro==='recv') cuenta=o.recv;
-    else cuenta=(o.put||0)+(o.recv||0);  // ambos
+
+  // --- 2) Datos ARCHIVADOS (containers borrados) del histórico, mismo período ---
+  for(const dia in datosHistorico){
+    if(!enPeriodo(dia)) continue;
+    const h = datosHistorico[dia]||{};
+    [['personas',porPersona],['containers',porCont]].forEach(par=>{
+      const grp = h[par[0]]||{};
+      for(const key in grp){
+        const e = grp[key]||{}; const nom = e.nom||key;
+        const o = ini(par[1], nom);
+        o.put+=(e.put||0); o.recv+=(e.recv||0); o.ctns+=(e.ctns||0);
+      }
+    });
+  }
+
+  if(Object.keys(porPersona).length===0){
+    el.innerHTML = barraPeriodo() + '<div class="vivo-vacio">No hay actividad en el período seleccionado.</div>';
+    return;
+  }
+
+  // Horas activas (solo de los registros en vivo): suma de (max-min) de cada día.
+  function horasActivas(store, nom){ const m=store[nom]; if(!m) return 0; let s=0; for(const d in m){ s+=(m[d].max-m[d].min); } return s/3600000; }
+  function tasa(o, store){
+    const horas = horasActivas(store, o.nom);
+    if(horas < 0.25) return '—';
+    let cuenta = prodTasaFiltro==='put'?o.put : prodTasaFiltro==='recv'?o.recv : (o.put+o.recv);
     return (cuenta/horas).toFixed(1);
   }
-  function valorHoy(o){
-    if(prodHoyFiltro==='put') return o.putHoy||0;
-    if(prodHoyFiltro==='recv') return o.recvHoy||0;
-    return (o.putHoy||0)+(o.recvHoy||0);  // ambos
-  }
-  const totPut = regs.filter(r=>r.s&&r.s.trim()).length;
-  const totRecv = regs.length-totPut;
-  const totCtns = regs.reduce((s,r)=>s+((r.s&&r.s.trim())?r.q:0),0);
-  const totHoy = regs.filter(r=>r.s&&r.s.trim()&&r.t>=t0).length;
 
-  const nombres = Object.keys(porPersona).sort((a,b)=>porPersona[b].put-porPersona[a].put);
+  let totPut=0, totRecv=0, totCtns=0;
+  Object.keys(porPersona).forEach(n=>{ const s=porPersona[n]; totPut+=s.put; totRecv+=s.recv; totCtns+=s.ctns; });
+
+  const nombres = Object.keys(porPersona).sort((a,b)=>(porPersona[b].put+porPersona[b].recv)-(porPersona[a].put+porPersona[a].recv));
   const filasP = nombres.map(n=>{
     const s=porPersona[n];
     return `<tr>
       <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(n)}">${esc(iniciales(n))}</div>${esc(n)}</div></td>
       <td class="n">${s.put}</td><td class="n">${s.recv}</td>
-      <td class="n"><b>${tasa(s)}</b></td><td class="n">${valorHoy(s)}</td>
+      <td class="n"><b>${tasa(s, actP)}</b></td>
     </tr>`;
   }).join('');
 
-  const conts = Object.keys(porCont).sort((a,b)=>porCont[b].put-porCont[a].put);
+  const conts = Object.keys(porCont).sort((a,b)=>(porCont[b].put+porCont[b].recv)-(porCont[a].put+porCont[a].recv));
   const filasC = conts.map(n=>{
     const s=porCont[n];
     return `<tr>
       <td>📦 ${esc(n)}</td>
       <td class="n">${s.put}</td><td class="n">${s.recv}</td>
-      <td class="n"><b>${tasa(s)}</b></td>
+      <td class="n"><b>${tasa(s, actC)}</b></td>
     </tr>`;
   }).join('');
 
   const tasaLbl = prodTasaFiltro==='put'?'📦 Put/h':prodTasaFiltro==='recv'?'📥 Recv/h':'📊 Total/h';
-  const hoyLbl = prodHoyFiltro==='put'?'📦 Hoy':prodHoyFiltro==='recv'?'📥 Hoy':'📊 Hoy';
 
-  el.innerHTML = `
+  el.innerHTML = barraPeriodo() + `
     <div class="prod-resumen">
-      <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">📦 Put-away total</div></div>
-      <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">📥 Receiving total</div></div>
+      <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">📦 Put-away</div></div>
+      <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">📥 Receiving</div></div>
       <div class="prc"><div class="prc-n">${totPut+totRecv}</div><div class="prc-l">📊 Total pallets</div></div>
     </div>
     <div class="prod-filtros">
@@ -906,16 +990,10 @@ function renderProductividad(){
         <label class="prod-radio"><input type="radio" name="prodTasa" value="recv" ${prodTasaFiltro==='recv'?'checked':''} onchange="cambiarProdTasa('recv')"> 📥 Receiving</label>
         <label class="prod-radio"><input type="radio" name="prodTasa" value="ambos" ${prodTasaFiltro==='ambos'?'checked':''} onchange="cambiarProdTasa('ambos')"> 📊 Ambos</label>
       </div>
-      <div class="prod-filtro">
-        <div class="prod-filtro-tit">Hoy — contar:</div>
-        <label class="prod-radio"><input type="radio" name="prodHoy" value="put" ${prodHoyFiltro==='put'?'checked':''} onchange="cambiarProdHoy('put')"> 📦 Put-away</label>
-        <label class="prod-radio"><input type="radio" name="prodHoy" value="recv" ${prodHoyFiltro==='recv'?'checked':''} onchange="cambiarProdHoy('recv')"> 📥 Receiving</label>
-        <label class="prod-radio"><input type="radio" name="prodHoy" value="ambos" ${prodHoyFiltro==='ambos'?'checked':''} onchange="cambiarProdHoy('ambos')"> 📊 Ambos</label>
-      </div>
     </div>
     <h3 class="prod-tit">Por persona</h3>
     <table class="tabla">
-      <tr><th>Persona</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">${tasaLbl}</th><th class="n">${hoyLbl}</th></tr>
+      <tr><th>Persona</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">${tasaLbl}</th></tr>
       ${filasP}
     </table>
     <h3 class="prod-tit">Por container</h3>
@@ -923,7 +1001,14 @@ function renderProductividad(){
       <tr><th>Container</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">${tasaLbl}</th></tr>
       ${filasC}
     </table>
-    <div class="prod-nota">El promedio por hora se calcula entre el primer y el último escaneo de cada persona/container. Muestra "—" si el periodo es menor a 15 min.</div>`;
+    <div class="prod-nota">Período: <b>${nombrePeriodo()}</b>. Las estadísticas de containers borrados quedan guardadas y se suman aquí. El promedio por hora usa solo la actividad reciente (con hora exacta); muestra "—" si hay menos de 15 min de actividad.</div>`;
+}
+
+// Barra de botones para elegir el período (hoy / semana / mes / todo).
+function nombrePeriodo(){ return {hoy:'Hoy', semana:'Esta semana', mes:'Este mes', todo:'Todo'}[prodPeriodo]||'Hoy'; }
+function barraPeriodo(){
+  const op = [['hoy','📅 Hoy'],['semana','📆 Semana'],['mes','🗓 Mes'],['todo','∞ Todo']];
+  return `<div class="periodo-bar">${op.map(o=>`<button class="periodo-btn ${prodPeriodo===o[0]?'on':''}" onclick="cambiarProdPeriodo('${o[0]}')">${o[1]}</button>`).join('')}</div>`;
 }
 
 // ----- ACTIVIDAD EN TIEMPO REAL: feed de lo último que hizo cada dispositivo -----
@@ -959,9 +1044,9 @@ function cambiarProdTasa(v){
   localStorage.setItem('prodTasaFiltro', v);
   renderProductividad();
 }
-function cambiarProdHoy(v){
-  prodHoyFiltro = v;
-  localStorage.setItem('prodHoyFiltro', v);
+function cambiarProdPeriodo(v){
+  prodPeriodo = v;
+  localStorage.setItem('prodPeriodo', v);
   renderProductividad();
 }
 
@@ -1015,18 +1100,27 @@ function enviarAnuncio(){
 }
 function borrarPallet(clave, ridsCsv){
   const rids = String(ridsCsv).split(',').filter(Boolean);
-  modal({tit:'🗑 Borrar pallet', msg:'Se borrará este pallet para todo el equipo. ¿Continuar?', okTxt:'Borrar', rojo:true, onOk:()=>{
+  modal({tit:'🗑 Borrar pallet', msg:'Se borrará este pallet para todo el equipo. Sus estadísticas quedan guardadas en el histórico. ¿Continuar?', okTxt:'Borrar', rojo:true, onOk:()=>{
     conPin(()=>{
       const up={};
+      // Archivar las estadísticas de estos registros antes de borrarlos.
+      const cont = datosContainers[clave]||{}; const nom = cont.num||cont.n||clave;
+      const regsRaw = rids.map(rid=>{ const r=(cont.r||{})[rid]; return r?Object.assign({}, r, {contNom:nom}):null; }).filter(Boolean);
+      archivarRegs(regsRaw, up);
       rids.forEach(rid=>{ up['tombstones/regs/'+rid]=Date.now(); up['containers/'+clave+'/r/'+rid]=null; });
       equipoRef.update(up).then(()=>toast('Pallet borrado'));
     });
   }});
 }
 function borrarContainer(clave, nom){
-  modal({tit:'🗑 Borrar container', msg:'Se borrará "'+nom+'" y TODOS sus pallets para todo el equipo. Esto no se puede deshacer. ¿Continuar?', okTxt:'Borrar todo', rojo:true, onOk:()=>{
+  modal({tit:'🗑 Borrar container', msg:'Se borrará "'+nom+'" y TODOS sus pallets para todo el equipo. Sus estadísticas quedan guardadas en el histórico (Productividad). ¿Continuar?', okTxt:'Borrar todo', rojo:true, onOk:()=>{
     conPin(()=>{
-      const up={}; up['tombstones/containers/'+clave]=Date.now(); up['containers/'+clave]=null;
+      const up={};
+      // Archivar TODAS las estadísticas del container antes de borrarlo.
+      const cont = datosContainers[clave]||{};
+      const regsRaw = Object.keys(cont.r||{}).map(rid=>Object.assign({}, cont.r[rid], {contNom:nom}));
+      archivarRegs(regsRaw, up);
+      up['tombstones/containers/'+clave]=Date.now(); up['containers/'+clave]=null;
       equipoRef.update(up).then(()=>toast('Container borrado'));
     });
   }});
