@@ -1029,6 +1029,8 @@ function renderProductividad(){
     if(esPut) return (r.up||'').trim() || nombreDisp(r.dp||r.d) || '—';
     return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || '—';
   }
+  // Actor del lado RECEIVING de un registro (aunque el registro traiga SKU mezclado).
+  function recvActorDe(r){ return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || actorDe(r); }
 
   // --- 1) Datos EN VIVO (containers actuales), filtrados por período ---
   const regs = todosLosRegistros().filter(r=>r.t>0 && enPeriodo(claveDia(r.t)));
@@ -1040,23 +1042,47 @@ function renderProductividad(){
   const actCP = {};          // contNom -> persona -> dia -> {min,max}
   function ini(o,k){ if(!o[k]) o[k]={nom:k, put:0, recv:0, ctns:0}; return o[k]; }
   function track(store,nom,dia,t){ const m=store[nom]||(store[nom]={}); const d=m[dia]||(m[dia]={min:t,max:t}); if(t<d.min)d.min=t; if(t>d.max)d.max=t; }
+
+  // Pallets (container|código) que SÍ tienen un registro de receiving separado (sin SKU).
+  // Cuando el receiving y el put-away quedan en el MISMO registro, ese set NO lo incluye,
+  // así que más abajo le sumamos el receiving que de otro modo se perdería.
+  const tieneRecvAparte = new Set();
+  regs.forEach(r=>{
+    const esPut = !!(r.s && r.s.trim());
+    const code = (r.c||'').trim();
+    if(!esPut && code) tieneRecvAparte.add((r.contNom||r.clave)+'|'+code);
+  });
+
   regs.forEach(r=>{
     const esPut = !!(r.s && r.s.trim());
     const nom = actorDe(r);
     const cont = r.contNom||r.clave;
     const dia = claveDia(r.t);
+    const code = (r.c||'').trim();
     const p = ini(porPersona, nom);
     const c = ini(porCont, cont);
+    const cp = porContPersona[cont] || (porContPersona[cont]={});
+    const acp = actCP[cont] || (actCP[cont]={});
     if(esPut){ p.put++; c.put++; p.ctns+=r.q; c.ctns+=r.q; }
     else { p.recv++; c.recv++; }
     track(actP, nom, dia, r.t);
     track(actC, cont, dia, r.t);
     // desglose por persona DENTRO de cada container
-    const cp = porContPersona[cont] || (porContPersona[cont]={});
     const cpp = ini(cp, nom);
     if(esPut){ cpp.put++; cpp.ctns+=r.q; } else { cpp.recv++; }
-    const acp = actCP[cont] || (actCP[cont]={});
     track(acp, nom, dia, r.t);
+
+    // Receiving FUSIONADO: este registro tiene SKU (put) pero su pallet no tiene un
+    // receiving separado → el receiving quedó dentro de este mismo registro. Lo contamos.
+    if(esPut && code && !tieneRecvAparte.has(cont+'|'+code)){
+      const rNom = recvActorDe(r);
+      const rp = ini(porPersona, rNom);
+      rp.recv++; c.recv++;
+      const rcpp = ini(cp, rNom);
+      rcpp.recv++;
+      track(actP, rNom, dia, r.t);
+      track(acp, rNom, dia, r.t);
+    }
   });
 
   // --- 2) Datos ARCHIVADOS (containers borrados) del histórico, mismo período ---
