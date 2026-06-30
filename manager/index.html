@@ -44,6 +44,12 @@
   .punto{width:9px; height:9px; border-radius:50%; background:#9e9e9e;}
   .punto.on{background:#69f0ae; box-shadow:0 0 8px #69f0ae;}
   .punto.off{background:#ff5252;}
+  .idioma-sel{display:flex; gap:3px; margin-left:8px; padding-left:8px; border-left:1px solid rgba(255,255,255,.35);}
+  .idioma-btn{
+    border:none; background:rgba(255,255,255,.15); color:#fff; font-size:11px; font-weight:700;
+    padding:3px 7px; border-radius:10px; cursor:pointer; line-height:1.2;
+  }
+  .idioma-btn.on{background:#fff; color:#1565c0;}
   .resumen{display:flex; gap:8px; margin-top:12px;}
   .res-item{flex:1; background:rgba(255,255,255,.14); border-radius:12px; padding:8px 6px; text-align:center;}
   .res-num{font-size:20px; font-weight:800; line-height:1;}
@@ -131,9 +137,11 @@
   .cont-tools{display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px; background:#fafbfc; border-top:1px solid var(--gris-claro);}
   .sku-grupo{border-bottom:1px solid var(--gris-claro);}
   .sku-grupo:last-child{border-bottom:none;}
-  .sku-head{display:flex; align-items:center; gap:8px; padding:10px 14px; background:#fafbfc;}
-  .sku-nom{font-weight:700; font-size:13.5px; font-family:ui-monospace,monospace; flex:1; word-break:break-all;}
-  .sku-tot{font-size:11px; color:var(--texto2); font-weight:600; flex-shrink:0;}
+  /* SKU: nombre arriba (línea completa) y la info de pallets debajo, como en la app */
+  .sku-head{display:block; padding:10px 14px; background:#fafbfc;}
+  .sku-nom{font-weight:700; font-size:14px; font-family:ui-monospace,monospace; word-break:break-word; overflow-wrap:anywhere; display:block; margin-bottom:5px; color:var(--azul);}
+  .sku-sub{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .sku-tot{font-size:12px; color:var(--texto2); font-weight:600; flex:1; min-width:0;}
   .reg-fila{display:flex; align-items:center; gap:10px; padding:9px 14px 9px 18px; font-size:13px; border-top:1px solid #f1f4f6;}
   .ubic{font-weight:700; font-family:ui-monospace,monospace; color:var(--azul); background:#e3f2fd; padding:3px 8px; border-radius:6px; font-size:12.5px; flex-shrink:0;}
   .ubic.vacia{color:var(--naranja); background:#fff3e0; font-weight:600;}
@@ -213,8 +221,18 @@
   .prod-tit{font-size:14px; margin:18px 0 8px 0;}
   .tabla th.n{text-align:center;}
   .prod-nota{font-size:11px; color:var(--texto2); margin-top:10px; line-height:1.5;}
+  .tabla-cont .cont-fila{cursor:pointer;}
+  .tabla-cont .cont-fila td:first-child{font-weight:600;}
+  .tabla-cont .cont-fila.abierta{background:#e3f0ff;}
+  .tabla-cont .cont-sub td{background:#f7faff; font-size:12.5px;}
+  .tabla-cont .cont-sub td:first-child{padding-left:18px;}
+  .tabla-cont .cont-prom td{background:#fff8e1; font-weight:700;}
+  .tabla-cont .cont-sub-nota{color:var(--texto2); font-style:italic;}
   /* actividad en tiempo real */
   .act-head{font-size:12.5px; font-weight:700; color:var(--rojo); margin-bottom:10px;}
+  .act-head-filtro{display:flex; align-items:center; gap:10px; color:#1565c0; flex-wrap:wrap;}
+  .act-head-filtro span{font-weight:600; color:#333;}
+  .vertodo-btn{border:none; background:#e3f0ff; color:#1565c0; font-weight:700; font-size:12px; padding:6px 12px; border-radius:20px; cursor:pointer;}
   .act-fila{display:flex; align-items:flex-start; gap:10px; background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:10px 12px; margin-bottom:8px; box-shadow:0 1px 4px rgba(0,0,0,.04);}
   .act-ico{width:34px; height:34px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px;}
   .act-ico.put{background:#e3f2fd;} .act-ico.recv{background:#fff3e0;}
@@ -234,9 +252,9 @@
   <div class="login-card">
     <div class="login-logo">AU</div>
     <h1>AUnload Manager</h1>
-    <p>Panel de control en tiempo real.<br>Escribe el código de tu equipo.</p>
-    <input id="inputPin" type="text" inputmode="text" placeholder="Código de equipo" autocomplete="off">
-    <button class="btn" id="btnEntrar">Entrar</button>
+    <p data-i18n-html="loginSub">Panel de control en tiempo real.<br>Escribe el código de tu equipo.</p>
+    <input id="inputPin" type="text" inputmode="text" data-i18n-ph="loginPh" placeholder="Código de equipo" autocomplete="off">
+    <button class="btn" id="btnEntrar" data-i18n="entrar">Entrar</button>
   </div>
 </div>
 
@@ -246,28 +264,34 @@
     <div class="h-fila">
       <div>
         <div class="h-tit"><span class="logo">AU</span> AUnload Manager</div>
-        <div class="h-sub">Equipo <b id="lblPin">—</b></div>
+        <div class="h-sub"><span data-i18n="equipo">Equipo</span> <b id="lblPin">—</b></div>
       </div>
-      <div class="estado"><span class="punto" id="punto"></span><span id="lblEstado">Conectando…</span></div>
+      <div class="estado">
+        <span class="punto" id="punto"></span><span id="lblEstado">Conectando…</span>
+        <div class="idioma-sel">
+          <button class="idioma-btn on" data-lang="es" onclick="cambiarIdioma('es')">ES</button>
+          <button class="idioma-btn" data-lang="en" onclick="cambiarIdioma('en')">EN</button>
+          <button class="idioma-btn" data-lang="zh" onclick="cambiarIdioma('zh')">中文</button>
+        </div>
+      </div>
     </div>
     <div class="resumen">
-      <div class="res-item"><div class="res-num" id="numContainers">0</div><div class="res-lbl">Containers</div></div>
-      <div class="res-item"><div class="res-num" id="numPallets">0</div><div class="res-lbl">Pallets</div></div>
-      <div class="res-item"><div class="res-num" id="numCtns">0</div><div class="res-lbl">CTNs</div></div>
-      <div class="res-item"><div class="res-num" id="numVivo">0</div><div class="res-lbl">En vivo</div></div>
+      <div class="res-item"><div class="res-num" id="numContainers">0</div><div class="res-lbl" data-i18n="resContainers">Containers</div></div>
+      <div class="res-item"><div class="res-num" id="numPallets">0</div><div class="res-lbl" data-i18n="resPallets">Pallets</div></div>
+      <div class="res-item"><div class="res-num" id="numCtns">0</div><div class="res-lbl" data-i18n="resCtns">CTNs</div></div>
+      <div class="res-item"><div class="res-num" id="numVivo">0</div><div class="res-lbl" data-i18n="resVivo">En vivo</div></div>
     </div>
     <div class="tabs" id="tabs">
-      <button class="tab activa" data-vista="vivo">🟢 En vivo</button>
-      <button class="tab" data-vista="dispositivos">📱 Dispositivos</button>
-      <button class="tab" data-vista="containers">📦 Containers</button>
-      <button class="tab" data-vista="actividad">🔴 Actividad</button>
-      <button class="tab" data-vista="productividad">📊 Productividad</button>
-      <button class="tab" data-vista="personas">👥 Personas</button>
+      <button class="tab activa" data-vista="vivo" data-i18n="tabVivo">🟢 En vivo</button>
+      <button class="tab" data-vista="dispositivos" data-i18n="tabDisp">📱 Dispositivos</button>
+      <button class="tab" data-vista="containers" data-i18n="tabCont">📦 Containers</button>
+      <button class="tab" data-vista="actividad" data-i18n="tabAct">🔴 Actividad</button>
+      <button class="tab" data-vista="productividad" data-i18n="tabProd">📊 Productividad</button>
     </div>
     <div class="toolbar">
-      <button class="btn-mini" id="btnCambiar">↺ Cambiar equipo</button>
-      <button class="btn-mini" id="btnExpandir">⊕ Expandir todo</button>
-      <button class="btn-mini" id="btnCSV">⬇ Exportar CSV</button>
+      <button class="btn-mini" id="btnCambiar" data-i18n="tbCambiar">↺ Cambiar equipo</button>
+      <button class="btn-mini" id="btnExpandir" data-i18n="tbExpandir">⊕ Expandir todo</button>
+      <button class="btn-mini" id="btnCSV" data-i18n="tbCSV">⬇ Exportar CSV</button>
     </div>
   </header>
 
@@ -275,26 +299,26 @@
     <!-- VISTA EN VIVO -->
     <section class="vista activa" id="vista-vivo">
       <div class="card-acc">
-        <h3>📢 Enviar aviso a todos</h3>
-        <p>El mensaje aparecerá en todos los escáneres del equipo.</p>
-        <textarea id="txtAnuncio" rows="2" placeholder="Escribe tu aviso… (ej: Reunión en 10 min)"></textarea>
-        <button class="btn-accion" id="btnAnuncio">Enviar aviso</button>
+        <h3 data-i18n="avisoTit">📢 Enviar aviso a todos</h3>
+        <p data-i18n="avisoDesc">El mensaje aparecerá en todos los escáneres del equipo.</p>
+        <textarea id="txtAnuncio" rows="2" data-i18n-ph="avisoPh" placeholder="Escribe tu aviso… (ej: Reunión en 10 min)"></textarea>
+        <button class="btn-accion" id="btnAnuncio" data-i18n="avisoBtn">Enviar aviso</button>
       </div>
-      <div class="seccion-tit">🟢 Trabajando ahora</div>
+      <div class="seccion-tit" data-i18n="trabajando">🟢 Trabajando ahora</div>
       <div id="vivo"></div>
     </section>
 
     <!-- VISTA DISPOSITIVOS -->
     <section class="vista" id="vista-dispositivos">
-      <div class="seccion-tit">📱 Dispositivos del equipo</div>
+      <div class="seccion-tit" data-i18n="dispTit">📱 Dispositivos del equipo</div>
       <div id="dispositivos"></div>
     </section>
 
     <!-- VISTA CONTAINERS -->
     <section class="vista" id="vista-containers">
-      <input class="buscar-glob" id="buscarGlobal" type="text" placeholder="🔎 Buscar AUnload, SKU o ubicación en todo el equipo…">
+      <input class="buscar-glob" id="buscarGlobal" type="text" data-i18n-ph="buscarPh" placeholder="🔎 Buscar AUnload, SKU o ubicación en todo el equipo…">
       <div class="opc-others">
-        <span class="opc-others-txt">Ocultar «OTHERS» (sin SKU) en todos los teléfonos</span>
+        <span class="opc-others-txt" data-i18n="ocultarTxt">Ocultar «OTHERS» (sin SKU) en todos los teléfonos</span>
         <button class="opc-others-btn" id="btnOcultarOthers" title="Aplica a todos los escáneres del equipo">…</button>
       </div>
       <div id="containers"></div>
@@ -302,20 +326,14 @@
 
     <!-- VISTA ACTIVIDAD (tiempo real) -->
     <section class="vista" id="vista-actividad">
-      <div class="seccion-tit">🔴 Actividad en tiempo real</div>
+      <div class="seccion-tit" data-i18n="actTit">🔴 Actividad en tiempo real</div>
       <div id="actividad"></div>
     </section>
 
     <!-- VISTA PRODUCTIVIDAD -->
     <section class="vista" id="vista-productividad">
-      <div class="seccion-tit">📊 Productividad</div>
+      <div class="seccion-tit" data-i18n="prodTit">📊 Productividad</div>
       <div id="productividad"></div>
-    </section>
-
-    <!-- VISTA PERSONAS -->
-    <section class="vista" id="vista-personas">
-      <div class="seccion-tit">👥 Totales por persona</div>
-      <div id="personas"></div>
     </section>
 
     <div class="actualizado" id="actualizado"></div>
@@ -373,6 +391,133 @@ let vistaActual = 'vivo';
 let prodTasaFiltro = localStorage.getItem('prodTasaFiltro') || 'put';     // 'put', 'recv', 'ambos'
 let prodPeriodo = localStorage.getItem('prodPeriodo') || 'hoy';           // 'hoy', 'semana', 'mes', 'todo'
 let datosHistorico = {};         // estadísticas archivadas por día (persisten aunque se borren containers)
+let filtroActividad = null;      // {tipo:'persona'|'disp', valor, label} para ver actividad de uno solo
+let prodContAbierto = null;      // container expandido en Productividad (drill-down por persona)
+let conectado = false;           // estado de conexión actual (para traducir el rótulo al cambiar idioma)
+
+// ---------- IDIOMAS (es / en / zh) — igual que la app ----------
+let idioma = localStorage.getItem('aunload_idioma') || 'es';
+const I18N = {
+  loginSub:      ['Panel de control en tiempo real.<br>Escribe el código de tu equipo.','Real-time control panel.<br>Enter your team code.','实时控制面板。<br>输入您的团队代码。'],
+  loginPh:       ['Código de equipo','Team code','团队代码'],
+  entrar:        ['Entrar','Enter','进入'],
+  equipo:        ['Equipo','Team','团队'],
+  conectando:    ['Conectando…','Connecting…','连接中…'],
+  enLinea:       ['En línea','Online','在线'],
+  sinConexion:   ['Sin conexión','Offline','离线'],
+  resContainers: ['Containers','Containers','集装箱'],
+  resPallets:    ['Pallets','Pallets','托盘'],
+  resCtns:       ['CTNs','CTNs','箱数'],
+  resVivo:       ['En vivo','Live','实时'],
+  tabVivo:       ['🟢 En vivo','🟢 Live','🟢 实时'],
+  tabDisp:       ['📱 Dispositivos','📱 Devices','📱 设备'],
+  tabCont:       ['📦 Containers','📦 Containers','📦 集装箱'],
+  tabAct:        ['🔴 Actividad','🔴 Activity','🔴 活动'],
+  tabProd:       ['📊 Productividad','📊 Productivity','📊 生产力'],
+  tbCambiar:     ['↺ Cambiar equipo','↺ Change team','↺ 切换团队'],
+  tbExpandir:    ['⊕ Expandir todo','⊕ Expand all','⊕ 全部展开'],
+  tbContraer:    ['⊖ Contraer todo','⊖ Collapse all','⊖ 全部收起'],
+  tbCSV:         ['⬇ Exportar CSV','⬇ Export CSV','⬇ 导出CSV'],
+  avisoTit:      ['📢 Enviar aviso a todos','📢 Send notice to all','📢 向所有人发送通知'],
+  avisoDesc:     ['El mensaje aparecerá en todos los escáneres del equipo.','The message will appear on all team scanners.','消息将显示在团队所有扫描器上。'],
+  avisoPh:       ['Escribe tu aviso… (ej: Reunión en 10 min)','Type your notice… (e.g. Meeting in 10 min)','输入通知…(例如：10分钟后开会)'],
+  avisoBtn:      ['Enviar aviso','Send notice','发送通知'],
+  avisoEnviado:  ['Aviso enviado a todos','Notice sent to all','已向所有人发送通知'],
+  trabajando:    ['🟢 Trabajando ahora','🟢 Working now','🟢 正在工作'],
+  dispTit:       ['📱 Dispositivos del equipo','📱 Team devices','📱 团队设备'],
+  buscarPh:      ['🔎 Buscar AUnload, SKU o ubicación en todo el equipo…','🔎 Search AUnload, SKU or location across the team…','🔎 在整个团队中搜索 AUnload、SKU 或库位…'],
+  ocultarTxt:    ['Ocultar «OTHERS» (sin SKU) en todos los teléfonos','Hide «OTHERS» (no SKU) on all phones','在所有手机上隐藏「OTHERS」(无SKU)'],
+  actTit:        ['🔴 Actividad en tiempo real','🔴 Real-time activity','🔴 实时活动'],
+  prodTit:       ['📊 Productividad','📊 Productivity','📊 生产力'],
+  nadie:         ['Nadie está trabajando en este momento.','Nobody is working right now.','目前没有人在工作。'],
+  envivo:        ['en vivo','live','实时'],
+  sinSku:        ['(sin SKU)','(no SKU)','(无SKU)'],
+  verTodo:       ['← Ver todo','← View all','← 查看全部'],
+  actividadDe:   ['Actividad de','Activity of','活动：'],
+  sinActividad:  ['Todavía no hay actividad. Aparecerá aquí en cuanto alguien escanee.','No activity yet. It will appear here as soon as someone scans.','暂无活动。有人扫描后将显示在此处。'],
+  sinActFiltro:  ['Sin actividad para mostrar.','No activity to show.','没有可显示的活动。'],
+  ultimosMov:    ['últimos','last','最近'],
+  movimientos:   ['movimientos de todos los dispositivos','movements from all devices','所有设备的操作'],
+  putaway:       ['Put-away','Put-away','上架'],
+  receiving:     ['Receiving','Receiving','收货'],
+  recibido:      ['recibido','received','已收货'],
+  ubicoEn:       ['ubicó en','placed at','放置于'],
+  sinNombre:     ['Sin nombre','No name','无名称'],
+  sinUsuario:    ['sin nombre de usuario','no user name','无用户名'],
+  versionQ:      ['versión ?','version ?','版本 ?'],
+  bloqueado:     ['Bloqueado','Blocked','已封锁'],
+  activo:        ['Activo','Active','活跃'],
+  offlineInac:   ['Offline (inactivo)','Offline (inactive)','离线(未活动)'],
+  ultActividad:  ['última actividad','last activity','最后活动'],
+  btnNombre:     ['✏️ Nombre','✏️ Name','✏️ 名称'],
+  btnDesbloq:    ['🔓 Desbloquear','🔓 Unblock','🔓 解除封锁'],
+  btnBloq:       ['🔒 Bloquear','🔒 Block','🔒 封锁'],
+  btnUpdPedido:  ['✓ Update pedido','✓ Update requested','✓ 已请求更新'],
+  btnForzarUpd:  ['⟳ Forzar update','⟳ Force update','⟳ 强制更新'],
+  sinDisp:       ['Todavía no hay dispositivos registrados. Aparecerán cuando abran la app.','No devices registered yet. They will appear when the app is opened.','尚未注册设备。打开应用后将显示。'],
+  verActDe:      ['Ver actividad','View activity','查看活动'],
+  ctRenombrar:   ['✏️ Renombrar','✏️ Rename','✏️ 重命名'],
+  ctOtroEquipo:  ['➡️ Otro equipo','➡️ Other team','➡️ 其他团队'],
+  ctFusionar:    ['🔀 Fusionar','🔀 Merge','🔀 合并'],
+  ctBorrar:      ['🗑 Borrar','🗑 Delete','🗑 删除'],
+  sinPallets:    ['Sin pallets todavía.','No pallets yet.','暂无托盘。'],
+  pallet:        ['pallet','pallet','托盘'],
+  pallets:       ['pallets','pallets','托盘'],
+  sinCant:       ['sin cant.','no qty','无数量'],
+  moverSku:      ['↗️ Mover SKU','↗️ Move SKU','↗️ 移动SKU'],
+  sinUbic:       ['📍 sin ubicación','📍 no location','📍 无库位'],
+  sinContainers: ['Todavía no hay containers en este equipo.','No containers in this team yet.','此团队暂无集装箱。'],
+  nadaCoincide:  ['Nada coincide con tu búsqueda.','Nothing matches your search.','没有符合搜索的结果。'],
+  prodPutTot:    ['📦 Put-away','📦 Put-away','📦 上架'],
+  prodRecvTot:   ['📥 Receiving','📥 Receiving','📥 收货'],
+  prodTotPal:    ['📊 Total pallets','📊 Total pallets','📊 总托盘'],
+  prodContar:    ['Pallets/hora — contar:','Pallets/hour — count:','托盘/小时 — 统计:'],
+  optPut:        ['📦 Put-away','📦 Put-away','📦 上架'],
+  optRecv:       ['📥 Receiving','📥 Receiving','📥 收货'],
+  optAmbos:      ['📊 Ambos','📊 Both','📊 两者'],
+  porPersona:    ['Por persona','By person','按人员'],
+  porContainer: ['Por container','By container','按集装箱'],
+  thPersona:     ['Persona','Person','人员'],
+  thContainer:   ['Container','Container','集装箱'],
+  thPut:         ['📦 Put','📦 Put','📦 上架'],
+  thRecv:        ['📥 Recv','📥 Recv','📥 收货'],
+  lblPutH:       ['📦 Put/h','📦 Put/h','📦 上架/时'],
+  lblRecvH:      ['📥 Recv/h','📥 Recv/h','📥 收货/时'],
+  lblTotH:       ['📊 Total/h','📊 Total/h','📊 总计/时'],
+  perHoy:        ['📅 Hoy','📅 Today','📅 今天'],
+  perSemana:     ['📆 Semana','📆 Week','📆 本周'],
+  perMes:        ['🗓 Mes','🗓 Month','🗓 本月'],
+  perTodo:       ['∞ Todo','∞ All','∞ 全部'],
+  perHoyN:       ['Hoy','Today','今天'],
+  perSemanaN:    ['Esta semana','This week','本周'],
+  perMesN:       ['Este mes','This month','本月'],
+  perTodoN:      ['Todo','All','全部'],
+  sinActPeriodo: ['No hay actividad en el período seleccionado.','No activity in the selected period.','所选时间段内没有活动。'],
+  prodPeriodoLbl:['Período','Period','时间段'],
+  prodNota:      ['Las estadísticas de containers borrados quedan guardadas y se suman aquí. Toca un container para ver el promedio y las personas dentro. El promedio por hora usa solo la actividad reciente; muestra "—" si hay menos de 15 min de actividad.','Stats from deleted containers are saved and added here. Tap a container to see its average and the people inside. The hourly average uses only recent activity; shows "—" if there is less than 15 min of activity.','已删除集装箱的统计数据会被保存并汇总在此。点击集装箱可查看其平均值和内部人员。每小时平均值仅使用近期活动；活动少于15分钟时显示"—"。'],
+  archivado:     ['archivado (sin detalle por persona)','archived (no per-person detail)','已归档(无人员明细)'],
+  promedio:      ['Promedio del container','Container average','集装箱平均'],
+  actualizado:   ['Actualizado en vivo','Updated live','实时更新'],
+  toggleVerTodos:['Toca para ver actividad','Tap to see activity','点击查看活动']
+};
+function t(k){ const e=I18N[k]; if(!e) return k; return e[idioma==='en'?1:idioma==='zh'?2:0] || e[0]; }
+function cambiarIdioma(lang){
+  idioma = lang; localStorage.setItem('aunload_idioma', lang);
+  document.querySelectorAll('.idioma-btn').forEach(b=>b.classList.toggle('on', b.dataset.lang===lang));
+  document.documentElement.lang = lang;
+  traducirEstaticos();
+  if(equipoRef) render(); else traducirEstaticos();
+}
+// Traduce todos los textos estáticos del HTML marcados con data-i18n / data-i18n-ph / data-i18n-html.
+function traducirEstaticos(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{ el.innerHTML = t(el.dataset.i18nHtml); });
+  // el botón expandir/contraer depende del estado
+  const be=document.getElementById('btnExpandir'); if(be) be.textContent = todoExpandido ? t('tbContraer') : t('tbExpandir');
+  // el rótulo de conexión depende del estado actual
+  const le=document.getElementById('lblEstado'); if(le && equipoRef) le.textContent = conectado ? t('enLinea') : t('sinConexion');
+}
 
 // ---------- utilidades ----------
 function colorAvatar(nombre){
@@ -488,9 +633,9 @@ function conectar(pin){
   equipoRef.child('historico').on('value', s=>{ datosHistorico = s.val()||{}; render(); });
 
   db.ref('.info/connected').on('value', s=>{
-    const on = s.val()===true;
-    document.getElementById('punto').className = 'punto '+(on?'on':'off');
-    document.getElementById('lblEstado').textContent = on?'En línea':'Sin conexión';
+    conectado = s.val()===true;
+    document.getElementById('punto').className = 'punto '+(conectado?'on':'off');
+    document.getElementById('lblEstado').textContent = conectado?t('enLinea'):t('sinConexion');
   });
 }
 
@@ -584,20 +729,20 @@ function render(){
   // ----- EN VIVO -----
   const vivoEl = document.getElementById('vivo');
   if(vivoLista.length===0){
-    vivoEl.innerHTML = '<div class="vivo-vacio">Nadie está trabajando en este momento.</div>';
+    vivoEl.innerHTML = '<div class="vivo-vacio">'+t('nadie')+'</div>';
   } else {
     vivoLista.sort((a,b)=>b.t-a.t);
     vivoEl.innerHTML = vivoLista.map(p=>{
       const cont = datosContainers[p.clave];
       const nomCont = cont ? (cont.num||cont.n||p.clave) : p.clave;
-      const nombre = p.u || 'Sin nombre';
-      return `<div class="persona">
+      const nombre = p.u || t('sinNombre');
+      return `<div class="persona" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadPersona('${esc(nombre)}')">
         <div class="avatar" style="background:${colorAvatar(nombre)}">${esc(iniciales(nombre))}</div>
         <div class="persona-info">
           <div class="persona-nom">${esc(nombre)}</div>
           <div class="persona-cont">📦 ${esc(nomCont)}</div>
         </div>
-        <div class="latido"><span class="pulso"></span>en vivo</div>
+        <div class="latido"><span class="pulso"></span>${esc(t('envivo'))} ›</div>
       </div>`;
     }).join('');
   }
@@ -619,7 +764,7 @@ function render(){
   });
 
   if(totalCont===0){
-    contEl.innerHTML = '<div class="sin-cont"><span class="emoji">📭</span>Todavía no hay containers en este equipo.</div>';
+    contEl.innerHTML = '<div class="sin-cont"><span class="emoji">📭</span>'+t('sinContainers')+'</div>';
   } else {
     const q = filtroGlobal.trim().toLowerCase();
     const ordenadas = claves.slice().sort((a,b)=>(datosContainers[b].cr||0)-(datosContainers[a].cr||0));
@@ -671,12 +816,12 @@ function render(){
           .sort((a,b)=> (porCant[b]-porCant[a]) || (b-a) );   // más pallets primero, luego cantidad mayor
         let detPal;
         if(cantidades.length>0){
-          const partes = cantidades.map(q=>`${porCant[q]} pallet${porCant[q]!=1?'s':''} × ${q}`);
+          const partes = cantidades.map(q=>`${porCant[q]} ${porCant[q]!=1?t('pallets'):t('pallet')} × ${q}`);
           const sinCant = lista.length - palConCant;   // pallets sin cantidad registrada
-          if(sinCant>0) partes.push(`${sinCant} pallet${sinCant!=1?'s':''} sin cant.`);
+          if(sinCant>0) partes.push(`${sinCant} ${sinCant!=1?t('pallets'):t('pallet')} ${t('sinCant')}`);
           detPal = `${partes.join(' · ')} bxs · ${ctns} CTNs`;
         } else {
-          detPal = `${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs`;
+          detPal = `${lista.length} ${lista.length!=1?t('pallets'):t('pallet')} · ${ctns} CTNs`;
         }
         lista.sort((a,b)=>{ const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim(); if(!!ua!==!!ub) return ua?-1:1; return (b.t||0)-(a.t||0); });
         let filas='';
@@ -685,7 +830,7 @@ function render(){
           const veces = tieneU ? (conteoU[r.u.trim().toUpperCase()]||1) : 0;
           const ubic = tieneU
             ? `<span class="ubic">${esc(r.u)}${veces>1?(' <b style="color:#c62828">×'+veces+'</b>'):''}</span>`
-            : `<span class="ubic vacia">📍 sin ubicación</span>`;
+            : `<span class="ubic vacia">${t('sinUbic')}</span>`;
           const quien = (r.ur||r.up)
             ? `<span class="reg-quien">${r.ur?('📥 '+esc(r.ur)):''}${r.ur&&r.up?'<br>':''}${r.up?('📦 '+esc(r.up)):''}</span>` : '';
           filas += `<div class="reg-fila">
@@ -698,9 +843,13 @@ function render(){
           </div>`;
         });
         const skuMover = sku!=='(sin SKU)'
-          ? `<button class="sku-acc" title="Mover todos los pallets de este SKU a otro container" onclick="moverSku('${esc(clave)}','${esc(sku)}')">↗️ Mover SKU</button>` : '';
+          ? `<button class="sku-acc" title="Mover todos los pallets de este SKU a otro container" onclick="moverSku('${esc(clave)}','${esc(sku)}')">${t('moverSku')}</button>` : '';
+        const skuTxt = sku==='(sin SKU)' ? t('sinSku') : esc(sku);
         cuerpo += `<div class="sku-grupo">
-          <div class="sku-head"><span class="sku-nom">${esc(sku)}</span><span class="sku-tot">${detPal}</span>${skuMover}</div>
+          <div class="sku-head">
+            <span class="sku-nom">${skuTxt}</span>
+            <div class="sku-sub"><span class="sku-tot">${detPal}</span>${skuMover}</div>
+          </div>
           ${filas}
         </div>`;
       });
@@ -712,27 +861,26 @@ function render(){
           <div class="cont-icono">📦</div>
           <div class="cont-info">
             <div class="cont-num">${esc(c.num||c.n||clave)}</div>
-            <div class="cont-meta">${totReg} pallets · ${esc(c.n||'')}</div>
+            <div class="cont-meta">${totReg} ${t('pallets')} · ${esc(c.n||'')}</div>
           </div>
           ${vivos.length>0 ? `<span class="cont-badge activo">🟢 ${vivos.length}</span>` : ''}
           <span class="flecha">▶</span>
         </div>
         <div class="container-body">
           <div class="cont-tools">
-            <button class="accion" onclick="renombrarContainer('${esc(clave)}')">✏️ Renombrar</button>
-            <button class="accion azul" onclick="moverContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">➡️ Otro equipo</button>
-            <button class="accion warn" onclick="fusionarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🔀 Fusionar</button>
-            <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">🗑 Borrar</button>
+            <button class="accion" onclick="renombrarContainer('${esc(clave)}')">${t('ctRenombrar')}</button>
+            <button class="accion azul" onclick="moverContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctOtroEquipo')}</button>
+            <button class="accion warn" onclick="fusionarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctFusionar')}</button>
+            <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctBorrar')}</button>
           </div>
-          ${cuerpo||'<div class="reg-fila"><span class="reg-cant">Sin pallets todavía.</span></div>'}
+          ${cuerpo||'<div class="reg-fila"><span class="reg-cant">'+t('sinPallets')+'</span></div>'}
         </div>
       </div>`;
     });
-    contEl.innerHTML = html || '<div class="sin-cont"><span class="emoji">🔎</span>Nada coincide con tu búsqueda.</div>';
+    contEl.innerHTML = html || '<div class="sin-cont"><span class="emoji">🔎</span>'+t('nadaCoincide')+'</div>';
   }
 
   // ----- PERSONAS -----
-  renderPersonas();
   // ----- PRODUCTIVIDAD / ACTIVIDAD -----
   renderProductividad();
   renderActividad();
@@ -748,7 +896,7 @@ function render(){
 function renderDispositivos(){
   const el = document.getElementById('dispositivos');
   const ids = Object.keys(datosDevices||{});
-  if(ids.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay dispositivos registrados. Aparecerán cuando abran la app.</div>'; return; }
+  if(ids.length===0){ el.innerHTML='<div class="vivo-vacio">'+t('sinDisp')+'</div>'; return; }
   const ahora = Date.now();
   // Mapa de última ACTIVIDAD real (put-away / receiving) por dispositivo.
   // Un equipo se considera offline si lleva 30 min sin escanear nada.
@@ -774,58 +922,30 @@ function renderDispositivos(){
     const ultAct = Math.max(act[id]||0, d.seen||0);
     const enLinea = activo(id);
     const bloq = d.blocked===true;
-    const nombre = d.name || d.u || 'Sin nombre';
-    const usuario = d.u ? esc(d.u) : 'sin nombre de usuario';
-    const ver = d.v ? ('v'+esc(d.v)) : 'versión ?';
-    let estBadge = bloq ? '<span class="badge-est bl">Bloqueado</span>'
-                  : enLinea ? '<span class="badge-est on">Activo</span>'
-                  : '<span class="badge-est off">Offline (inactivo)</span>';
+    const nombre = d.name || d.u || t('sinNombre');
+    const usuario = d.u ? esc(d.u) : t('sinUsuario');
+    const ver = d.v ? ('v'+esc(d.v)) : t('versionQ');
+    let estBadge = bloq ? '<span class="badge-est bl">'+t('bloqueado')+'</span>'
+                  : enLinea ? '<span class="badge-est on">'+t('activo')+'</span>'
+                  : '<span class="badge-est off">'+t('offlineInac')+'</span>';
     const fu = d.forceUpdate===true;
     return `<div class="dev ${enLinea?'online':''} ${bloq?'bloq':''}">
-      <div class="dev-top">
+      <div class="dev-top" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadDispositivo('${esc(id)}','${esc(nombre)}')">
         <div class="avatar" style="background:${colorAvatar(nombre)}">${esc(iniciales(nombre))}</div>
         <div class="dev-info">
-          <div class="dev-nom">${esc(nombre)} ${estBadge}</div>
-          <div class="dev-meta">👤 ${usuario} · ${ver} · última actividad ${ultAct?tiempoRelativo(ultAct):'—'}</div>
+          <div class="dev-nom">${esc(nombre)} ${estBadge} <span style="color:#1565c0;font-size:12px">›</span></div>
+          <div class="dev-meta">👤 ${usuario} · ${ver} · ${t('ultActividad')} ${ultAct?tiempoRelativo(ultAct):'—'}</div>
         </div>
       </div>
       <div class="dev-acc">
-        <button class="accion" onclick="renombrarDev('${esc(id)}','${esc(d.name||'')}')">✏️ Nombre</button>
+        <button class="accion" onclick="renombrarDev('${esc(id)}','${esc(d.name||'')}')">${t('btnNombre')}</button>
         ${bloq
-          ? `<button class="accion ok" onclick="desbloquearDev('${esc(id)}')">🔓 Desbloquear</button>`
-          : `<button class="accion peli" onclick="bloquearDev('${esc(id)}')">🔒 Bloquear</button>`}
-        <button class="accion ${fu?'ok':'warn'}" onclick="forzarUpdate('${esc(id)}',${fu?'true':'false'})">${fu?'✓ Update pedido':'⟳ Forzar update'}</button>
+          ? `<button class="accion ok" onclick="desbloquearDev('${esc(id)}')">${t('btnDesbloq')}</button>`
+          : `<button class="accion peli" onclick="bloquearDev('${esc(id)}')">${t('btnBloq')}</button>`}
+        <button class="accion ${fu?'ok':'warn'}" onclick="forzarUpdate('${esc(id)}',${fu?'true':'false'})">${fu?t('btnUpdPedido'):t('btnForzarUpd')}</button>
       </div>
     </div>`;
   }).join('');
-}
-
-function renderPersonas(){
-  const el = document.getElementById('personas');
-  const regs = todosLosRegistros();
-  if(regs.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay actividad registrada.</div>'; return; }
-  // agregar por persona (receiving y put away por separado)
-  const stats = {}; // nombre -> {recv, put, ctns}
-  function add(nombre, campo, ctns){
-    nombre = (nombre||'').trim(); if(!nombre) return;
-    if(!stats[nombre]) stats[nombre]={recv:0, put:0, ctns:0};
-    stats[nombre][campo]++; if(campo==='recv') stats[nombre].ctns+=ctns;
-  }
-  regs.forEach(r=>{ if(r.ur) add(r.ur,'recv',r.q); if(r.up) add(r.up,'put',0); });
-  const nombres = Object.keys(stats);
-  if(nombres.length===0){ el.innerHTML='<div class="vivo-vacio">Aún no hay nombres en los registros. Pídeles que pongan su nombre en Ajustes.</div>'; return; }
-  nombres.sort((a,b)=>(stats[b].recv+stats[b].put)-(stats[a].recv+stats[a].put));
-  let filas = nombres.map(n=>{
-    const s=stats[n];
-    return `<tr>
-      <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(n)}">${esc(iniciales(n))}</div>${esc(n)}</div></td>
-      <td class="n">${s.recv}</td><td class="n">${s.put}</td><td class="n">${s.ctns}</td>
-    </tr>`;
-  }).join('');
-  el.innerHTML = `<table class="tabla">
-    <tr><th>Persona</th><th style="text-align:center">📥 Receiving</th><th style="text-align:center">📦 Put away</th><th style="text-align:center">CTNs</th></tr>
-    ${filas}
-  </table>`;
 }
 
 // ----- HISTÓRICO / PERÍODOS -----
@@ -909,6 +1029,8 @@ function renderProductividad(){
   const porCont = {};      // contNom -> {nom, put, recv, ctns}
   const actP = {};         // nombre -> dia -> {min,max}  (horas activas, solo en vivo)
   const actC = {};
+  const porContPersona = {}; // contNom -> { persona -> {nom,put,recv,ctns} }   (solo EN VIVO)
+  const actCP = {};          // contNom -> persona -> dia -> {min,max}
   function ini(o,k){ if(!o[k]) o[k]={nom:k, put:0, recv:0, ctns:0}; return o[k]; }
   function track(store,nom,dia,t){ const m=store[nom]||(store[nom]={}); const d=m[dia]||(m[dia]={min:t,max:t}); if(t<d.min)d.min=t; if(t>d.max)d.max=t; }
   regs.forEach(r=>{
@@ -922,6 +1044,12 @@ function renderProductividad(){
     else { p.recv++; c.recv++; }
     track(actP, nom, dia, r.t);
     track(actC, cont, dia, r.t);
+    // desglose por persona DENTRO de cada container
+    const cp = porContPersona[cont] || (porContPersona[cont]={});
+    const cpp = ini(cp, nom);
+    if(esPut){ cpp.put++; cpp.ctns+=r.q; } else { cpp.recv++; }
+    const acp = actCP[cont] || (actCP[cont]={});
+    track(acp, nom, dia, r.t);
   });
 
   // --- 2) Datos ARCHIVADOS (containers borrados) del histórico, mismo período ---
@@ -939,7 +1067,7 @@ function renderProductividad(){
   }
 
   if(Object.keys(porPersona).length===0){
-    el.innerHTML = barraPeriodo() + '<div class="vivo-vacio">No hay actividad en el período seleccionado.</div>';
+    el.innerHTML = barraPeriodo() + '<div class="vivo-vacio">'+t('sinActPeriodo')+'</div>';
     return;
   }
 
@@ -965,67 +1093,128 @@ function renderProductividad(){
     </tr>`;
   }).join('');
 
+  const tasaLbl = prodTasaFiltro==='put'?t('lblPutH'):prodTasaFiltro==='recv'?t('lblRecvH'):t('lblTotH');
+
   const conts = Object.keys(porCont).sort((a,b)=>(porCont[b].put+porCont[b].recv)-(porCont[a].put+porCont[a].recv));
   const filasC = conts.map(n=>{
     const s=porCont[n];
-    return `<tr>
-      <td>📦 ${esc(n)}</td>
+    const abierto = prodContAbierto===n;
+    const cab = `<tr class="cont-fila ${abierto?'abierta':''}" onclick="toggleProdCont('${esc(n)}')">
+      <td>${abierto?'▼':'▶'} 📦 ${esc(n)}</td>
       <td class="n">${s.put}</td><td class="n">${s.recv}</td>
       <td class="n"><b>${tasa(s, actC)}</b></td>
     </tr>`;
+    if(!abierto) return cab;
+    // Detalle: promedio del container + personas que trabajaron dentro
+    const gente = porContPersona[n] ? Object.keys(porContPersona[n]) : [];
+    let detalle;
+    if(gente.length===0){
+      detalle = `<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('archivado'))}</td></tr>`;
+    } else {
+      gente.sort((a,b)=>(porContPersona[n][b].put+porContPersona[n][b].recv)-(porContPersona[n][a].put+porContPersona[n][a].recv));
+      // Promedio = media de los pallets/hora de las personas con tasa válida
+      const tasas=[]; gente.forEach(g=>{ const v=tasa(porContPersona[n][g], actCP[n]); if(v!=='—') tasas.push(parseFloat(v)); });
+      const prom = tasas.length ? (tasas.reduce((a,b)=>a+b,0)/tasas.length).toFixed(1) : '—';
+      const filaProm = `<tr class="cont-sub cont-prom"><td>⭐ ${esc(t('promedio'))}</td><td class="n">—</td><td class="n">—</td><td class="n"><b>${prom}</b></td></tr>`;
+      const filasGente = gente.map(g=>{
+        const sp=porContPersona[n][g];
+        return `<tr class="cont-sub">
+          <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(g)}">${esc(iniciales(g))}</div>${esc(g)}</div></td>
+          <td class="n">${sp.put}</td><td class="n">${sp.recv}</td>
+          <td class="n"><b>${tasa(sp, actCP[n])}</b></td>
+        </tr>`;
+      }).join('');
+      detalle = filaProm + filasGente;
+    }
+    return cab + detalle;
   }).join('');
-
-  const tasaLbl = prodTasaFiltro==='put'?'📦 Put/h':prodTasaFiltro==='recv'?'📥 Recv/h':'📊 Total/h';
 
   el.innerHTML = barraPeriodo() + `
     <div class="prod-resumen">
-      <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">📦 Put-away</div></div>
-      <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">📥 Receiving</div></div>
-      <div class="prc"><div class="prc-n">${totPut+totRecv}</div><div class="prc-l">📊 Total pallets</div></div>
+      <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">${t('prodPutTot')}</div></div>
+      <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">${t('prodRecvTot')}</div></div>
+      <div class="prc"><div class="prc-n">${totPut+totRecv}</div><div class="prc-l">${t('prodTotPal')}</div></div>
     </div>
     <div class="prod-filtros">
       <div class="prod-filtro">
-        <div class="prod-filtro-tit">Pallets/hora — contar:</div>
-        <label class="prod-radio"><input type="radio" name="prodTasa" value="put" ${prodTasaFiltro==='put'?'checked':''} onchange="cambiarProdTasa('put')"> 📦 Put-away</label>
-        <label class="prod-radio"><input type="radio" name="prodTasa" value="recv" ${prodTasaFiltro==='recv'?'checked':''} onchange="cambiarProdTasa('recv')"> 📥 Receiving</label>
-        <label class="prod-radio"><input type="radio" name="prodTasa" value="ambos" ${prodTasaFiltro==='ambos'?'checked':''} onchange="cambiarProdTasa('ambos')"> 📊 Ambos</label>
+        <div class="prod-filtro-tit">${t('prodContar')}</div>
+        <label class="prod-radio"><input type="radio" name="prodTasa" value="put" ${prodTasaFiltro==='put'?'checked':''} onchange="cambiarProdTasa('put')"> ${t('optPut')}</label>
+        <label class="prod-radio"><input type="radio" name="prodTasa" value="recv" ${prodTasaFiltro==='recv'?'checked':''} onchange="cambiarProdTasa('recv')"> ${t('optRecv')}</label>
+        <label class="prod-radio"><input type="radio" name="prodTasa" value="ambos" ${prodTasaFiltro==='ambos'?'checked':''} onchange="cambiarProdTasa('ambos')"> ${t('optAmbos')}</label>
       </div>
     </div>
-    <h3 class="prod-tit">Por persona</h3>
+    <h3 class="prod-tit">${t('porPersona')}</h3>
     <table class="tabla">
-      <tr><th>Persona</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">${tasaLbl}</th></tr>
+      <tr><th>${t('thPersona')}</th><th class="n">${t('thPut')}</th><th class="n">${t('thRecv')}</th><th class="n">${tasaLbl}</th></tr>
       ${filasP}
     </table>
-    <h3 class="prod-tit">Por container</h3>
-    <table class="tabla">
-      <tr><th>Container</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">${tasaLbl}</th></tr>
+    <h3 class="prod-tit">${t('porContainer')}</h3>
+    <table class="tabla tabla-cont">
+      <tr><th>${t('thContainer')}</th><th class="n">${t('thPut')}</th><th class="n">${t('thRecv')}</th><th class="n">${tasaLbl}</th></tr>
       ${filasC}
     </table>
-    <div class="prod-nota">Período: <b>${nombrePeriodo()}</b>. Las estadísticas de containers borrados quedan guardadas y se suman aquí. El promedio por hora usa solo la actividad reciente (con hora exacta); muestra "—" si hay menos de 15 min de actividad.</div>`;
+    <div class="prod-nota">${t('prodPeriodoLbl')}: <b>${nombrePeriodo()}</b>. ${t('prodNota')}</div>`;
+}
+// Abre/cierra el detalle por persona de un container en Productividad.
+function toggleProdCont(cont){
+  prodContAbierto = (prodContAbierto===cont) ? null : cont;
+  renderProductividad();
 }
 
 // Barra de botones para elegir el período (hoy / semana / mes / todo).
-function nombrePeriodo(){ return {hoy:'Hoy', semana:'Esta semana', mes:'Este mes', todo:'Todo'}[prodPeriodo]||'Hoy'; }
+function nombrePeriodo(){ return {hoy:t('perHoyN'), semana:t('perSemanaN'), mes:t('perMesN'), todo:t('perTodoN')}[prodPeriodo]||t('perHoyN'); }
 function barraPeriodo(){
-  const op = [['hoy','📅 Hoy'],['semana','📆 Semana'],['mes','🗓 Mes'],['todo','∞ Todo']];
+  const op = [['hoy',t('perHoy')],['semana',t('perSemana')],['mes',t('perMes')],['todo',t('perTodo')]];
   return `<div class="periodo-bar">${op.map(o=>`<button class="periodo-btn ${prodPeriodo===o[0]?'on':''}" onclick="cambiarProdPeriodo('${o[0]}')">${o[1]}</button>`).join('')}</div>`;
 }
 
 // ----- ACTIVIDAD EN TIEMPO REAL: feed de lo último que hizo cada dispositivo -----
+// ¿Un registro pertenece al filtro actual (persona o dispositivo)?
+function coincideFiltro(r){
+  if(!filtroActividad) return true;
+  if(filtroActividad.tipo==='persona'){
+    const v = filtroActividad.valor;
+    // Los registros casi nunca traen ur/up; el nombre real se deduce del dispositivo.
+    // Comparamos contra el nombre del que hizo put-away Y el del que hizo receiving.
+    const putActor  = (r.up||'').trim() || nombreDisp(r.dp||r.d) || '';
+    const recvActor = (r.ur||'').trim() || nombreDisp(r.dr||r.d) || '';
+    return putActor===v || recvActor===v;
+  }
+  if(filtroActividad.tipo==='disp'){
+    const v = filtroActividad.valor;
+    return r.d===v || r.dp===v || r.dr===v;
+  }
+  return true;
+}
 function renderActividad(){
   const el = document.getElementById('actividad');
   if(!el) return;
-  const regs = todosLosRegistros().filter(r=>r.t>0).sort((a,b)=>b.t-a.t).slice(0,80);
-  if(regs.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay actividad. Aparecerá aquí en cuanto alguien escanee.</div>'; return; }
+  let regs = todosLosRegistros().filter(r=>r.t>0);
+  if(filtroActividad) regs = regs.filter(coincideFiltro);
+  regs = regs.sort((a,b)=>b.t-a.t).slice(0,80);
+  // Cabecera (con botón "Ver todo" cuando hay filtro)
+  let head;
+  if(filtroActividad){
+    head = `<div class="act-head act-head-filtro">
+      <button class="vertodo-btn" onclick="limpiarFiltroActividad()">${esc(t('verTodo'))}</button>
+      <span>${esc(t('actividadDe'))} <b>${esc(filtroActividad.label)}</b></span>
+    </div>`;
+  } else {
+    head = `<div class="act-head">🔴 ${esc(t('envivo'))} · ${esc(t('ultimosMov'))} ${regs.length} ${esc(t('movimientos'))}</div>`;
+  }
+  if(regs.length===0){
+    el.innerHTML = head + '<div class="vivo-vacio">'+(filtroActividad?t('sinActFiltro'):t('sinActividad'))+'</div>';
+    return;
+  }
   const filas = regs.map(r=>{
     const esPut = !!(r.s && r.s.trim());
     const icono = esPut ? '📦' : '📥';
-    const tipo = esPut ? 'Put-away' : 'Receiving';
+    const tipo = esPut ? t('putaway') : t('receiving');
     const actor = esPut ? ((r.up||'').trim()||nombreDisp(r.dp||r.d)||'—')
                         : ((r.ur||'').trim()||nombreDisp(r.dr||r.d)||'—');
     const det = esPut
       ? `${esc(r.s)} · ${r.q} CTNs${r.u?(' → '+esc(r.u)):''}`
-      : `${r.u?('ubicó en '+esc(r.u)):'recibido'}`;
+      : `${r.u?(t('ubicoEn')+' '+esc(r.u)):t('recibido')}`;
     const hora = new Date(r.t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
     return `<div class="act-fila">
       <div class="act-ico ${esPut?'put':'recv'}">${icono}</div>
@@ -1036,7 +1225,24 @@ function renderActividad(){
       <div class="act-time">${tiempoRelativo(r.t)}<br><span class="act-clock">${hora}</span></div>
     </div>`;
   }).join('');
-  el.innerHTML = `<div class="act-head">🔴 En vivo · últimos ${regs.length} movimientos de todos los dispositivos</div>${filas}`;
+  el.innerHTML = head + filas;
+}
+// Mostrar solo la actividad de una persona (desde "En vivo").
+function verActividadPersona(nombre){
+  filtroActividad = {tipo:'persona', valor:(nombre||'').trim(), label:(nombre||'').trim()};
+  cambiarVista('actividad');
+  renderActividad();
+}
+// Mostrar solo la actividad de un dispositivo (desde "Dispositivos").
+function verActividadDispositivo(id, label){
+  filtroActividad = {tipo:'disp', valor:id, label:label||nombreDisp(id)||id};
+  cambiarVista('actividad');
+  renderActividad();
+}
+// Volver a ver toda la actividad.
+function limpiarFiltroActividad(){
+  filtroActividad = null;
+  renderActividad();
 }
 
 function cambiarProdTasa(v){
@@ -1053,11 +1259,11 @@ function cambiarProdPeriodo(v){
 function sello(){
   const d = new Date();
   document.getElementById('actualizado').textContent =
-    'Actualizado en vivo · '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    t('actualizado')+' · '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
 function toggle(clave){
-  if(todoExpandido){ todoExpandido=false; Object.keys(datosContainers).forEach(k=>abiertos[k]=true); document.getElementById('btnExpandir').textContent='⊕ Expandir todo'; }
+  if(todoExpandido){ todoExpandido=false; Object.keys(datosContainers).forEach(k=>abiertos[k]=true); document.getElementById('btnExpandir').textContent=t('tbExpandir'); }
   abiertos[clave]=!abiertos[clave]; render();
 }
 
@@ -1344,15 +1550,28 @@ function cambiarVista(v){
 document.getElementById('btnEntrar').onclick = ()=>{ const v=document.getElementById('inputPin').value; if(v.trim()) conectar(v); };
 document.getElementById('inputPin').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=e.target.value; if(v.trim()) conectar(v); } });
 document.getElementById('btnCambiar').onclick = ()=>{ localStorage.removeItem('aunload_pin'); location.reload(); };
-document.getElementById('btnExpandir').onclick = ()=>{ todoExpandido=!todoExpandido; document.getElementById('btnExpandir').textContent = todoExpandido?'⊖ Contraer todo':'⊕ Expandir todo'; render(); };
+document.getElementById('btnExpandir').onclick = ()=>{ todoExpandido=!todoExpandido; document.getElementById('btnExpandir').textContent = todoExpandido?t('tbContraer'):t('tbExpandir'); render(); };
 document.getElementById('btnCSV').onclick = exportarCSV;
 document.getElementById('btnAnuncio').onclick = enviarAnuncio;
 document.getElementById('btnOcultarOthers').onclick = toggleOcultarOthers;
 document.getElementById('buscarGlobal').addEventListener('input', e=>{ filtroGlobal=e.target.value; render(); });
-document.getElementById('tabs').addEventListener('click', e=>{ const b=e.target.closest('.tab'); if(b) cambiarVista(b.dataset.vista); });
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b=e.target.closest('.tab'); if(!b) return;
+  // Al tocar una pestaña directamente, se quita el filtro de una sola persona/dispositivo
+  // y se cierra el detalle de container abierto en Productividad.
+  filtroActividad = null; prodContAbierto = null;
+  cambiarVista(b.dataset.vista);
+  if(b.dataset.vista==='actividad') renderActividad();
+  if(b.dataset.vista==='productividad') renderProductividad();
+});
 
 // refresco periódico para caducar presencias y tiempos
 setInterval(()=>{ if(equipoRef) render(); }, 15000);
+
+// idioma inicial: marca el botón activo y traduce todos los textos estáticos
+document.querySelectorAll('.idioma-btn').forEach(b=>b.classList.toggle('on', b.dataset.lang===idioma));
+document.documentElement.lang = idioma;
+traducirEstaticos();
 
 // auto-entrar si ya hay código guardado
 const guardado = localStorage.getItem('aunload_pin');
