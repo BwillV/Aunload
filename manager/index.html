@@ -90,6 +90,9 @@
   .persona-nom{font-weight:700; font-size:15px;}
   .persona-cont{font-size:12.5px; color:var(--texto2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .latido{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--verde); font-weight:600; flex-shrink:0;}
+  .latido.off{color:var(--texto2); font-weight:600;}
+  .persona.off{border-left-color:#b0bec5; opacity:.9;}
+  .seccion-tit.fuera-tit{color:#c62828; margin-top:22px;}
   .latido .pulso{width:8px; height:8px; border-radius:50%; background:var(--verde); animation:pulso 1.4s infinite;}
   @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(46,125,50,.5);}70%{box-shadow:0 0 0 8px rgba(46,125,50,0);}100%{box-shadow:0 0 0 0 rgba(46,125,50,0);}}
   /* dispositivos */
@@ -256,6 +259,43 @@
   .act-cont{font-weight:600;}
   .act-time{font-size:11px; color:var(--texto2); text-align:right; flex-shrink:0; white-space:nowrap;}
   .act-clock{font-weight:700;}
+  /* productividad por semana */
+  .prod-semana-head{margin-bottom:12px;}
+  .prod-semana-tit{font-size:16px; font-weight:800; color:var(--texto);}
+  .prod-semana-sub{font-size:11.5px; color:#2e7d32; font-weight:700; margin-top:2px;}
+  .grid-scroll{overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch;}
+  .tabla-grid{min-width:480px;}
+  .tabla-grid th, .tabla-grid td{padding:7px 5px; font-size:12px; text-align:center;}
+  .tabla-grid th:first-child, .tabla-grid td:first-child{text-align:left;}
+  .tabla-grid .grid-fecha{font-size:9.5px; color:var(--texto2); font-weight:400;}
+  .tabla-grid .grid-nom{font-weight:600; white-space:nowrap;}
+  .tabla-grid .grid-vacia{color:#c5ccd4;}
+  .sel-semana-wrap{margin:0 0 16px 0;}
+  .sel-semana-btn{width:100%; padding:11px; font-size:13.5px; font-weight:700; color:var(--azul); background:var(--tarjeta); border:1.5px solid var(--azul); border-radius:12px; cursor:pointer;}
+  .semana-lista{display:flex; flex-direction:column; gap:6px; max-height:50vh; overflow-y:auto;}
+  .semana-opt{text-align:left; padding:10px 12px; font-size:13px; font-weight:600; color:var(--texto); background:var(--gris-claro); border:1px solid var(--borde); border-radius:10px; cursor:pointer;}
+  .semana-opt.sel{background:var(--azul); color:#fff; border-color:var(--azul);}
+  .semana-leyenda{font-size:11px; color:var(--texto2); text-align:center; margin-top:10px;}
+  .cont-check{display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;}
+  .cont-check input{width:auto; margin:0; flex:none; cursor:pointer;}
+  .prod-borrar-bar{margin:0 0 8px 0;}
+  .btn-borrar-sel{padding:9px 14px; font-size:13px; font-weight:700; color:#fff; background:var(--rojo); border:none; border-radius:10px; cursor:pointer;}
+  .btn-borrar-sel:disabled{background:#cfd8dc; color:#90a4ae; cursor:default;}
+  .nom-cel.inline{display:inline-flex; align-items:center; gap:8px; vertical-align:middle;}
+  /* pantalla de detalle de container */
+  .cont-detalle{position:fixed; inset:0; background:var(--fondo); z-index:150; overflow-y:auto; display:none;}
+  .cont-detalle.show{display:block;}
+  .cd-top{position:sticky; top:0; background:var(--tarjeta); border-bottom:1px solid var(--borde); padding:12px 16px; display:flex; align-items:center; gap:10px; z-index:2; box-shadow:0 1px 6px rgba(0,0,0,.05);}
+  .cd-volver{border:none; background:var(--gris-claro); color:var(--azul); font-weight:700; font-size:13.5px; padding:8px 14px; border-radius:20px; cursor:pointer; flex-shrink:0;}
+  .cd-titulo{font-size:16px; font-weight:800; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .cd-cuerpo{padding:16px; max-width:760px; margin:0 auto;}
+  .container-card.compacto{cursor:pointer;}
+  .container-card.compacto .flecha{margin-left:auto; font-size:22px; color:var(--texto2); font-weight:700;}
+  .cd-sku-grupo{border:1px solid var(--borde); border-radius:12px; margin-bottom:10px; overflow:hidden; background:var(--tarjeta);}
+  .cd-sku-cab{display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; font-weight:700; font-size:14px;}
+  .cd-sku-cab .cd-sku-meta{margin-left:auto; font-size:12px; color:var(--texto2); font-weight:600;}
+  .cd-sku-cab .cd-sku-tri{color:var(--texto2); font-size:13px;}
+  .cd-sku-body{border-top:1px solid var(--borde);}
 </style>
 </head>
 <body>
@@ -303,7 +343,7 @@
     </div>
     <div class="toolbar">
       <button class="btn-mini" id="btnCambiar" data-i18n="tbCambiar">↺ Cambiar equipo</button>
-      <button class="btn-mini" id="btnExpandir" data-i18n="tbExpandir">⊕ Expandir todo</button>
+      <button class="btn-mini" id="btnExpandir" data-i18n="tbExpandir" style="display:none;">⊕ Expandir todo</button>
       <button class="btn-mini" id="btnCSV" data-i18n="tbCSV">⬇ Exportar CSV</button>
     </div>
   </header>
@@ -352,6 +392,9 @@
     <div class="actualizado" id="actualizado"></div>
   </main>
 </div>
+
+<!-- Pantalla de detalle de un container (SKUs agrupados) -->
+<div class="cont-detalle" id="contDetalle"></div>
 
 <!-- Modal genérico -->
 <div class="modal-bg" id="modalBg">
@@ -403,11 +446,16 @@ let filtroGlobal = '';
 let vistaActual = 'vivo';
 // Filtros de productividad (persisten en localStorage)
 let prodTasaFiltro = localStorage.getItem('prodTasaFiltro') || 'put';     // 'put', 'recv', 'ambos'
-let prodPeriodo = localStorage.getItem('prodPeriodo') || 'hoy';           // 'hoy', 'semana', 'mes', 'todo'
 let prodModoTiempo = localStorage.getItem('prodModoTiempo') || 'total';   // 'total' (bruto, sin cortar) | 'neto' (suma por container)
+let prodBreak = localStorage.getItem('prodBreak') || 'auto';              // 'auto' | '1h' | '1.5h' — cómo se descuenta el descanso
+let prodSemana = null;           // lunes 00:00 (ms) de la semana seleccionada; null = semana actual
 let datosHistorico = {};         // estadísticas archivadas por día (persisten aunque se borren containers)
 let filtroActividad = null;      // {tipo:'persona'|'disp', valor, label} para ver actividad de uno solo
 let prodContAbierto = null;      // container expandido en Productividad (drill-down por persona)
+let prodPersonaAbierta = null;   // persona expandida en Productividad (drill-down por container)
+let prodContSel = {};            // containers marcados para eliminar en Productividad (nombre -> true)
+let contDetalleAbierto = null;   // clave del container abierto en su pantalla de detalle
+let skusAbiertos = {};           // sku -> true (expandidos dentro de la pantalla de detalle)
 let excluirInicio = {};          // clave de container -> persona a excluir del cálculo de inicio/fin
 let conectado = false;           // estado de conexión actual (para traducir el rótulo al cambiar idioma)
 
@@ -524,7 +572,36 @@ const I18N = {
   archivado:     ['archivado (sin detalle por persona)','archived (no per-person detail)','已归档(无人员明细)'],
   promedio:      ['Promedio del container','Container average','集装箱平均'],
   actualizado:   ['Actualizado en vivo','Updated live','实时更新'],
-  toggleVerTodos:['Toca para ver actividad','Tap to see activity','点击查看活动']
+  toggleVerTodos:['Toca para ver actividad','Tap to see activity','点击查看活动'],
+  prodBreakLbl:  ['Cortar descanso:','Cut break:','扣除休息:'],
+  optBreak1:     ['☕ 1 hora','☕ 1 hour','☕ 1小时'],
+  optBreak15:    ['☕ 1.5 horas','☕ 1.5 hours','☕ 1.5小时'],
+  optBreakAuto:  ['🤖 Automático','🤖 Automatic','🤖 自动'],
+  ayudaBreak1:   ['Se descuenta 1 hora fija de descanso del tiempo trabajado de cada día.','A fixed 1 hour break is deducted from each day\'s worked time.','每天的工作时间扣除固定1小时休息。'],
+  ayudaBreak15:  ['Se descuentan 1.5 horas fijas de descanso del tiempo trabajado de cada día.','A fixed 1.5 hour break is deducted from each day\'s worked time.','每天的工作时间扣除固定1.5小时休息。'],
+  ayudaBreakAuto:['Automático: descuenta cualquier hueco de 1 hora o más entre un pallet y el siguiente.','Automatic: deducts any gap of 1 hour or more between one pallet and the next.','自动:扣除托盘之间1小时或以上的任何间隔。'],
+  semanaDe:      ['Semana','Week','本周'],
+  semanaActual:  ['Semana actual','Current week','本周'],
+  selSemana:     ['📅 Seleccionar semana','📅 Select week','📅 选择周'],
+  selSemanaTit:  ['Seleccionar semana','Select week','选择周'],
+  anioEnCurso:   ['Año en curso','Current year','本年度'],
+  ph:            ['p/h','p/h','托/时'],
+  prodNingPersona:['Sin actividad esta semana.','No activity this week.','本周无活动。'],
+  verContPersona:['Containers trabajados','Containers worked','已处理集装箱'],
+  selEliminar:   ['🗑 Eliminar seleccionados','🗑 Delete selected','🗑 删除所选'],
+  cancelarSel:   ['Cancelar','Cancel','取消'],
+  selContBorrar: ['Seleccionar containers a eliminar','Select containers to delete','选择要删除的集装箱'],
+  borrarTit:     ['Eliminar containers','Delete containers','删除集装箱'],
+  borrarConfirm: ['¿Eliminar los containers seleccionados? Esto los quita de la lista de containers.','Delete the selected containers? This removes them from the containers list.','删除所选集装箱?这会将它们从集装箱列表中移除。'],
+  borrarTambienStats:['También borrar de la estadística','Also delete from statistics','同时从统计中删除'],
+  abrirCont:     ['Abrir container','Open container','打开集装箱'],
+  volverCont:    ['← Containers','← Containers','← 集装箱'],
+  contSinSku:    ['Este container no tiene pallets todavía.','This container has no pallets yet.','此集装箱暂无托盘。'],
+  fueraServicio: ['🔴 Fuera de servicio','🔴 Off duty','🔴 离岗'],
+  fueraServicioVacio:['Todos los dispositivos del equipo están activos.','All team devices are active.','团队所有设备都处于活动状态。'],
+  trabajandoVacio:['Nadie está escaneando en este momento.','Nobody is scanning right now.','目前没有人在扫描。'],
+  haceMin:       ['última actividad','last activity','最后活动'],
+  cerrarLbl:     ['Cerrar','Close','关闭']
 };
 function t(k){ const e=I18N[k]; if(!e) return k; return e[idioma==='en'?1:idioma==='zh'?2:0] || e[0]; }
 function cambiarIdioma(lang){
@@ -779,44 +856,54 @@ function render(){
   const claves = Object.keys(datosContainers);
   let totalCont = claves.length, totalPallets=0, totalCtns=0;
 
-  // presencia en vivo
-  // El "latido" (app abierta) NO basta para estar EN VIVO: la persona también debe haber
-  // escaneado algo de verdad hace poco (receiving o put-away dentro de DEV_ACT_MS). Así, si
-  // alguien dejó la app abierta pero su último escaneo fue hace 2 h, ya NO aparece como activo.
+  // ----- EN VIVO / FUERA DE SERVICIO -----
+  // "Trabajando ahora" se decide SOLO por escaneo real reciente (mismo criterio que Dispositivos):
+  // si el último put-away/receiving del dispositivo fue hace menos de DEV_ACT_MS (30 min) está activo.
+  // El "latido" de tener la app abierta NO cuenta. Así desaparece la contradicción de que alguien
+  // saliera "en vivo" aquí pero "offline" en Dispositivos.
+  const ahoraV = Date.now();
   const ultActVivo = mapaUltimaActividad();
-  function escaneoReciente(p){
-    const ahora = Date.now();
-    const porDev = p.dev ? (ultActVivo.dev[p.dev]||0) : 0;
-    const porNom = p.u ? (ultActVivo.nom[p.u]||0) : 0;
-    return (ahora - Math.max(porDev, porNom)) <= DEV_ACT_MS;
-  }
-  const vivoLista = [];
-  for(const clave in datosPresencia){
-    presenciaDeContainer(clave).filter(escaneoReciente).forEach(p=> vivoLista.push({...p, clave}));
-  }
-  const personasVivas = new Set(vivoLista.map(p=>p.u||p.dev));
-  document.getElementById('numVivo').textContent = personasVivas.size;
+  // Container actual de cada dispositivo = el del registro más reciente que tocó.
+  const contDeDev = {}, contDeDevT = {};
+  todosLosRegistros().forEach(r=>{
+    if(!r.t) return;
+    [r.d, r.dr, r.dp].forEach(dv=>{ if(dv && r.t > (contDeDevT[dv]||0)){ contDeDevT[dv]=r.t; contDeDev[dv]=r.contNom||''; } });
+  });
+  const idsDisp = Object.keys(datosDevices||{});
+  const trabajando = [], fueraServicio = [];
+  idsDisp.forEach(id=>{
+    const d = datosDevices[id]||{};
+    const ult = ultActVivo.dev[id]||0;
+    const activo = ult>0 && (ahoraV-ult)<=DEV_ACT_MS;
+    const item = {id, nombre:(d.name||d.u||t('sinNombre')), cont:contDeDev[id]||'', ult};
+    if(activo) trabajando.push(item); else fueraServicio.push(item);
+  });
+  trabajando.sort((a,b)=>b.ult-a.ult);
+  fueraServicio.sort((a,b)=>b.ult-a.ult);
+  document.getElementById('numVivo').textContent = trabajando.length;
+  // Personas trabajando AHORA agrupadas por container (para los chips de cada tarjeta).
+  const trabajandoPorCont = {};
+  trabajando.forEach(it=>{ if(it.cont){ (trabajandoPorCont[it.cont]=trabajandoPorCont[it.cont]||[]).push(it); } });
 
-  // ----- EN VIVO -----
   const vivoEl = document.getElementById('vivo');
-  if(vivoLista.length===0){
-    vivoEl.innerHTML = '<div class="vivo-vacio">'+t('nadie')+'</div>';
-  } else {
-    vivoLista.sort((a,b)=>b.t-a.t);
-    vivoEl.innerHTML = vivoLista.map(p=>{
-      const cont = datosContainers[p.clave];
-      const nomCont = cont ? (cont.num||cont.n||p.clave) : p.clave;
-      const nombre = p.u || t('sinNombre');
-      return `<div class="persona" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadPersona('${esc(nombre)}')">
-        <div class="avatar" style="background:${colorAvatar(nombre)}">${esc(iniciales(nombre))}</div>
-        <div class="persona-info">
-          <div class="persona-nom">${esc(nombre)}</div>
-          <div class="persona-cont">📦 ${esc(nomCont)}</div>
-        </div>
-        <div class="latido"><span class="pulso"></span>${esc(t('envivo'))} ›</div>
-      </div>`;
-    }).join('');
-  }
+  const filaPersona = (it, vivo)=>`<div class="persona ${vivo?'':'off'}" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadDispositivo('${esc(it.id)}','${esc(it.nombre)}')">
+      <div class="avatar" style="background:${colorAvatar(it.nombre)}">${esc(iniciales(it.nombre))}</div>
+      <div class="persona-info">
+        <div class="persona-nom">${esc(it.nombre)}</div>
+        <div class="persona-cont">${it.cont?('📦 '+esc(it.cont)):('🕒 '+esc(t('haceMin'))+' '+(it.ult?tiempoRelativo(it.ult):'—'))}</div>
+      </div>
+      ${vivo ? `<div class="latido"><span class="pulso"></span>${esc(t('envivo'))} ›</div>`
+             : `<div class="latido off">${it.ult?tiempoRelativo(it.ult):'—'} ›</div>`}
+    </div>`;
+  let vivoHtml = '';
+  vivoHtml += trabajando.length===0
+    ? '<div class="vivo-vacio">'+t('trabajandoVacio')+'</div>'
+    : trabajando.map(it=>filaPersona(it,true)).join('');
+  vivoHtml += `<div class="seccion-tit fuera-tit">${t('fueraServicio')}</div>`;
+  vivoHtml += fueraServicio.length===0
+    ? '<div class="vivo-vacio">'+t('fueraServicioVacio')+'</div>'
+    : fueraServicio.map(it=>filaPersona(it,false)).join('');
+  vivoEl.innerHTML = vivoHtml;
 
   // ----- DISPOSITIVOS -----
   renderDispositivos();
@@ -856,119 +943,22 @@ function render(){
         );
         if(regs.length===0) return;
       }
-      const vivos = presenciaDeContainer(clave).filter(escaneoReciente);
+      const nomContChip = c.num||c.n||clave;
+      const vivos = (trabajandoPorCont[nomContChip]||[]).map(it=>({dev:it.id, u:it.nombre}));
       const abierto = todoExpandido || abiertos[clave] || !!q;
 
-      // ubicaciones duplicadas en este container
-      const conteoU = {};
-      regs.forEach(r=>{ if(r.u&&r.u.trim()){ const k=r.u.trim().toUpperCase(); conteoU[k]=(conteoU[k]||0)+1; } });
-
-      // agrupar por SKU
-      const grupos = {};
-      regs.forEach(r=>{ const sku=(r.s&&r.s.trim())?r.s.trim():'(sin SKU)'; (grupos[sku]=grupos[sku]||[]).push(r); });
-      // Si el ajuste global "ocultarOthers" está activo, también lo ocultamos en este panel.
-      if(datosConfig && datosConfig.ocultarOthers===true){ delete grupos['(sin SKU)']; }
-      const skus = Object.keys(grupos);
-      skus.sort((a,b)=>{
-        if(a==='(sin SKU)') return 1; if(b==='(sin SKU)') return -1;
-        const ta=grupos[a].some(r=>r.u&&r.u.trim()), tb=grupos[b].some(r=>r.u&&r.u.trim());
-        if(ta!==tb) return ta?-1:1; return a.localeCompare(b);
-      });
-
-      let cuerpo='';
-      skus.forEach(sku=>{
-        const lista = grupos[sku]; let ctns=0; lista.forEach(r=>ctns+=(parseInt(r.q)||0));
-        // Pallets × cajas por pallet, AGRUPADOS por cantidad.
-        // Ej: "2 pallets × 25 · 1 pallet × 23 · 1 pallet × 1 bxs · 74 CTNs"
-        const porCant = {};   // cantidad de cajas -> nº de pallets
-        let palConCant = 0;
-        lista.forEach(r=>{ const q=parseInt(r.q)||0; if(q>0){ porCant[q]=(porCant[q]||0)+1; palConCant++; } });
-        const cantidades = Object.keys(porCant).map(Number)
-          .sort((a,b)=> (porCant[b]-porCant[a]) || (b-a) );   // más pallets primero, luego cantidad mayor
-        let detPal;
-        if(cantidades.length>0){
-          const partes = cantidades.map(q=>`${porCant[q]} ${porCant[q]!=1?t('pallets'):t('pallet')} × ${q}`);
-          const sinCant = lista.length - palConCant;   // pallets sin cantidad registrada
-          if(sinCant>0) partes.push(`${sinCant} ${sinCant!=1?t('pallets'):t('pallet')} ${t('sinCant')}`);
-          detPal = `${partes.join(' · ')} bxs · ${ctns} CTNs`;
-        } else {
-          detPal = `${lista.length} ${lista.length!=1?t('pallets'):t('pallet')} · ${ctns} CTNs`;
-        }
-        lista.sort((a,b)=>{ const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim(); if(!!ua!==!!ub) return ua?-1:1; return (b.t||0)-(a.t||0); });
-        let filas='';
-        lista.forEach(r=>{
-          const tieneU = r.u&&r.u.trim();
-          const veces = tieneU ? (conteoU[r.u.trim().toUpperCase()]||1) : 0;
-          const ubic = tieneU
-            ? `<span class="ubic">${esc(r.u)}${veces>1?(' <b style="color:#c62828">×'+veces+'</b>'):''}</span>`
-            : `<span class="ubic vacia">${t('sinUbic')}</span>`;
-          const quien = (r.ur||r.up)
-            ? `<span class="reg-quien">${r.ur?('📥 '+esc(r.ur)):''}${r.ur&&r.up?'<br>':''}${r.up?('📦 '+esc(r.up)):''}</span>` : '';
-          filas += `<div class="reg-fila">
-            ${ubic}
-            <span class="reg-cant">${(parseInt(r.q)||0)} CTNs · ${esc(r.c||'')}</span>
-            ${quien}
-            <button class="reg-btn" title="Editar pallet" onclick="editarPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">✏️</button>
-            <button class="reg-btn" title="Mover pallet a otro container" onclick="moverPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">↗️</button>
-            <button class="reg-del" title="Borrar pallet" onclick="borrarPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">🗑</button>
-          </div>`;
-        });
-        const skuMover = sku!=='(sin SKU)'
-          ? `<button class="sku-acc" title="Mover todos los pallets de este SKU a otro container" onclick="moverSku('${esc(clave)}','${esc(sku)}')">${t('moverSku')}</button>` : '';
-        const skuTxt = sku==='(sin SKU)' ? t('sinSku') : esc(sku);
-        cuerpo += `<div class="sku-grupo">
-          <div class="sku-head">
-            <span class="sku-nom">${skuTxt}</span>
-            <div class="sku-sub"><span class="sku-tot">${detPal}</span>${skuMover}</div>
-          </div>
-          ${filas}
-        </div>`;
-      });
-
+      // pallets reales que se muestran en el conteo de la tarjeta
       const palletsCont = consolidarRegs(c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
       const totReg = palletsCont.filter(r=>!esOtrosSku(r.s) && r.s && r.s.trim()).length;
-
-      // ---- Horario del container: hora de inicio (primer escaneo) y fin (último escaneo) ----
-      // Personas de cada registro: siempre el de receiving (quien lo metió al sistema) y,
-      // si el pallet ya tiene ubicación, también el de put-away.
-      const rawRegs = c.r ? Object.values(c.r) : [];
-      function actoresRaw(r){
-        const a = [];
-        const ar = actorRecv(r); if(ar) a.push(ar);
-        if(tieneUbic(r)){ const ap = actorPut(r); if(ap) a.push(ap); }
-        return a;
-      }
-      const genteCont = [];
-      rawRegs.forEach(r=>{ actoresRaw(r).forEach(a=>{ if(a && !genteCont.includes(a)) genteCont.push(a); }); });
-      genteCont.sort();
-      const excl = excluirInicio[clave] || '';
-      let ini=null, fin=null;
-      rawRegs.forEach(r=>{
-        if(!r.t || r.t<=0) return;
-        if(excl && actoresRaw(r).includes(excl)) return;       // excluir a esta persona
-        if(ini===null || r.t<ini) ini=r.t;
-        if(fin===null || r.t>fin) fin=r.t;
-      });
-      const optsExcl = ['<option value="">'+t('chNadie')+'</option>']
-        .concat(genteCont.map(g=>`<option value="${esc(g)}" ${g===excl?'selected':''}>${esc(g)}</option>`)).join('');
-      const horarioHtml = `<div class="cont-horario">
-        <div class="ch-tiempos">
-          <div class="ch-bloque"><div class="ch-lbl">${t('chInicio')}</div><div class="ch-hora">${horaHM(ini)}</div></div>
-          <div class="ch-bloque"><div class="ch-lbl">${t('chFin')}</div><div class="ch-hora">${horaHM(fin)}</div></div>
-        </div>
-        ${genteCont.length>1 ? `<div class="ch-excluir"><span class="ch-ex-lbl">${t('chExcluir')}</span>
-          <select class="ch-select" onchange="cambiarExcluir('${esc(clave)}', this.value)">${optsExcl}</select></div>` : ''}
-      </div>`;
-      // ---- Quiénes están trabajando AHORA en este container (presencia en vivo) ----
+      // Quiénes están trabajando AHORA en este container (presencia en vivo)
       const trabajandoHtml = vivos.length>0 ? `<div class="cont-trabajando">
         <span class="ct-lbl">🟢 ${t('trabajandoAhora')}:</span>
-        ${vivos.map(v=>{
-          const nm = v.u || nombreDisp(v.dev) || t('sinNombre');
-          return `<span class="trab-chip"><span class="trab-ava" style="background:${colorAvatar(nm)}">${esc(iniciales(nm))}</span>${esc(nm)}</span>`;
-        }).join('')}
+        ${vivos.map(v=>{ const nm=v.u||nombreDisp(v.dev)||t('sinNombre');
+          return `<span class="trab-chip"><span class="trab-ava" style="background:${colorAvatar(nm)}">${esc(iniciales(nm))}</span>${esc(nm)}</span>`; }).join('')}
       </div>` : '';
-      html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
-        <div class="container-head" onclick="toggle('${esc(clave)}')">
+      // Tarjeta COMPACTA: al tocarla se abre la pantalla de detalle con los SKUs agrupados.
+      html += `<div class="container-card compacto" data-clave="${esc(clave)}" onclick="abrirContDetalle('${esc(clave)}')">
+        <div class="container-head">
           <div class="cont-icono">📦</div>
           <div class="cont-info">
             <div class="cont-num">${esc(c.num||c.n||clave)}</div>
@@ -976,19 +966,10 @@ function render(){
             ${trabajandoHtml}
           </div>
           ${vivos.length>0 ? `<span class="cont-badge activo">🟢 ${vivos.length}</span>` : ''}
-          <span class="flecha">▶</span>
-        </div>
-        <div class="container-body">
-          <div class="cont-tools">
-            <button class="accion" onclick="renombrarContainer('${esc(clave)}')">${t('ctRenombrar')}</button>
-            <button class="accion azul" onclick="moverContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctOtroEquipo')}</button>
-            <button class="accion warn" onclick="fusionarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctFusionar')}</button>
-            <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctBorrar')}</button>
-          </div>
-          ${horarioHtml}
-          ${cuerpo||'<div class="reg-fila"><span class="reg-cant">'+t('sinPallets')+'</span></div>'}
+          <span class="flecha">›</span>
         </div>
       </div>`;
+
     });
     contEl.innerHTML = html || '<div class="sin-cont"><span class="emoji">🔎</span>'+t('nadaCoincide')+'</div>';
   }
@@ -997,6 +978,7 @@ function render(){
   // ----- PRODUCTIVIDAD / ACTIVIDAD -----
   renderProductividad();
   renderActividad();
+  renderContDetalle();
   // mantener sincronizado el switch de OTHERS (ahora vive en la vista de containers)
   pintarOcultarOthers();
 
@@ -1073,21 +1055,24 @@ function claveDia(t){
 }
 // Sanea un nombre para usarlo como clave de Firebase (sin . # $ [ ] / ni espacios raros).
 function keySan(s){ return String(s||'').trim().replace(/[.#$\[\]\/]/g,'_').replace(/\s+/g,'_') || '_'; }
-// ¿Una clave de día cae dentro del período seleccionado? (claves YYYY-MM-DD se comparan como texto)
-function enPeriodo(diaKey){
-  if(prodPeriodo==='todo') return true;
-  const now = new Date();
-  if(prodPeriodo==='hoy') return diaKey===claveDia(now.getTime());
-  if(prodPeriodo==='semana'){
-    const dow = (now.getDay()+6)%7;              // 0 = lunes
-    const lun = new Date(now); lun.setDate(now.getDate()-dow); lun.setHours(0,0,0,0);
-    return diaKey >= claveDia(lun.getTime());
-  }
-  if(prodPeriodo==='mes'){
-    const m1 = new Date(now.getFullYear(), now.getMonth(), 1);
-    return diaKey >= claveDia(m1.getTime());
-  }
-  return true;
+// ----- SEMANAS (la productividad ahora trabaja por semana, de lunes a domingo) -----
+// Lunes 00:00 (ms) de la semana que contiene 'ms'.
+function lunesDe(ms){ const d=new Date(ms); const dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); d.setHours(0,0,0,0); return d.getTime(); }
+// Lunes (ms) de la semana seleccionada (o la actual si no se eligió ninguna).
+function semanaSelLun(){ return (prodSemana!=null) ? prodSemana : lunesDe(Date.now()); }
+// ¿Una clave de día YYYY-MM-DD cae dentro de la semana seleccionada (lun→dom)?
+function enSemana(diaKey){
+  const lun = semanaSelLun();
+  const lunK = claveDia(lun);
+  const dom = new Date(lun); dom.setDate(dom.getDate()+6);
+  return diaKey >= lunK && diaKey <= claveDia(dom.getTime());
+}
+// Etiqueta corta de fecha dd/mm.
+function ddmm(ms){ const d=new Date(ms); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
+// Texto de la semana seleccionada: "Semana lun 23/06 › dom 29/06".
+function textoSemanaSel(){
+  const lun = semanaSelLun(); const dom = new Date(lun); dom.setDate(dom.getDate()+6);
+  return t('semanaDe')+' '+ddmm(lun)+' › '+ddmm(dom.getTime());
 }
 // Actor (nombre) de un registro CRUDO de Firebase (no consolidado).
 function actorDeRaw(r){
@@ -1126,216 +1111,389 @@ function archivarRegs(regsRaw, up){
   });
 }
 
-// ----- PRODUCTIVIDAD: cuánto hace cada persona/equipo por hora -----
+// ====== PANTALLA DE DETALLE DE UN CONTAINER (SKUs agrupados y desplegables) ======
+function abrirContDetalle(clave){
+  contDetalleAbierto = clave;
+  skusAbiertos = {};
+  renderContDetalle();
+}
+function cerrarContDetalle(){
+  contDetalleAbierto = null;
+  const ov=document.getElementById('contDetalle'); if(ov) ov.classList.remove('show');
+}
+function toggleSku(sku){
+  if(skusAbiertos[sku]) delete skusAbiertos[sku]; else skusAbiertos[sku]=true;
+  renderContDetalle();
+}
+function renderContDetalle(){
+  const ov = document.getElementById('contDetalle');
+  if(!ov) return;
+  const clave = contDetalleAbierto;
+  if(!clave || !datosContainers[clave]){ ov.classList.remove('show'); ov.innerHTML=''; contDetalleAbierto=null; return; }
+  const c = datosContainers[clave];
+  const nom = c.num||c.n||clave;
+
+  let regs = consolidarRegs(c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
+
+  // ubicaciones duplicadas
+  const conteoU={};
+  regs.forEach(r=>{ if(r.u&&r.u.trim()){ const k=r.u.trim().toUpperCase(); conteoU[k]=(conteoU[k]||0)+1; } });
+
+  // agrupar por SKU
+  const grupos={};
+  regs.forEach(r=>{ const sku=(r.s&&r.s.trim())?r.s.trim():'(sin SKU)'; (grupos[sku]=grupos[sku]||[]).push(r); });
+  if(datosConfig && datosConfig.ocultarOthers===true){ delete grupos['(sin SKU)']; }
+  const skus=Object.keys(grupos);
+  skus.sort((a,b)=>{
+    if(a==='(sin SKU)') return 1; if(b==='(sin SKU)') return -1;
+    const ta=grupos[a].some(r=>r.u&&r.u.trim()), tb=grupos[b].some(r=>r.u&&r.u.trim());
+    if(ta!==tb) return ta?-1:1; return a.localeCompare(b);
+  });
+
+  let cuerpo='';
+  skus.forEach(sku=>{
+    const lista=grupos[sku]; let ctns=0; lista.forEach(r=>ctns+=(parseInt(r.q)||0));
+    const porCant={}; let palConCant=0;
+    lista.forEach(r=>{ const q=parseInt(r.q)||0; if(q>0){ porCant[q]=(porCant[q]||0)+1; palConCant++; } });
+    const cantidades=Object.keys(porCant).map(Number).sort((a,b)=>(porCant[b]-porCant[a])||(b-a));
+    let detPal;
+    if(cantidades.length>0){
+      const partes=cantidades.map(q=>`${porCant[q]} ${porCant[q]!=1?t('pallets'):t('pallet')} × ${q}`);
+      const sinCant=lista.length-palConCant;
+      if(sinCant>0) partes.push(`${sinCant} ${sinCant!=1?t('pallets'):t('pallet')} ${t('sinCant')}`);
+      detPal=`${partes.join(' · ')} bxs · ${ctns} CTNs`;
+    } else { detPal=`${lista.length} ${lista.length!=1?t('pallets'):t('pallet')} · ${ctns} CTNs`; }
+    lista.sort((a,b)=>{ const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim(); if(!!ua!==!!ub) return ua?-1:1; return (b.t||0)-(a.t||0); });
+    let filas='';
+    lista.forEach(r=>{
+      const tieneU=r.u&&r.u.trim();
+      const veces=tieneU?(conteoU[r.u.trim().toUpperCase()]||1):0;
+      const ubic=tieneU
+        ? `<span class="ubic">${esc(r.u)}${veces>1?(' <b style="color:#c62828">×'+veces+'</b>'):''}</span>`
+        : `<span class="ubic vacia">${t('sinUbic')}</span>`;
+      const quien=(r.ur||r.up)
+        ? `<span class="reg-quien">${r.ur?('📥 '+esc(r.ur)):''}${r.ur&&r.up?'<br>':''}${r.up?('📦 '+esc(r.up)):''}</span>` : '';
+      filas+=`<div class="reg-fila">
+        ${ubic}
+        <span class="reg-cant">${(parseInt(r.q)||0)} CTNs · ${esc(r.c||'')}</span>
+        ${quien}
+        <button class="reg-btn" title="Editar pallet" onclick="editarPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">✏️</button>
+        <button class="reg-btn" title="Mover pallet a otro container" onclick="moverPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">↗️</button>
+        <button class="reg-del" title="Borrar pallet" onclick="borrarPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">🗑</button>
+      </div>`;
+    });
+    const skuMover=sku!=='(sin SKU)'
+      ? `<button class="sku-acc" title="Mover todos los pallets de este SKU a otro container" onclick="moverSku('${esc(clave)}','${esc(sku)}')">${t('moverSku')}</button>` : '';
+    const skuTxt=sku==='(sin SKU)'?t('sinSku'):esc(sku);
+    const abiertoSku=!!skusAbiertos[sku];
+    cuerpo+=`<div class="cd-sku-grupo">
+      <div class="cd-sku-cab" onclick="toggleSku('${esc(sku)}')">
+        <span class="cd-sku-tri">${abiertoSku?'▼':'▶'}</span>
+        <span class="sku-nom">${skuTxt}</span>
+        <span class="cd-sku-meta">${detPal}</span>
+      </div>
+      ${abiertoSku?`<div class="cd-sku-body">${skuMover?('<div style="padding:8px 14px 0">'+skuMover+'</div>'):''}${filas}</div>`:''}
+    </div>`;
+  });
+  if(skus.length===0) cuerpo=`<div class="vivo-vacio">${t('contSinSku')}</div>`;
+
+  // ---- Horario del container (inicio/fin) ----
+  const rawRegs = c.r ? Object.values(c.r) : [];
+  function actoresRaw(r){ const a=[]; const ar=actorRecv(r); if(ar) a.push(ar); if(tieneUbic(r)){ const ap=actorPut(r); if(ap) a.push(ap); } return a; }
+  const genteCont=[];
+  rawRegs.forEach(r=>{ actoresRaw(r).forEach(a=>{ if(a && !genteCont.includes(a)) genteCont.push(a); }); });
+  genteCont.sort();
+  const excl=excluirInicio[clave]||'';
+  let ini=null, fin=null;
+  rawRegs.forEach(r=>{ if(!r.t||r.t<=0) return; if(excl && actoresRaw(r).includes(excl)) return; if(ini===null||r.t<ini) ini=r.t; if(fin===null||r.t>fin) fin=r.t; });
+  const optsExcl=['<option value="">'+t('chNadie')+'</option>']
+    .concat(genteCont.map(g=>`<option value="${esc(g)}" ${g===excl?'selected':''}>${esc(g)}</option>`)).join('');
+  const horarioHtml=`<div class="cont-horario">
+    <div class="ch-tiempos">
+      <div class="ch-bloque"><div class="ch-lbl">${t('chInicio')}</div><div class="ch-hora">${horaHM(ini)}</div></div>
+      <div class="ch-bloque"><div class="ch-lbl">${t('chFin')}</div><div class="ch-hora">${horaHM(fin)}</div></div>
+    </div>
+    ${genteCont.length>1 ? `<div class="ch-excluir"><span class="ch-ex-lbl">${t('chExcluir')}</span>
+      <select class="ch-select" onchange="cambiarExcluir('${esc(clave)}', this.value)">${optsExcl}</select></div>` : ''}
+  </div>`;
+
+  ov.innerHTML = `
+    <div class="cd-top">
+      <button class="cd-volver" onclick="cerrarContDetalle()">${t('volverCont')}</button>
+      <div class="cd-titulo">📦 ${esc(nom)}</div>
+    </div>
+    <div class="cd-cuerpo">
+      <div class="cont-tools">
+        <button class="accion" onclick="renombrarContainer('${esc(clave)}')">${t('ctRenombrar')}</button>
+        <button class="accion azul" onclick="moverContainer('${esc(clave)}','${esc(nom)}')">${t('ctOtroEquipo')}</button>
+        <button class="accion warn" onclick="fusionarContainer('${esc(clave)}','${esc(nom)}')">${t('ctFusionar')}</button>
+        <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(nom)}')">${t('ctBorrar')}</button>
+      </div>
+      ${horarioHtml}
+      ${cuerpo}
+    </div>`;
+  ov.classList.add('show');
+}
+
+
+// ----- PRODUCTIVIDAD: cuánto hace cada persona/equipo por hora (por SEMANA) -----
 function renderProductividad(){
   const el = document.getElementById('productividad');
   if(!el) return;
 
-  // --- 1) Datos EN VIVO (containers actuales), filtrados por período ---
-  const regs = todosLosRegistros().filter(r=>r.t>0 && enPeriodo(claveDia(r.t)));
-  const porPersona = {};   // nombre -> {nom, put, recv, ctns}
-  const porCont = {};      // contNom -> {nom, put, recv, ctns}
-  const actP = {};         // nombre -> dia -> [marcas de tiempo]  (horas activas, solo en vivo)
-  const actC = {};
-  const porContPersona = {}; // contNom -> { persona -> {nom,put,recv,ctns} }   (solo EN VIVO)
-  const actCP = {};          // contNom -> persona -> dia -> [marcas de tiempo]
-  function ini(o,k){ if(!o[k]) o[k]={nom:k, put:0, recv:0, ctns:0, palSet:new Set(), palAprox:0}; return o[k]; }
-  // Agrega un código de pallet al set (para no contar dos veces el mismo pallet en modo "ambos").
-  function addPal(o, code){ if(code) o.palSet.add(code); }
-  // track guarda TODAS las marcas de tiempo del día (para poder recortar descansos de 1h+).
-  function track(store,nom,dia,t){ if(!nom) return; const m=store[nom]||(store[nom]={}); (m[dia]||(m[dia]=[])).push(t); }
+  // Descuento de descanso: 'auto' = huecos de 1h+ ; '1h'/'1.5h' = resta fija al span del día.
+  const BR = prodBreak==='1.5h' ? 5400000 : prodBreak==='1h' ? 3600000 : 0;
 
-  // --- HORAS: cada escaneo cuenta como actividad de quien lo hizo. El de receiving (quien metió
-  // el pallet al sistema) y, si el pallet ya tiene ubicación, también el de put-away. ---
+  // ---- helpers de tiempo ----
+  // ms trabajados de una lista de marcas DE UN MISMO DÍA.
+  function msDia(marks){
+    if(!marks || marks.length<2) return 0;
+    const a = marks.slice().sort((x,y)=>x-y);
+    if(BR>0){ const span=a[a.length-1]-a[0]; return Math.max(0, span-BR); }
+    let s=0; for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<BREAK_GAP_MS) s+=d; } return s;
+  }
+  // horas de una lista de marcas que puede abarcar varios días (se agrupa por día).
+  function horasDeMarks(marks){
+    if(!marks || marks.length<2) return 0;
+    const byDay={}; marks.forEach(t=>{ (byDay[claveDia(t)]=byDay[claveDia(t)]||[]).push(t); });
+    let s=0; for(const d in byDay){ s+=msDia(byDay[d]); } return s/3600000;
+  }
+
+  // ---- 1) Datos EN VIVO de la semana seleccionada ----
+  const regs = todosLosRegistros().filter(r=>r.t>0 && enSemana(claveDia(r.t)));
+  const P = {};  // persona -> {nom,put,recv,palSet,palAprox,dias:{dia:{...,marks}},conts:{cont:{...,marks}}}
+  const C = {};  // container -> {nom,put,recv,palSet,palAprox,marks,personas:{nom:{...,marks}}}
+  function iniP(n){ if(!P[n]) P[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,dias:{},conts:{}}; return P[n]; }
+  function iniPDia(p,d){ if(!p.dias[d]) p.dias[d]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.dias[d]; }
+  function iniPCont(p,c){ if(!p.conts[c]) p.conts[c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.conts[c]; }
+  function iniC(c){ if(!C[c]) C[c]={nom:c,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[],personas:{}}; return C[c]; }
+  function iniCP(c,n){ if(!c.personas[n]) c.personas[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return c.personas[n]; }
+
+  // marcas de tiempo (cada escaneo cuenta como actividad de quien lo hizo)
   regs.forEach(r=>{
-    const cont = r.contNom||r.clave;
-    const dia = claveDia(r.t);
-    const acp = actCP[cont] || (actCP[cont]={});
-    const ra = actorRecv(r);
-    track(actP, ra, dia, r.t); track(actC, cont, dia, r.t); track(acp, ra, dia, r.t);
-    if(tieneUbic(r)){
-      const pa = actorPut(r);
-      track(actP, pa, dia, r.t); track(acp, pa, dia, r.t);
-    }
+    const cont=r.contNom||r.clave, dia=claveDia(r.t);
+    const ra=actorRecv(r);
+    if(ra){ const p=iniP(ra); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t);
+            const c=iniC(cont); c.marks.push(r.t); iniCP(c,ra).marks.push(r.t); }
+    if(tieneUbic(r)){ const pa=actorPut(r);
+      if(pa){ const p=iniP(pa); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t);
+              const c=iniC(cont); c.marks.push(r.t); iniCP(c,pa).marks.push(r.t); } }
   });
 
-  // --- CONTEOS: agrupamos por container y consolidamos por código AUnload para NO duplicar.
-  // Cada pallet lógico = 1 receiving (quien lo metió al sistema) y, si tiene ubicación, 1 put-away. ---
-  const regsPorCont = {};
-  regs.forEach(r=>{ const cont=r.contNom||r.clave; (regsPorCont[cont]=regsPorCont[cont]||[]).push(r); });
+  // conteos consolidados por container (no duplicar pallets)
+  const regsPorCont={};
+  regs.forEach(r=>{ const c=r.contNom||r.clave; (regsPorCont[c]=regsPorCont[c]||[]).push(r); });
   for(const cont in regsPorCont){
-    const c = ini(porCont, cont);
-    const cp = porContPersona[cont] || (porContPersona[cont]={});
+    const c=iniC(cont);
     consolidarRegs(regsPorCont[cont]).forEach(m=>{
-      const code = (m.c||'').trim();
-      // RECEIVING: todo pallet entró al sistema una vez.
-      const ra = actorRecv(m) || '—';
-      const pr = ini(porPersona, ra); pr.recv++; addPal(pr, code);
-      c.recv++; addPal(c, code);
-      const cpr = ini(cp, ra); cpr.recv++; addPal(cpr, code);
-      // PUT-AWAY: solo si el pallet ya tiene ubicación asignada.
+      const code=(m.c||'').trim(); const dia=claveDia(m.t||Date.now());
+      const ra=actorRecv(m)||'—';
+      const p=iniP(ra); p.recv++; if(code)p.palSet.add(cont+'|'+code);
+      const pd=iniPDia(p,dia); pd.recv++; if(code)pd.palSet.add(cont+'|'+code);
+      const pc=iniPCont(p,cont); pc.recv++; if(code)pc.palSet.add(code);
+      c.recv++; if(code)c.palSet.add(code);
+      const cp=iniCP(c,ra); cp.recv++; if(code)cp.palSet.add(code);
       if(tieneUbic(m)){
-        const pa = actorPut(m) || '—';
-        const pp = ini(porPersona, pa); pp.put++; pp.ctns+=m.q; addPal(pp, code);
-        c.put++; c.ctns+=m.q; addPal(c, code);
-        const cpp = ini(cp, pa); cpp.put++; cpp.ctns+=m.q; addPal(cpp, code);
+        const pa=actorPut(m)||'—';
+        const p2=iniP(pa); p2.put++; if(code)p2.palSet.add(cont+'|'+code);
+        const pd2=iniPDia(p2,dia); pd2.put++; if(code)pd2.palSet.add(cont+'|'+code);
+        const pc2=iniPCont(p2,cont); pc2.put++; if(code)pc2.palSet.add(code);
+        c.put++; if(code)c.palSet.add(code);
+        const cp2=iniCP(c,pa); cp2.put++; if(code)cp2.palSet.add(code);
       }
     });
   }
 
-  // --- 2) Datos ARCHIVADOS (containers borrados) del histórico, mismo período ---
+  // ---- 2) Datos ARCHIVADOS (histórico) de la misma semana ----
   for(const dia in datosHistorico){
-    if(!enPeriodo(dia)) continue;
-    const h = datosHistorico[dia]||{};
-    [['personas',porPersona],['containers',porCont]].forEach(par=>{
-      const grp = h[par[0]]||{};
-      for(const key in grp){
-        const e = grp[key]||{}; const nom = e.nom||key;
-        const o = ini(par[1], nom);
-        o.put+=(e.put||0); o.recv+=(e.recv||0); o.ctns+=(e.ctns||0);
-        // El histórico no guarda los códigos de cada pallet, así que aproximamos los
-        // pallets distintos con el mayor de put/recv (cada pallet se recibe y se acomoda 1 vez).
-        o.palAprox += Math.max(e.put||0, e.recv||0);
-      }
-    });
+    if(!enSemana(dia)) continue;
+    const h=datosHistorico[dia]||{};
+    const gp=h.personas||{};
+    for(const key in gp){ const e=gp[key]||{}; const nom=e.nom||key;
+      const p=iniP(nom); p.put+=(e.put||0); p.recv+=(e.recv||0); p.palAprox+=Math.max(e.put||0,e.recv||0);
+      const pd=iniPDia(p,dia); pd.put+=(e.put||0); pd.recv+=(e.recv||0); pd.palAprox+=Math.max(e.put||0,e.recv||0);
+    }
+    const gc=h.containers||{};
+    for(const key in gc){ const e=gc[key]||{}; const nom=e.nom||key;
+      const c=iniC(nom); c.put+=(e.put||0); c.recv+=(e.recv||0); c.palAprox+=Math.max(e.put||0,e.recv||0);
+    }
   }
 
-  if(Object.keys(porPersona).length===0){
-    el.innerHTML = barraPeriodo() + '<div class="vivo-vacio">'+t('sinActPeriodo')+'</div>';
-    return;
+  // ---- conteo y tasa ----
+  function cuentaDe(o){ if(!o) return 0;
+    if(prodTasaFiltro==='put') return o.put||0;
+    if(prodTasaFiltro==='recv') return o.recv||0;
+    return (o.palSet?o.palSet.size:0)+(o.palAprox||0);
   }
-
-  // Suma el tiempo de una lista de marcas (ms), recortando los descansos/huecos de 1h o más
-  // (almuerzo, fin de turno, etc.) para no contar ese tiempo muerto.
-  function msDeLista(ts){
-    if(!ts || ts.length<2) return 0;
-    const a = ts.slice().sort((x,y)=>x-y);
-    let s=0;
-    for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<BREAK_GAP_MS) s+=d; }
-    return s;
+  function horasPersona(p){
+    if(prodModoTiempo==='neto'){ let s=0; for(const cn in p.conts){ s+=horasDeMarks(p.conts[cn].marks); } return s; }
+    let s=0; for(const d in p.dias){ s+=msDia(p.dias[d].marks); } return s/3600000;
   }
-  // Horas TOTALES (bruto): suma del tiempo de cada día, descontando descansos de 1h+.
-  function horasActivas(store, nom){ const m=store[nom]; if(!m) return 0; let s=0; for(const d in m){ s+=msDeLista(m[d]); } return s/3600000; }
-  // Horas NETAS de una persona: tiempo DENTRO de cada container (también descuenta descansos de 1h+).
-  function horasNeto(nom){ let s=0; for(const cont in actCP){ const pp=actCP[cont][nom]; if(pp){ for(const d in pp){ s+=msDeLista(pp[d]); } } } return s/3600000; }
-  // Pallets contados según el filtro. En "ambos" usamos pallets DISTINTOS (no sumamos put+recv
-  // porque es el mismo pallet); para histórico usamos la aproximación palAprox.
-  function cuentaDe(o){
-    if(prodTasaFiltro==='put') return o.put;
-    if(prodTasaFiltro==='recv') return o.recv;
-    return (o.palSet?o.palSet.size:0) + (o.palAprox||0);
-  }
-  // esPersona=true en la tabla de personas: respeta el modo (total vs neto). En containers ambos coinciden.
-  function tasa(o, store, esPersona){
-    let horas = (esPersona && prodModoTiempo==='neto') ? horasNeto(o.nom) : horasActivas(store, o.nom);
-    if(horas < 0.25) return '—';
-    return (cuentaDe(o)/horas).toFixed(1);
-  }
-
-  let totPut=0, totRecv=0, totCtns=0;
-  Object.keys(porPersona).forEach(n=>{ const s=porPersona[n]; totPut+=s.put; totRecv+=s.recv; totCtns+=s.ctns; });
-  // Total de pallets DISTINTOS (no sumamos put+recv porque es el mismo pallet).
-  // En vivo: códigos únicos por container; histórico: aproximación con el mayor de put/recv.
-  const setGlobal = new Set();
-  regs.forEach(r=>{ const code=(r.c||'').trim(); if(code) setGlobal.add((r.contNom||r.clave)+'|'+code); });
-  let totPalAprox = 0;
-  for(const dia in datosHistorico){
-    if(!enPeriodo(dia)) continue;
-    const grp = (datosHistorico[dia]||{}).containers||{};
-    for(const key in grp){ const e=grp[key]||{}; totPalAprox += Math.max(e.put||0, e.recv||0); }
-  }
-  const totPal = setGlobal.size + totPalAprox;
-
-  const nombres = Object.keys(porPersona).sort((a,b)=>(porPersona[b].put+porPersona[b].recv)-(porPersona[a].put+porPersona[a].recv));
-  const filasP = nombres.map(n=>{
-    const s=porPersona[n];
-    return `<tr>
-      <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(n)}">${esc(iniciales(n))}</div>${esc(n)}</div></td>
-      <td class="n">${s.put}</td><td class="n">${s.recv}</td>
-      <td class="n"><b>${tasa(s, actP, true)}</b></td>
-    </tr>`;
-  }).join('');
+  function tasaTxt(count, horas){ if(horas<0.25) return '—'; return Math.round(count/horas)+' '+t('ph'); }
 
   const tasaLbl = prodTasaFiltro==='put'?t('lblPutH'):prodTasaFiltro==='recv'?t('lblRecvH'):t('lblTotH');
 
-  const conts = Object.keys(porCont).sort((a,b)=>(porCont[b].put+porCont[b].recv)-(porCont[a].put+porCont[a].recv));
-  const filasC = conts.map(n=>{
-    const s=porCont[n];
-    const abierto = prodContAbierto===n;
-    const cab = `<tr class="cont-fila ${abierto?'abierta':''}" onclick="toggleProdCont('${esc(n)}')">
-      <td>${abierto?'▼':'▶'} 📦 ${esc(n)}</td>
-      <td class="n">${s.put}</td><td class="n">${s.recv}</td>
-      <td class="n"><b>${tasa(s, actC)}</b></td>
-    </tr>`;
-    if(!abierto) return cab;
-    // Detalle: promedio del container + personas que trabajaron dentro
-    const gente = porContPersona[n] ? Object.keys(porContPersona[n]) : [];
-    let detalle;
-    if(gente.length===0){
-      detalle = `<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('archivado'))}</td></tr>`;
-    } else {
-      gente.sort((a,b)=>(porContPersona[n][b].put+porContPersona[n][b].recv)-(porContPersona[n][a].put+porContPersona[n][a].recv));
-      // Promedio = media de los pallets/hora de las personas con tasa válida
-      const tasas=[]; gente.forEach(g=>{ const v=tasa(porContPersona[n][g], actCP[n]); if(v!=='—') tasas.push(parseFloat(v)); });
-      const prom = tasas.length ? (tasas.reduce((a,b)=>a+b,0)/tasas.length).toFixed(1) : '—';
-      const filaProm = `<tr class="cont-sub cont-prom"><td>⭐ ${esc(t('promedio'))}</td><td class="n">—</td><td class="n">—</td><td class="n"><b>${prom}</b></td></tr>`;
-      const filasGente = gente.map(g=>{
-        const sp=porContPersona[n][g];
-        return `<tr class="cont-sub">
-          <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(g)}">${esc(iniciales(g))}</div>${esc(g)}</div></td>
-          <td class="n">${sp.put}</td><td class="n">${sp.recv}</td>
-          <td class="n"><b>${tasa(sp, actCP[n])}</b></td>
-        </tr>`;
+  // ---- Cabecera: semana seleccionada ----
+  const lun = semanaSelLun();
+  const esActual = (semanaSelLun()===lunesDe(Date.now()));
+  const headTit = `<div class="prod-semana-head">
+      <div class="prod-semana-tit">${esc(textoSemanaSel())}</div>
+      ${esActual?`<div class="prod-semana-sub">${t('semanaActual')}</div>`:''}
+    </div>`;
+
+  const nombresP = Object.keys(P).sort((a,b)=>cuentaDe(P[b])-cuentaDe(P[a]));
+
+  // ---- (punto 6) Cuadrícula semanal: filas=personas, columnas=Lun..Vie ----
+  const diasSemana=[]; for(let i=0;i<5;i++){ const d=new Date(lun); d.setDate(d.getDate()+i); diasSemana.push(d.getTime()); }
+  const nombresDias = idioma==='en'?['Mon','Tue','Wed','Thu','Fri'] : idioma==='zh'?['周一','周二','周三','周四','周五'] : ['Lun','Mar','Mié','Jue','Vie'];
+  const gridHead = `<tr><th>${t('thPersona')}</th>${nombresDias.map((n,i)=>`<th class="n">${n}<br><span class="grid-fecha">${ddmm(diasSemana[i])}</span></th>`).join('')}</tr>`;
+  const gridRows = nombresP.map(nom=>{
+    const p=P[nom];
+    const celdas = diasSemana.map(dms=>{
+      const d=p.dias[claveDia(dms)];
+      if(!d) return '<td class="n grid-vacia">·</td>';
+      const horas=msDia(d.marks)/3600000;
+      return '<td class="n">'+tasaTxt(cuentaDe(d), horas)+'</td>';
+    }).join('');
+    return `<tr><td class="grid-nom"><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</div>${esc(nom)}</div></td>${celdas}</tr>`;
+  }).join('');
+  const grid = nombresP.length ? `<div class="grid-scroll"><table class="tabla tabla-grid">${gridHead}${gridRows}</table></div>`
+                               : `<div class="vivo-vacio">${t('prodNingPersona')}</div>`;
+
+  // ---- (punto 7) Botón seleccionar semana + leyenda ----
+  const selSemana = `<div class="sel-semana-wrap">
+      <button class="sel-semana-btn" onclick="abrirSelectorSemana()">${t('selSemana')}</button>
+    </div>`;
+
+  // ---- (punto 3) Filtros: contar | cortar descanso (en medio) | tiempo ----
+  const filtros = `<div class="prod-filtros">
+    <div class="prod-filtro">
+      <div class="prod-filtro-tit">${t('prodContar')}</div>
+      <label class="prod-radio"><input type="radio" name="prodTasa" value="put" ${prodTasaFiltro==='put'?'checked':''} onchange="cambiarProdTasa('put')"> ${t('optPut')}</label>
+      <label class="prod-radio"><input type="radio" name="prodTasa" value="recv" ${prodTasaFiltro==='recv'?'checked':''} onchange="cambiarProdTasa('recv')"> ${t('optRecv')}</label>
+      <label class="prod-radio"><input type="radio" name="prodTasa" value="ambos" ${prodTasaFiltro==='ambos'?'checked':''} onchange="cambiarProdTasa('ambos')"> ${t('optAmbos')}</label>
+    </div>
+    <div class="prod-filtro">
+      <div class="prod-filtro-tit">${t('prodBreakLbl')}</div>
+      <label class="prod-radio"><input type="radio" name="prodBreak" value="auto" ${prodBreak==='auto'?'checked':''} onchange="cambiarProdBreak('auto')"> ${t('optBreakAuto')}</label>
+      <label class="prod-radio"><input type="radio" name="prodBreak" value="1h" ${prodBreak==='1h'?'checked':''} onchange="cambiarProdBreak('1h')"> ${t('optBreak1')}</label>
+      <label class="prod-radio"><input type="radio" name="prodBreak" value="1.5h" ${prodBreak==='1.5h'?'checked':''} onchange="cambiarProdBreak('1.5h')"> ${t('optBreak15')}</label>
+      <div class="prod-modo-ayuda">${prodBreak==='1h'?t('ayudaBreak1'):prodBreak==='1.5h'?t('ayudaBreak15'):t('ayudaBreakAuto')}</div>
+    </div>
+    <div class="prod-filtro">
+      <div class="prod-filtro-tit">${t('prodTiempo')}</div>
+      <label class="prod-radio"><input type="radio" name="prodModo" value="total" ${prodModoTiempo==='total'?'checked':''} onchange="cambiarProdModo('total')"> ${t('optTiempoTot')}</label>
+      <label class="prod-radio"><input type="radio" name="prodModo" value="neto" ${prodModoTiempo==='neto'?'checked':''} onchange="cambiarProdModo('neto')"> ${t('optTiempoNeto')}</label>
+      <div class="prod-modo-ayuda">${prodModoTiempo==='neto'?t('ayudaNeto'):t('ayudaTotal')}</div>
+    </div>
+  </div>`;
+
+  // ---- (punto 4) Por persona: clic en el nombre despliega sus containers ----
+  const filasP = nombresP.map(nom=>{
+    const p=P[nom]; const abierta=prodPersonaAbierta===nom;
+    const cab=`<tr class="cont-fila ${abierta?'abierta':''}" onclick="toggleProdPersona('${esc(nom)}')">
+        <td><span class="dis-tri">${abierta?'▼':'▶'}</span> <span class="nom-cel inline"><span class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)}</span></td>
+        <td class="n">${p.put}</td><td class="n">${p.recv}</td>
+        <td class="n"><b>${tasaTxt(cuentaDe(p), horasPersona(p))}</b></td>
+      </tr>`;
+    if(!abierta) return cab;
+    const cs=Object.keys(p.conts).sort((a,b)=>cuentaDe(p.conts[b])-cuentaDe(p.conts[a]));
+    let det;
+    if(cs.length===0){ det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('archivado'))}</td></tr>`; }
+    else {
+      det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('verContPersona'))}</td></tr>`+cs.map(cn=>{
+        const pc=p.conts[cn];
+        return `<tr class="cont-sub"><td>📦 ${esc(cn)}</td><td class="n">${pc.put}</td><td class="n">${pc.recv}</td><td class="n"><b>${tasaTxt(cuentaDe(pc), horasDeMarks(pc.marks))}</b></td></tr>`;
       }).join('');
-      detalle = filaProm + filasGente;
     }
-    return cab + detalle;
+    return cab+det;
   }).join('');
 
-  el.innerHTML = barraPeriodo() + `
-    <div class="prod-resumen">
-      <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">${t('prodPutTot')}</div></div>
-      <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">${t('prodRecvTot')}</div></div>
-      <div class="prc"><div class="prc-n">${totPal}</div><div class="prc-l">${t('prodTotPal')}</div></div>
-    </div>
-    <div class="prod-filtros">
-      <div class="prod-filtro">
-        <div class="prod-filtro-tit">${t('prodContar')}</div>
-        <label class="prod-radio"><input type="radio" name="prodTasa" value="put" ${prodTasaFiltro==='put'?'checked':''} onchange="cambiarProdTasa('put')"> ${t('optPut')}</label>
-        <label class="prod-radio"><input type="radio" name="prodTasa" value="recv" ${prodTasaFiltro==='recv'?'checked':''} onchange="cambiarProdTasa('recv')"> ${t('optRecv')}</label>
-        <label class="prod-radio"><input type="radio" name="prodTasa" value="ambos" ${prodTasaFiltro==='ambos'?'checked':''} onchange="cambiarProdTasa('ambos')"> ${t('optAmbos')}</label>
-      </div>
-      <div class="prod-filtro">
-        <div class="prod-filtro-tit">${t('prodTiempo')}</div>
-        <label class="prod-radio"><input type="radio" name="prodModo" value="total" ${prodModoTiempo==='total'?'checked':''} onchange="cambiarProdModo('total')"> ${t('optTiempoTot')}</label>
-        <label class="prod-radio"><input type="radio" name="prodModo" value="neto" ${prodModoTiempo==='neto'?'checked':''} onchange="cambiarProdModo('neto')"> ${t('optTiempoNeto')}</label>
-        <div class="prod-modo-ayuda">${prodModoTiempo==='neto'?t('ayudaNeto'):t('ayudaTotal')}</div>
-      </div>
-    </div>
+  // ---- (punto 5) Por container: seleccionar y eliminar ----
+  const nombresC = Object.keys(C).sort((a,b)=>cuentaDe(C[b])-cuentaDe(C[a]));
+  const algunSel = nombresC.some(cn=>prodContSel[cn]);
+  const filasC = nombresC.map(cn=>{
+    const c=C[cn];
+    return `<tr>
+      <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onchange="toggleProdContSel('${esc(cn)}')"> 📦 ${esc(cn)}</label></td>
+      <td class="n">${c.put}</td><td class="n">${c.recv}</td>
+      <td class="n"><b>${tasaTxt(cuentaDe(c), horasDeMarks(c.marks))}</b></td>
+    </tr>`;
+  }).join('');
+  const barraBorrar = `<div class="prod-borrar-bar"><button class="btn-borrar-sel" ${algunSel?'':'disabled'} onclick="pedirEliminarConts()">${t('selEliminar')}</button></div>`;
+
+  el.innerHTML = headTit + grid + selSemana + filtros + `
     <h3 class="prod-tit">${t('porPersona')}</h3>
     <table class="tabla">
       <tr><th>${t('thPersona')}</th><th class="n">${t('thPut')}</th><th class="n">${t('thRecv')}</th><th class="n">${tasaLbl}</th></tr>
-      ${filasP}
+      ${filasP||`<tr><td colspan="4" class="cont-sub-nota">${t('prodNingPersona')}</td></tr>`}
     </table>
     <h3 class="prod-tit">${t('porContainer')}</h3>
+    ${barraBorrar}
     <table class="tabla tabla-cont">
       <tr><th>${t('thContainer')}</th><th class="n">${t('thPut')}</th><th class="n">${t('thRecv')}</th><th class="n">${tasaLbl}</th></tr>
-      ${filasC}
+      ${filasC||`<tr><td colspan="4" class="cont-sub-nota">${t('prodNingPersona')}</td></tr>`}
     </table>
-    <div class="prod-nota">${t('prodPeriodoLbl')}: <b>${nombrePeriodo()}</b>. ${t('prodNota')}</div>`;
+    <div class="prod-nota">${t('prodNota')}</div>`;
 }
-// Abre/cierra el detalle por persona de un container en Productividad.
-function toggleProdCont(cont){
-  prodContAbierto = (prodContAbierto===cont) ? null : cont;
-  renderProductividad();
+// (punto 4) Abre/cierra el detalle por container de una persona.
+function toggleProdPersona(nom){ prodPersonaAbierta = (prodPersonaAbierta===nom)?null:nom; renderProductividad(); }
+// (punto 5) Marca/desmarca un container para eliminarlo.
+function toggleProdContSel(cn){ if(prodContSel[cn]) delete prodContSel[cn]; else prodContSel[cn]=true; renderProductividad(); }
+// (punto 3) Cambia el modo de descuento de descanso.
+function cambiarProdBreak(v){ prodBreak=v; localStorage.setItem('prodBreak',v); renderProductividad(); }
+// (punto 7) Selector de semanas del año en curso.
+function abrirSelectorSemana(){
+  const hoyLun=lunesDe(Date.now()); const anio=new Date().getFullYear();
+  let primerLun=lunesDe(new Date(anio,0,1).getTime());
+  if(new Date(primerLun).getFullYear()<anio) primerLun+=7*86400000;
+  const selLun=semanaSelLun(); const filas=[];
+  for(let l=hoyLun; l>=primerLun; l-=7*86400000){
+    const dom=l+6*86400000; const sel=(l===selLun);
+    filas.push(`<button class="semana-opt ${sel?'sel':''}" onclick="seleccionarSemana(${l})">lun ${ddmm(l)} › dom ${ddmm(dom)}</button>`);
+  }
+  const html=`<div class="semana-lista">${filas.join('')}</div><div class="semana-leyenda">${t('anioEnCurso')}: ${anio}</div>`;
+  modal({tit:t('selSemanaTit'), input:'html', html, okTxt:t('cerrarLbl'), onOk:()=>{}});
+}
+function seleccionarSemana(lunMs){ prodSemana=(lunMs===lunesDe(Date.now()))?null:lunMs; prodPersonaAbierta=null; cerrarModal(); renderProductividad(); }
+// (punto 5) Pide confirmación y elimina los containers seleccionados.
+function pedirEliminarConts(){
+  const sel=Object.keys(prodContSel).filter(k=>prodContSel[k]);
+  if(sel.length===0) return;
+  const lista=sel.map(s=>'• '+esc(s)).join('<br>');
+  const html=`<div style="margin-bottom:12px;font-size:14px;line-height:1.5">${t('borrarConfirm')}<br><br>${lista}</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer">
+      <input type="checkbox" id="chkStats" style="width:auto;margin:0;flex:none"> ${t('borrarTambienStats')}
+    </label>`;
+  modal({tit:t('borrarTit'), input:'html', html, okTxt:t('selEliminar'), rojo:true, onOk:()=>{
+    const chk=document.getElementById('chkStats'); const borrarStats=!!(chk && chk.checked);
+    conPin(()=>ejecutarEliminarConts(sel, borrarStats));
+  }});
+}
+function ejecutarEliminarConts(nombres, borrarStats){
+  const up={};
+  nombres.forEach(nom=>{
+    for(const clave in datosContainers){
+      const c=datosContainers[clave]||{}; const cn=c.num||c.n||clave;
+      if(cn!==nom) continue;
+      if(!borrarStats){
+        const regsRaw=Object.keys(c.r||{}).map(rid=>Object.assign({}, c.r[rid], {contNom:cn}));
+        archivarRegs(regsRaw, up);
+      }
+      up['tombstones/containers/'+clave]=Date.now();
+      up['containers/'+clave]=null;
+    }
+    if(borrarStats){
+      const k=keySan(nom);
+      for(const dia in datosHistorico){
+        const h=datosHistorico[dia]||{};
+        if(h.containers && h.containers[k]!==undefined) up['historico/'+dia+'/containers/'+k]=null;
+      }
+    }
+  });
+  equipoRef.update(up).then(()=>{ prodContSel={}; toast(t('selEliminar')); }).catch(e=>toast('Error: '+(e.message||e)));
 }
 
-// Barra de botones para elegir el período (hoy / semana / mes / todo).
-function nombrePeriodo(){ return {hoy:t('perHoyN'), semana:t('perSemanaN'), mes:t('perMesN'), todo:t('perTodoN')}[prodPeriodo]||t('perHoyN'); }
-function barraPeriodo(){
-  const op = [['hoy',t('perHoy')],['semana',t('perSemana')],['mes',t('perMes')],['todo',t('perTodo')]];
-  return `<div class="periodo-bar">${op.map(o=>`<button class="periodo-btn ${prodPeriodo===o[0]?'on':''}" onclick="cambiarProdPeriodo('${o[0]}')">${o[1]}</button>`).join('')}</div>`;
-}
 
 // ----- ACTIVIDAD EN TIEMPO REAL: feed de lo último que hizo cada dispositivo -----
 // ¿Un registro pertenece al filtro actual (persona o dispositivo)?
@@ -1418,11 +1576,6 @@ function limpiarFiltroActividad(){
 function cambiarProdTasa(v){
   prodTasaFiltro = v;
   localStorage.setItem('prodTasaFiltro', v);
-  renderProductividad();
-}
-function cambiarProdPeriodo(v){
-  prodPeriodo = v;
-  localStorage.setItem('prodPeriodo', v);
   renderProductividad();
 }
 function cambiarProdModo(v){
@@ -1722,6 +1875,7 @@ function exportarCSV(){
 // ---------- tabs ----------
 function cambiarVista(v){
   vistaActual=v;
+  cerrarContDetalle();   // cerrar la pantalla de detalle de container al cambiar de pestaña
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('activa', t.dataset.vista===v));
   document.querySelectorAll('.vista').forEach(s=>s.classList.toggle('activa', s.id==='vista-'+v));
 }
