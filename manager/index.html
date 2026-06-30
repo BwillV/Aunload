@@ -480,7 +480,7 @@ const I18N = {
   prodTiempo:    ['Tiempo a usar:','Time to use:','使用时间:'],
   optTiempoTot:  ['⏱ Total del día','⏱ Whole day','⏱ 全天'],
   optTiempoNeto: ['✂️ Solo containers','✂️ Containers only','✂️ 仅集装箱'],
-  ayudaTotal:    ['Total del día = del primer al último escaneo (incluye el tiempo muerto entre containers).','Whole day = from first to last scan (includes idle time between containers).','全天 = 从第一次到最后一次扫描(包含集装箱之间的空闲时间)。'],
+  ayudaTotal:    ['Total del día = del primer al último escaneo, menos 1 hora de break (incluye el tiempo muerto entre containers).','Whole day = from first to last scan, minus 1 hour break (includes idle time between containers).','全天 = 从第一次到最后一次扫描，减去1小时休息时间(包含集装箱之间的空闲时间)。'],
   ayudaNeto:     ['Solo containers = suma del tiempo dentro de cada container (no cuenta el tiempo entre containers).','Containers only = sum of time inside each container (does not count time between containers).','仅集装箱 = 每个集装箱内时间的总和(不计算集装箱之间的时间)。'],
   porPersona:    ['Por persona','By person','按人员'],
   porContainer: ['Por container','By container','按集装箱'],
@@ -1084,7 +1084,9 @@ function renderProductividad(){
   function horasNeto(nom){ let s=0; for(const cont in actCP){ const pp=actCP[cont][nom]; if(pp){ for(const d in pp){ s+=(pp[d].max-pp[d].min); } } } return s/3600000; }
   // esPersona=true en la tabla de personas: respeta el modo (total vs neto). En containers ambos coinciden.
   function tasa(o, store, esPersona){
-    const horas = (esPersona && prodModoTiempo==='neto') ? horasNeto(o.nom) : horasActivas(store, o.nom);
+    let horas = (esPersona && prodModoTiempo==='neto') ? horasNeto(o.nom) : horasActivas(store, o.nom);
+    // En modo "total" (bruto), restamos 1 hora de break automáticamente (solo para personas).
+    if(esPersona && prodModoTiempo==='total') horas = Math.max(0, horas - 1);
     if(horas < 0.25) return '—';
     let cuenta = prodTasaFiltro==='put'?o.put : prodTasaFiltro==='recv'?o.recv : (o.put+o.recv);
     return (cuenta/horas).toFixed(1);
