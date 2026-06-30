@@ -198,10 +198,15 @@
   .opc-others-txt{font-size:12.5px; color:var(--texto2);}
   .opc-others-btn{flex-shrink:0; min-width:84px; padding:6px 12px; font-size:12.5px; font-weight:700; color:#fff; background:#90a4ae; border:none; border-radius:8px; cursor:pointer;}
   /* productividad */
-  .prod-resumen{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px;}
+  .prod-resumen{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px;}
   .prc{background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:12px 8px; text-align:center; box-shadow:0 1px 5px rgba(0,0,0,.05);}
   .prc-n{font-size:22px; font-weight:800; color:var(--azul); font-variant-numeric:tabular-nums;}
   .prc-l{font-size:10.5px; color:var(--texto2); margin-top:2px;}
+  .prod-filtros{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;}
+  .prod-filtro{background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:12px; box-shadow:0 1px 5px rgba(0,0,0,.05);}
+  .prod-filtro-tit{font-size:12px; font-weight:700; color:var(--texto2); margin-bottom:8px;}
+  .prod-radio{display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:4px; cursor:pointer;}
+  .prod-radio input[type=radio]{margin:0; cursor:pointer;}
   .prod-tit{font-size:14px; margin:18px 0 8px 0;}
   .tabla th.n{text-align:center;}
   .prod-nota{font-size:11px; color:var(--texto2); margin-top:10px; line-height:1.5;}
@@ -361,6 +366,9 @@ let abiertos = {};
 let todoExpandido = false;
 let filtroGlobal = '';
 let vistaActual = 'vivo';
+// Filtros de productividad (persisten en localStorage)
+let prodTasaFiltro = localStorage.getItem('prodTasaFiltro') || 'put';     // 'put', 'recv', 'ambos'
+let prodHoyFiltro = localStorage.getItem('prodHoyFiltro') || 'put';       // 'put', 'recv', 'ambos'
 
 // ---------- utilidades ----------
 function colorAvatar(nombre){
@@ -830,23 +838,32 @@ function renderProductividad(){
     if(esPut) return (r.up||'').trim() || nombreDisp(r.dp||r.d) || '—';
     return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || '—';
   }
-  const porPersona = {};   // nombre -> {put, recv, ctns, min, max, putHoy}
+  const porPersona = {};   // nombre -> {put, recv, ctns, min, max, putHoy, recvHoy}
   const porCont = {};      // contNom -> {put, recv, ctns, min, max}
-  function ini(o,k){ if(!o[k]) o[k]={put:0,recv:0,ctns:0,min:Infinity,max:0,putHoy:0}; return o[k]; }
+  function ini(o,k){ if(!o[k]) o[k]={put:0,recv:0,ctns:0,min:Infinity,max:0,putHoy:0,recvHoy:0}; return o[k]; }
   regs.forEach(r=>{
     const esPut = !!(r.s && r.s.trim());
     const nom = actorDe(r);
     const p = ini(porPersona, nom);
     const c = ini(porCont, r.contNom||r.clave);
     if(esPut){ p.put++; c.put++; p.ctns+=r.q; c.ctns+=r.q; if(r.t>=t0) p.putHoy++; }
-    else { p.recv++; c.recv++; }
+    else { p.recv++; c.recv++; if(r.t>=t0) p.recvHoy++; }
     p.min=Math.min(p.min,r.t); p.max=Math.max(p.max,r.t);
     c.min=Math.min(c.min,r.t); c.max=Math.max(c.max,r.t);
   });
   function tasa(o){
     const horas=(o.max-o.min)/3600000;
     if(!isFinite(horas) || horas<0.25) return '—';
-    return (o.put/horas).toFixed(1);
+    let cuenta;
+    if(prodTasaFiltro==='put') cuenta=o.put;
+    else if(prodTasaFiltro==='recv') cuenta=o.recv;
+    else cuenta=(o.put||0)+(o.recv||0);  // ambos
+    return (cuenta/horas).toFixed(1);
+  }
+  function valorHoy(o){
+    if(prodHoyFiltro==='put') return o.putHoy||0;
+    if(prodHoyFiltro==='recv') return o.recvHoy||0;
+    return (o.putHoy||0)+(o.recvHoy||0);  // ambos
   }
   const totPut = regs.filter(r=>r.s&&r.s.trim()).length;
   const totRecv = regs.length-totPut;
@@ -858,8 +875,8 @@ function renderProductividad(){
     const s=porPersona[n];
     return `<tr>
       <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(n)}">${esc(iniciales(n))}</div>${esc(n)}</div></td>
-      <td class="n">${s.put}</td><td class="n">${s.recv}</td><td class="n">${s.ctns}</td>
-      <td class="n"><b>${tasa(s)}</b></td><td class="n">${s.putHoy}</td>
+      <td class="n">${s.put}</td><td class="n">${s.recv}</td>
+      <td class="n"><b>${tasa(s)}</b></td><td class="n">${valorHoy(s)}</td>
     </tr>`;
   }).join('');
 
@@ -868,26 +885,42 @@ function renderProductividad(){
     const s=porCont[n];
     return `<tr>
       <td>📦 ${esc(n)}</td>
-      <td class="n">${s.put}</td><td class="n">${s.recv}</td><td class="n">${s.ctns}</td>
+      <td class="n">${s.put}</td><td class="n">${s.recv}</td>
       <td class="n"><b>${tasa(s)}</b></td>
     </tr>`;
   }).join('');
 
+  const tasaLbl = prodTasaFiltro==='put'?'📦 Put/h':prodTasaFiltro==='recv'?'📥 Recv/h':'📊 Total/h';
+  const hoyLbl = prodHoyFiltro==='put'?'📦 Hoy':prodHoyFiltro==='recv'?'📥 Hoy':'📊 Hoy';
+
   el.innerHTML = `
     <div class="prod-resumen">
       <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">📦 Put-away total</div></div>
-      <div class="prc"><div class="prc-n">${totHoy}</div><div class="prc-l">📦 Put-away hoy</div></div>
       <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">📥 Receiving total</div></div>
-      <div class="prc"><div class="prc-n">${totCtns}</div><div class="prc-l">CTNs put-away</div></div>
+      <div class="prc"><div class="prc-n">${totPut+totRecv}</div><div class="prc-l">📊 Total pallets</div></div>
     </div>
-    <h3 class="prod-tit">Por persona (promedio de pallets/hora)</h3>
+    <div class="prod-filtros">
+      <div class="prod-filtro">
+        <div class="prod-filtro-tit">Pallets/hora — contar:</div>
+        <label class="prod-radio"><input type="radio" name="prodTasa" value="put" ${prodTasaFiltro==='put'?'checked':''} onchange="cambiarProdTasa('put')"> 📦 Put-away</label>
+        <label class="prod-radio"><input type="radio" name="prodTasa" value="recv" ${prodTasaFiltro==='recv'?'checked':''} onchange="cambiarProdTasa('recv')"> 📥 Receiving</label>
+        <label class="prod-radio"><input type="radio" name="prodTasa" value="ambos" ${prodTasaFiltro==='ambos'?'checked':''} onchange="cambiarProdTasa('ambos')"> 📊 Ambos</label>
+      </div>
+      <div class="prod-filtro">
+        <div class="prod-filtro-tit">Hoy — contar:</div>
+        <label class="prod-radio"><input type="radio" name="prodHoy" value="put" ${prodHoyFiltro==='put'?'checked':''} onchange="cambiarProdHoy('put')"> 📦 Put-away</label>
+        <label class="prod-radio"><input type="radio" name="prodHoy" value="recv" ${prodHoyFiltro==='recv'?'checked':''} onchange="cambiarProdHoy('recv')"> 📥 Receiving</label>
+        <label class="prod-radio"><input type="radio" name="prodHoy" value="ambos" ${prodHoyFiltro==='ambos'?'checked':''} onchange="cambiarProdHoy('ambos')"> 📊 Ambos</label>
+      </div>
+    </div>
+    <h3 class="prod-tit">Por persona</h3>
     <table class="tabla">
-      <tr><th>Persona</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">CTNs</th><th class="n">Pallets/h</th><th class="n">Hoy</th></tr>
+      <tr><th>Persona</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">${tasaLbl}</th><th class="n">${hoyLbl}</th></tr>
       ${filasP}
     </table>
     <h3 class="prod-tit">Por container</h3>
     <table class="tabla">
-      <tr><th>Container</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">CTNs</th><th class="n">Pallets/h</th></tr>
+      <tr><th>Container</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">${tasaLbl}</th></tr>
       ${filasC}
     </table>
     <div class="prod-nota">El promedio por hora se calcula entre el primer y el último escaneo de cada persona/container. Muestra "—" si el periodo es menor a 15 min.</div>`;
@@ -919,6 +952,17 @@ function renderActividad(){
     </div>`;
   }).join('');
   el.innerHTML = `<div class="act-head">🔴 En vivo · últimos ${regs.length} movimientos de todos los dispositivos</div>${filas}`;
+}
+
+function cambiarProdTasa(v){
+  prodTasaFiltro = v;
+  localStorage.setItem('prodTasaFiltro', v);
+  renderProductividad();
+}
+function cambiarProdHoy(v){
+  prodHoyFiltro = v;
+  localStorage.setItem('prodHoyFiltro', v);
+  renderProductividad();
 }
 
 function sello(){
