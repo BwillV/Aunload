@@ -1,7 +1,7 @@
 {
-  "versionCode": 26,
-  "versionName": "3.7.5",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.5/AUnloadRescue-3.7.5.apk",
+  "versionCode": 27,
+  "versionName": "3.7.6",
+  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v3.7.6/AUnloadRescue-3.7.6.apk",
   "updateRequired": false,
-  "message": "🔧 Update 3.7.5\n\n• CRITICAL FIX: The 'Hide OTHERS' setting now actually works. The previous version had a bug in the detection logic.\n\nPlease update now."
+  "message": "🔧 Actualización 3.7.6\n\n• Cada container ahora muestra la HORA DE INICIO y FIN (primer y último receiving/put away) en letra grande, justo debajo de Active. Incluye la opción «Excluir a:» para que el trabajo de una persona no cuente en ese cálculo.\n\n• Dentro de cada SKU puedes activar «Mostrar pallets × cantidad» (menú de los tres puntitos ⋮) para ver cuántos pallets hay de cada cantidad.\n\n• Si en receiving se puso una cantidad de cajas y luego se corrige en put away, ahora SIEMPRE vale la última (la corregida).\n\n⚠️ IMPORTANTE: cada vez que actualizas la app tienes que volver a ACTIVAR el botón flotante. El camino es:\nAbre la app → pestaña «Ajustes» (⚙️) → toca «Mostrar botón flotante»."
 }
