@@ -135,6 +135,14 @@
   .container-body{display:none; border-top:1px solid var(--borde);}
   .container-card.abierto .container-body{display:block;}
   .cont-tools{display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px; background:#fafbfc; border-top:1px solid var(--gris-claro);}
+  .cont-horario{padding:12px 14px; background:#f4f8ff; border-top:1px solid var(--gris-claro); border-bottom:1px solid var(--gris-claro);}
+  .ch-tiempos{display:flex; gap:10px;}
+  .ch-bloque{flex:1; background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:10px 12px; text-align:center;}
+  .ch-lbl{font-size:12px; font-weight:700; color:var(--texto2); text-transform:uppercase; letter-spacing:.5px;}
+  .ch-hora{font-size:26px; font-weight:800; color:var(--azul); margin-top:2px; line-height:1.1;}
+  .ch-excluir{display:flex; align-items:center; gap:8px; margin-top:10px;}
+  .ch-ex-lbl{font-size:13px; font-weight:600; color:var(--texto2);}
+  .ch-select{flex:1; padding:7px 10px; font-size:14px; border:1px solid var(--borde); border-radius:10px; background:var(--tarjeta); color:var(--texto);}
   .sku-grupo{border-bottom:1px solid var(--gris-claro);}
   .sku-grupo:last-child{border-bottom:none;}
   /* SKU: nombre arriba (línea completa) y la info de pallets debajo, como en la app */
@@ -395,6 +403,7 @@ let prodModoTiempo = localStorage.getItem('prodModoTiempo') || 'total';   // 'to
 let datosHistorico = {};         // estadísticas archivadas por día (persisten aunque se borren containers)
 let filtroActividad = null;      // {tipo:'persona'|'disp', valor, label} para ver actividad de uno solo
 let prodContAbierto = null;      // container expandido en Productividad (drill-down por persona)
+let excluirInicio = {};          // clave de container -> persona a excluir del cálculo de inicio/fin
 let conectado = false;           // estado de conexión actual (para traducir el rótulo al cambiar idioma)
 
 // ---------- IDIOMAS (es / en / zh) — igual que la app ----------
@@ -462,6 +471,10 @@ const I18N = {
   ctOtroEquipo:  ['➡️ Otro equipo','➡️ Other team','➡️ 其他团队'],
   ctFusionar:    ['🔀 Fusionar','🔀 Merge','🔀 合并'],
   ctBorrar:      ['🗑 Borrar','🗑 Delete','🗑 删除'],
+  chInicio:      ['Inicio','Start','开始'],
+  chFin:         ['Fin','End','结束'],
+  chExcluir:     ['Excluir a:','Exclude:','排除:'],
+  chNadie:       ['— Nadie —','— Nobody —','— 无 —'],
   sinPallets:    ['Sin pallets todavía.','No pallets yet.','暂无托盘。'],
   pallet:        ['pallet','pallet','托盘'],
   pallets:       ['pallets','pallets','托盘'],
@@ -682,6 +695,12 @@ function todosLosRegistros(){
   return out;
 }
 
+// Hora en formato 12h con minutos, SIN segundos (ej: "9:05 a. m.").
+function horaHM(t){
+  if(!t) return '—';
+  const loc = idioma==='zh' ? 'zh-CN' : (idioma==='en' ? 'en-US' : 'es-CO');
+  return new Date(t).toLocaleTimeString(loc,{hour:'numeric',minute:'2-digit',hour12:true});
+}
 // Nombre legible de un dispositivo (para los registros que solo traen device id).
 function nombreDisp(devId){
   if(!devId) return '';
@@ -863,6 +882,36 @@ function render(){
 
       const palletsCont = consolidarRegs(c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
       const totReg = palletsCont.filter(r=>!esOtrosSku(r.s) && r.s && r.s.trim()).length;
+
+      // ---- Horario del container: hora de inicio (primer escaneo) y fin (último escaneo) ----
+      // Actor de cada registro crudo: put-away si tiene SKU, receiving si no.
+      const rawRegs = c.r ? Object.values(c.r) : [];
+      function actorRaw(r){
+        const esPut = !!(r.s && String(r.s).trim());
+        return esPut ? ((r.up||'').trim()||nombreDisp(r.dp||r.d)||'—')
+                     : ((r.ur||'').trim()||nombreDisp(r.dr||r.d)||'—');
+      }
+      const genteCont = [];
+      rawRegs.forEach(r=>{ const a=actorRaw(r); if(a && a!=='—' && !genteCont.includes(a)) genteCont.push(a); });
+      genteCont.sort();
+      const excl = excluirInicio[clave] || '';
+      let ini=null, fin=null;
+      rawRegs.forEach(r=>{
+        if(!r.t || r.t<=0) return;
+        if(excl && actorRaw(r)===excl) return;       // excluir a esta persona
+        if(ini===null || r.t<ini) ini=r.t;
+        if(fin===null || r.t>fin) fin=r.t;
+      });
+      const optsExcl = ['<option value="">'+t('chNadie')+'</option>']
+        .concat(genteCont.map(g=>`<option value="${esc(g)}" ${g===excl?'selected':''}>${esc(g)}</option>`)).join('');
+      const horarioHtml = `<div class="cont-horario">
+        <div class="ch-tiempos">
+          <div class="ch-bloque"><div class="ch-lbl">${t('chInicio')}</div><div class="ch-hora">${horaHM(ini)}</div></div>
+          <div class="ch-bloque"><div class="ch-lbl">${t('chFin')}</div><div class="ch-hora">${horaHM(fin)}</div></div>
+        </div>
+        ${genteCont.length>1 ? `<div class="ch-excluir"><span class="ch-ex-lbl">${t('chExcluir')}</span>
+          <select class="ch-select" onchange="cambiarExcluir('${esc(clave)}', this.value)">${optsExcl}</select></div>` : ''}
+      </div>`;
       html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
         <div class="container-head" onclick="toggle('${esc(clave)}')">
           <div class="cont-icono">📦</div>
@@ -880,6 +929,7 @@ function render(){
             <button class="accion warn" onclick="fusionarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctFusionar')}</button>
             <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(c.num||c.n||clave)}')">${t('ctBorrar')}</button>
           </div>
+          ${horarioHtml}
           ${cuerpo||'<div class="reg-fila"><span class="reg-cant">'+t('sinPallets')+'</span></div>'}
         </div>
       </div>`;
@@ -1314,6 +1364,11 @@ function sello(){
 function toggle(clave){
   if(todoExpandido){ todoExpandido=false; Object.keys(datosContainers).forEach(k=>abiertos[k]=true); document.getElementById('btnExpandir').textContent=t('tbExpandir'); }
   abiertos[clave]=!abiertos[clave]; render();
+}
+// Excluir (o no) a una persona del cálculo de inicio/fin de un container.
+function cambiarExcluir(clave, persona){
+  if(persona) excluirInicio[clave]=persona; else delete excluirInicio[clave];
+  render();
 }
 
 // ---------- acciones del manager ----------
