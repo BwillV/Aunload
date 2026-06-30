@@ -714,10 +714,39 @@ function nombreDisp(devId){
   return d ? (d.name || d.u || devId) : devId;
 }
 
+// ---- Receiving vs Put-away (definición correcta) ----
+// RECEIVING = cuando apenas se mete el pallet al sistema (escaneo inicial, sin ubicación todavía).
+// PUT-AWAY  = cuando YA se le da una ubicación al pallet (el campo u/ubicación queda lleno).
+// Por eso la señal robusta es la UBICACIÓN, no el SKU (sirve también para registros viejos sin tr/tp).
+function tieneUbic(r){ return !!(r && r.u && String(r.u).trim()); }
+function actorRecv(r){ return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || ''; }
+function actorPut(r){ return (r.up||'').trim() || nombreDisp(r.dp||r.d) || ''; }
+
+// Última actividad REAL (último escaneo de receiving o put-away) por dispositivo y por persona.
+// Sirve para marcar offline/inactivo: el "latido" de tener la app abierta NO cuenta como actividad.
+function mapaUltimaActividad(){
+  const dev={}, nom={};
+  todosLosRegistros().forEach(r=>{
+    if(!r.t) return;
+    // receiving: lo hizo quien metió el pallet al sistema
+    const dR=r.dr||r.d, nR=actorRecv(r);
+    if(dR) dev[dR]=Math.max(dev[dR]||0, r.t);
+    if(nR) nom[nR]=Math.max(nom[nR]||0, r.t);
+    // put-away: solo si el pallet ya tiene ubicación
+    if(tieneUbic(r)){
+      const dP=r.dp||r.d, nP=actorPut(r);
+      if(dP) dev[dP]=Math.max(dev[dP]||0, r.t);
+      if(nP) nom[nP]=Math.max(nom[nP]||0, r.t);
+    }
+  });
+  return {dev, nom};
+}
+
 // Une los registros de un container por código AUnload en UN solo pallet lógico.
-// La app guarda el RECEIVING (ubicación, sin SKU) y el PUT-AWAY (SKU + CTNs) como
-// registros SEPARADOS con rids distintos. Sin unirlos se ven duplicados, el conteo
-// sale doble y cada ubicación muestra un ×2 falso. Aquí los combinamos.
+// La app guarda el escaneo de RECEIVING (entrada al sistema: SKU + CTNs) y el de
+// PUT-AWAY (asignación de ubicación) como registros SEPARADOS con rids distintos.
+// Sin unirlos se ven duplicados, el conteo sale doble y cada ubicación muestra un
+// ×2 falso. Aquí los combinamos.
 function consolidarRegs(entries){
   const porCodigo = {}; const sueltos = [];
   entries.forEach(r=>{
@@ -751,9 +780,19 @@ function render(){
   let totalCont = claves.length, totalPallets=0, totalCtns=0;
 
   // presencia en vivo
+  // El "latido" (app abierta) NO basta para estar EN VIVO: la persona también debe haber
+  // escaneado algo de verdad hace poco (receiving o put-away dentro de DEV_ACT_MS). Así, si
+  // alguien dejó la app abierta pero su último escaneo fue hace 2 h, ya NO aparece como activo.
+  const ultActVivo = mapaUltimaActividad();
+  function escaneoReciente(p){
+    const ahora = Date.now();
+    const porDev = p.dev ? (ultActVivo.dev[p.dev]||0) : 0;
+    const porNom = p.u ? (ultActVivo.nom[p.u]||0) : 0;
+    return (ahora - Math.max(porDev, porNom)) <= DEV_ACT_MS;
+  }
   const vivoLista = [];
   for(const clave in datosPresencia){
-    presenciaDeContainer(clave).forEach(p=> vivoLista.push({...p, clave}));
+    presenciaDeContainer(clave).filter(escaneoReciente).forEach(p=> vivoLista.push({...p, clave}));
   }
   const personasVivas = new Set(vivoLista.map(p=>p.u||p.dev));
   document.getElementById('numVivo').textContent = personasVivas.size;
@@ -817,7 +856,7 @@ function render(){
         );
         if(regs.length===0) return;
       }
-      const vivos = presenciaDeContainer(clave);
+      const vivos = presenciaDeContainer(clave).filter(escaneoReciente);
       const abierto = todoExpandido || abiertos[clave] || !!q;
 
       // ubicaciones duplicadas en este container
@@ -890,21 +929,23 @@ function render(){
       const totReg = palletsCont.filter(r=>!esOtrosSku(r.s) && r.s && r.s.trim()).length;
 
       // ---- Horario del container: hora de inicio (primer escaneo) y fin (último escaneo) ----
-      // Actor de cada registro crudo: put-away si tiene SKU, receiving si no.
+      // Personas de cada registro: siempre el de receiving (quien lo metió al sistema) y,
+      // si el pallet ya tiene ubicación, también el de put-away.
       const rawRegs = c.r ? Object.values(c.r) : [];
-      function actorRaw(r){
-        const esPut = !!(r.s && String(r.s).trim());
-        return esPut ? ((r.up||'').trim()||nombreDisp(r.dp||r.d)||'—')
-                     : ((r.ur||'').trim()||nombreDisp(r.dr||r.d)||'—');
+      function actoresRaw(r){
+        const a = [];
+        const ar = actorRecv(r); if(ar) a.push(ar);
+        if(tieneUbic(r)){ const ap = actorPut(r); if(ap) a.push(ap); }
+        return a;
       }
       const genteCont = [];
-      rawRegs.forEach(r=>{ const a=actorRaw(r); if(a && a!=='—' && !genteCont.includes(a)) genteCont.push(a); });
+      rawRegs.forEach(r=>{ actoresRaw(r).forEach(a=>{ if(a && !genteCont.includes(a)) genteCont.push(a); }); });
       genteCont.sort();
       const excl = excluirInicio[clave] || '';
       let ini=null, fin=null;
       rawRegs.forEach(r=>{
         if(!r.t || r.t<=0) return;
-        if(excl && actorRaw(r)===excl) return;       // excluir a esta persona
+        if(excl && actoresRaw(r).includes(excl)) return;       // excluir a esta persona
         if(ini===null || r.t<ini) ini=r.t;
         if(fin===null || r.t>fin) fin=r.t;
       });
@@ -976,13 +1017,8 @@ function renderDispositivos(){
   // acción (put-away => dp, receiving => dr). Antes se le sumaba a los 3 (d/dp/dr),
   // así que si otra persona tocaba un pallet compartido, el que solo lo había
   // recibido hace rato volvía a aparecer "online" sin haber hecho nada.
-  const act = {};
-  todosLosRegistros().forEach(r=>{
-    if(!r.t) return;
-    const esPut = !!(r.s && String(r.s).trim());
-    const dev = esPut ? (r.dp||r.d) : (r.dr||r.d);
-    if(dev) act[dev]=Math.max(act[dev]||0, r.t);
-  });
+  // receiving => dr (siempre); put-away => dp (solo si el pallet ya tiene ubicación).
+  const act = mapaUltimaActividad().dev;
   // Online = escaneó algo en los últimos 30 min. El "seen" (latido de la app
   // abierta) NO cuenta: si lleva 30 min sin mover nada, está offline aunque
   // tenga la app abierta.
@@ -1095,75 +1131,57 @@ function renderProductividad(){
   const el = document.getElementById('productividad');
   if(!el) return;
 
-  // Actor (nombre) de un registro: put-away si tiene SKU, receiving si no.
-  function actorDe(r){
-    const esPut = !!(r.s && r.s.trim());
-    if(esPut) return (r.up||'').trim() || nombreDisp(r.dp||r.d) || '—';
-    return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || '—';
-  }
-  // Actor del lado RECEIVING de un registro (aunque el registro traiga SKU mezclado).
-  function recvActorDe(r){ return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || actorDe(r); }
-
   // --- 1) Datos EN VIVO (containers actuales), filtrados por período ---
   const regs = todosLosRegistros().filter(r=>r.t>0 && enPeriodo(claveDia(r.t)));
   const porPersona = {};   // nombre -> {nom, put, recv, ctns}
   const porCont = {};      // contNom -> {nom, put, recv, ctns}
-  const actP = {};         // nombre -> dia -> {min,max}  (horas activas, solo en vivo)
+  const actP = {};         // nombre -> dia -> [marcas de tiempo]  (horas activas, solo en vivo)
   const actC = {};
   const porContPersona = {}; // contNom -> { persona -> {nom,put,recv,ctns} }   (solo EN VIVO)
-  const actCP = {};          // contNom -> persona -> dia -> {min,max}
+  const actCP = {};          // contNom -> persona -> dia -> [marcas de tiempo]
   function ini(o,k){ if(!o[k]) o[k]={nom:k, put:0, recv:0, ctns:0, palSet:new Set(), palAprox:0}; return o[k]; }
   // Agrega un código de pallet al set (para no contar dos veces el mismo pallet en modo "ambos").
   function addPal(o, code){ if(code) o.palSet.add(code); }
-  // track ahora guarda TODAS las marcas de tiempo del día (para poder recortar descansos de 1h+).
-  function track(store,nom,dia,t){ const m=store[nom]||(store[nom]={}); (m[dia]||(m[dia]=[])).push(t); }
+  // track guarda TODAS las marcas de tiempo del día (para poder recortar descansos de 1h+).
+  function track(store,nom,dia,t){ if(!nom) return; const m=store[nom]||(store[nom]={}); (m[dia]||(m[dia]=[])).push(t); }
 
-  // Pallets (container|código) que SÍ tienen un registro de receiving separado (sin SKU).
-  // Cuando el receiving y el put-away quedan en el MISMO registro, ese set NO lo incluye,
-  // así que más abajo le sumamos el receiving que de otro modo se perdería.
-  const tieneRecvAparte = new Set();
+  // --- HORAS: cada escaneo cuenta como actividad de quien lo hizo. El de receiving (quien metió
+  // el pallet al sistema) y, si el pallet ya tiene ubicación, también el de put-away. ---
   regs.forEach(r=>{
-    const esPut = !!(r.s && r.s.trim());
-    const code = (r.c||'').trim();
-    if(!esPut && code) tieneRecvAparte.add((r.contNom||r.clave)+'|'+code);
-  });
-
-  regs.forEach(r=>{
-    const esPut = !!(r.s && r.s.trim());
-    const nom = actorDe(r);
     const cont = r.contNom||r.clave;
     const dia = claveDia(r.t);
-    const code = (r.c||'').trim();
-    const p = ini(porPersona, nom);
-    const c = ini(porCont, cont);
-    const cp = porContPersona[cont] || (porContPersona[cont]={});
     const acp = actCP[cont] || (actCP[cont]={});
-    if(esPut){ p.put++; c.put++; p.ctns+=r.q; c.ctns+=r.q; }
-    else { p.recv++; c.recv++; }
-    // pallet distinto (modo "ambos" no debe contar dos veces el mismo pallet)
-    addPal(p, code); addPal(c, code);
-    track(actP, nom, dia, r.t);
-    track(actC, cont, dia, r.t);
-    // desglose por persona DENTRO de cada container
-    const cpp = ini(cp, nom);
-    if(esPut){ cpp.put++; cpp.ctns+=r.q; } else { cpp.recv++; }
-    addPal(cpp, code);
-    track(acp, nom, dia, r.t);
-
-    // Receiving FUSIONADO: este registro tiene SKU (put) pero su pallet no tiene un
-    // receiving separado → el receiving quedó dentro de este mismo registro. Lo contamos.
-    if(esPut && code && !tieneRecvAparte.has(cont+'|'+code)){
-      const rNom = recvActorDe(r);
-      const rp = ini(porPersona, rNom);
-      rp.recv++; c.recv++;
-      addPal(rp, code);
-      const rcpp = ini(cp, rNom);
-      rcpp.recv++;
-      addPal(rcpp, code);
-      track(actP, rNom, dia, r.t);
-      track(acp, rNom, dia, r.t);
+    const ra = actorRecv(r);
+    track(actP, ra, dia, r.t); track(actC, cont, dia, r.t); track(acp, ra, dia, r.t);
+    if(tieneUbic(r)){
+      const pa = actorPut(r);
+      track(actP, pa, dia, r.t); track(acp, pa, dia, r.t);
     }
   });
+
+  // --- CONTEOS: agrupamos por container y consolidamos por código AUnload para NO duplicar.
+  // Cada pallet lógico = 1 receiving (quien lo metió al sistema) y, si tiene ubicación, 1 put-away. ---
+  const regsPorCont = {};
+  regs.forEach(r=>{ const cont=r.contNom||r.clave; (regsPorCont[cont]=regsPorCont[cont]||[]).push(r); });
+  for(const cont in regsPorCont){
+    const c = ini(porCont, cont);
+    const cp = porContPersona[cont] || (porContPersona[cont]={});
+    consolidarRegs(regsPorCont[cont]).forEach(m=>{
+      const code = (m.c||'').trim();
+      // RECEIVING: todo pallet entró al sistema una vez.
+      const ra = actorRecv(m) || '—';
+      const pr = ini(porPersona, ra); pr.recv++; addPal(pr, code);
+      c.recv++; addPal(c, code);
+      const cpr = ini(cp, ra); cpr.recv++; addPal(cpr, code);
+      // PUT-AWAY: solo si el pallet ya tiene ubicación asignada.
+      if(tieneUbic(m)){
+        const pa = actorPut(m) || '—';
+        const pp = ini(porPersona, pa); pp.put++; pp.ctns+=m.q; addPal(pp, code);
+        c.put++; c.ctns+=m.q; addPal(c, code);
+        const cpp = ini(cp, pa); cpp.put++; cpp.ctns+=m.q; addPal(cpp, code);
+      }
+    });
+  }
 
   // --- 2) Datos ARCHIVADOS (containers borrados) del histórico, mismo período ---
   for(const dia in datosHistorico){
@@ -1358,14 +1376,15 @@ function renderActividad(){
     return;
   }
   const filas = regs.map(r=>{
-    const esPut = !!(r.s && r.s.trim());
+    // PUT-AWAY = ya tiene ubicación asignada. RECEIVING = apenas entró al sistema (sin ubicación).
+    const esPut = tieneUbic(r);
     const icono = esPut ? '📦' : '📥';
     const tipo = esPut ? t('putaway') : t('receiving');
-    const actor = esPut ? ((r.up||'').trim()||nombreDisp(r.dp||r.d)||'—')
-                        : ((r.ur||'').trim()||nombreDisp(r.dr||r.d)||'—');
+    const actor = esPut ? (actorPut(r)||'—') : (actorRecv(r)||'—');
+    const skuTxt = (r.s && r.s.trim()) ? esc(r.s) : '';
     const det = esPut
-      ? `${esc(r.s)} · ${r.q} CTNs${r.u?(' → '+esc(r.u)):''}`
-      : `${r.u?(t('ubicoEn')+' '+esc(r.u)):t('recibido')}`;
+      ? `${skuTxt?skuTxt+' · ':''}${r.q} CTNs → ${esc(r.u)}`
+      : `${skuTxt?(skuTxt+' · '+r.q+' CTNs'):t('recibido')}`;
     const hora = new Date(r.t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
     return `<div class="act-fila">
       <div class="act-ico ${esPut?'put':'recv'}">${icono}</div>
