@@ -648,12 +648,22 @@ function render(){
       let cuerpo='';
       skus.forEach(sku=>{
         const lista = grupos[sku]; let ctns=0; lista.forEach(r=>ctns+=(parseInt(r.q)||0));
-        // pallets × cajas por pallet (ej "3 pallets × 24 bxs")
-        const qtysSku = lista.map(r=>parseInt(r.q)||0).filter(x=>x>0);
-        const uniqQ = [...new Set(qtysSku)];
-        const detPal = (uniqQ.length===1 && qtysSku.length>0)
-          ? `${lista.length} pallet${lista.length!=1?'s':''} × ${uniqQ[0]} bxs · ${ctns} CTNs`
-          : `${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs`;
+        // Pallets × cajas por pallet, AGRUPADOS por cantidad.
+        // Ej: "2 pallets × 25 · 1 pallet × 23 · 1 pallet × 1 bxs · 74 CTNs"
+        const porCant = {};   // cantidad de cajas -> nº de pallets
+        let palConCant = 0;
+        lista.forEach(r=>{ const q=parseInt(r.q)||0; if(q>0){ porCant[q]=(porCant[q]||0)+1; palConCant++; } });
+        const cantidades = Object.keys(porCant).map(Number)
+          .sort((a,b)=> (porCant[b]-porCant[a]) || (b-a) );   // más pallets primero, luego cantidad mayor
+        let detPal;
+        if(cantidades.length>0){
+          const partes = cantidades.map(q=>`${porCant[q]} pallet${porCant[q]!=1?'s':''} × ${q}`);
+          const sinCant = lista.length - palConCant;   // pallets sin cantidad registrada
+          if(sinCant>0) partes.push(`${sinCant} pallet${sinCant!=1?'s':''} sin cant.`);
+          detPal = `${partes.join(' · ')} bxs · ${ctns} CTNs`;
+        } else {
+          detPal = `${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs`;
+        }
         lista.sort((a,b)=>{ const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim(); if(!!ua!==!!ub) return ua?-1:1; return (b.t||0)-(a.t||0); });
         let filas='';
         lista.forEach(r=>{
