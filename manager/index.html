@@ -130,6 +130,10 @@
   .cont-meta{font-size:12px; color:var(--texto2); margin-top:2px;}
   .cont-badge{background:var(--gris-claro); color:var(--texto2); font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0;}
   .cont-badge.activo{background:var(--verde-claro); color:var(--verde);}
+  .cont-trabajando{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px;}
+  .cont-trabajando .ct-lbl{font-size:11px; font-weight:700; color:var(--verde);}
+  .trab-chip{display:inline-flex; align-items:center; gap:5px; background:var(--verde-claro); color:#1b5e20; font-size:11px; font-weight:600; padding:2px 8px 2px 2px; border-radius:20px;}
+  .trab-ava{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; color:#fff; font-size:9px; font-weight:700;}
   .flecha{color:var(--texto2); font-size:14px; transition:transform .2s; flex-shrink:0;}
   .container-card.abierto .flecha{transform:rotate(90deg);}
   .container-body{display:none; border-top:1px solid var(--borde);}
@@ -385,6 +389,7 @@ const db = firebase.database();
 const PRESENCIA_VIVA_MS = 90000;
 const DEV_ONLINE_MS = 120000;   // un dispositivo se considera "en línea" si su seen es reciente
 const DEV_ACT_MS = 30*60*1000;  // 30 min sin escanear (put-away/receiving) => offline por inactividad
+const BREAK_GAP_MS = 60*60*1000; // un hueco de 1h o más (almuerzo/launch) NO cuenta como tiempo trabajado
 let equipoRef = null;
 let pinActual = null;
 let datosContainers = {};
@@ -442,6 +447,7 @@ const I18N = {
   prodTit:       ['📊 Productividad','📊 Productivity','📊 生产力'],
   nadie:         ['Nadie está trabajando en este momento.','Nobody is working right now.','目前没有人在工作。'],
   envivo:        ['en vivo','live','实时'],
+  trabajandoAhora:['Trabajando ahora','Working now','正在工作'],
   sinSku:        ['(sin SKU)','(no SKU)','(无SKU)'],
   verTodo:       ['← Ver todo','← View all','← 查看全部'],
   actividadDe:   ['Actividad de','Activity of','活动：'],
@@ -493,8 +499,8 @@ const I18N = {
   prodTiempo:    ['Tiempo a usar:','Time to use:','使用时间:'],
   optTiempoTot:  ['⏱ Total del día','⏱ Whole day','⏱ 全天'],
   optTiempoNeto: ['✂️ Solo containers','✂️ Containers only','✂️ 仅集装箱'],
-  ayudaTotal:    ['Total del día = del primer al último escaneo, menos 1 hora de break (incluye el tiempo muerto entre containers).','Whole day = from first to last scan, minus 1 hour break (includes idle time between containers).','全天 = 从第一次到最后一次扫描，减去1小时休息时间(包含集装箱之间的空闲时间)。'],
-  ayudaNeto:     ['Solo containers = suma del tiempo dentro de cada container (no cuenta el tiempo entre containers).','Containers only = sum of time inside each container (does not count time between containers).','仅集装箱 = 每个集装箱内时间的总和(不计算集装箱之间的时间)。'],
+  ayudaTotal:    ['Total del día = del primer al último escaneo. Los descansos de 1 hora o más (almuerzo, etc.) se descuentan automáticamente.','Whole day = from first to last scan. Breaks of 1 hour or more (lunch, etc.) are deducted automatically.','全天 = 从第一次到最后一次扫描。1小时或以上的休息(午餐等)会自动扣除。'],
+  ayudaNeto:     ['Solo containers = suma del tiempo dentro de cada container. Los descansos de 1 hora o más se descuentan automáticamente.','Containers only = sum of time inside each container. Breaks of 1 hour or more are deducted automatically.','仅集装箱 = 每个集装箱内时间的总和。1小时或以上的休息会自动扣除。'],
   porPersona:    ['Por persona','By person','按人员'],
   porContainer: ['Por container','By container','按集装箱'],
   thPersona:     ['Persona','Person','人员'],
@@ -514,7 +520,7 @@ const I18N = {
   perTodoN:      ['Todo','All','全部'],
   sinActPeriodo: ['No hay actividad en el período seleccionado.','No activity in the selected period.','所选时间段内没有活动。'],
   prodPeriodoLbl:['Período','Period','时间段'],
-  prodNota:      ['Las estadísticas de containers borrados quedan guardadas y se suman aquí. Toca un container para ver el promedio y las personas dentro. El promedio por hora usa solo la actividad reciente; muestra "—" si hay menos de 15 min de actividad.','Stats from deleted containers are saved and added here. Tap a container to see its average and the people inside. The hourly average uses only recent activity; shows "—" if there is less than 15 min of activity.','已删除集装箱的统计数据会被保存并汇总在此。点击集装箱可查看其平均值和内部人员。每小时平均值仅使用近期活动；活动少于15分钟时显示"—"。'],
+  prodNota:      ['Las estadísticas de containers borrados quedan guardadas y se suman aquí. Toca un container para ver el promedio y las personas dentro. El promedio por hora usa solo la actividad reciente; muestra "—" si hay menos de 15 min de actividad. En "Ambos" cada pallet se cuenta una sola vez (no se suman put-away y receiving del mismo pallet).','Stats from deleted containers are saved and added here. Tap a container to see its average and the people inside. The hourly average uses only recent activity; shows "—" if there is less than 15 min of activity. In "Both" each pallet is counted once (put-away and receiving of the same pallet are not added together).','已删除集装箱的统计数据会被保存并汇总在此。点击集装箱可查看其平均值和内部人员。每小时平均值仅使用近期活动；活动少于15分钟时显示"—"。在"两者"中每个托盘只计一次(同一托盘的上架和收货不重复累加)。'],
   archivado:     ['archivado (sin detalle por persona)','archived (no per-person detail)','已归档(无人员明细)'],
   promedio:      ['Promedio del container','Container average','集装箱平均'],
   actualizado:   ['Actualizado en vivo','Updated live','实时更新'],
@@ -912,12 +918,21 @@ function render(){
         ${genteCont.length>1 ? `<div class="ch-excluir"><span class="ch-ex-lbl">${t('chExcluir')}</span>
           <select class="ch-select" onchange="cambiarExcluir('${esc(clave)}', this.value)">${optsExcl}</select></div>` : ''}
       </div>`;
+      // ---- Quiénes están trabajando AHORA en este container (presencia en vivo) ----
+      const trabajandoHtml = vivos.length>0 ? `<div class="cont-trabajando">
+        <span class="ct-lbl">🟢 ${t('trabajandoAhora')}:</span>
+        ${vivos.map(v=>{
+          const nm = v.u || nombreDisp(v.dev) || t('sinNombre');
+          return `<span class="trab-chip"><span class="trab-ava" style="background:${colorAvatar(nm)}">${esc(iniciales(nm))}</span>${esc(nm)}</span>`;
+        }).join('')}
+      </div>` : '';
       html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
         <div class="container-head" onclick="toggle('${esc(clave)}')">
           <div class="cont-icono">📦</div>
           <div class="cont-info">
             <div class="cont-num">${esc(c.num||c.n||clave)}</div>
             <div class="cont-meta">${totReg} ${t('pallets')} · ${esc(c.n||'')}</div>
+            ${trabajandoHtml}
           </div>
           ${vivos.length>0 ? `<span class="cont-badge activo">🟢 ${vivos.length}</span>` : ''}
           <span class="flecha">▶</span>
@@ -957,26 +972,33 @@ function renderDispositivos(){
   const ahora = Date.now();
   // Mapa de última ACTIVIDAD real (put-away / receiving) por dispositivo.
   // Un equipo se considera offline si lleva 30 min sin escanear nada.
+  // IMPORTANTE: cada registro se le atribuye SOLO al dispositivo que hizo ESA
+  // acción (put-away => dp, receiving => dr). Antes se le sumaba a los 3 (d/dp/dr),
+  // así que si otra persona tocaba un pallet compartido, el que solo lo había
+  // recibido hace rato volvía a aparecer "online" sin haber hecho nada.
   const act = {};
   todosLosRegistros().forEach(r=>{
-    [r.d, r.dp, r.dr].forEach(dev=>{ if(dev && r.t){ act[dev]=Math.max(act[dev]||0, r.t); } });
+    if(!r.t) return;
+    const esPut = !!(r.s && String(r.s).trim());
+    const dev = esPut ? (r.dp||r.d) : (r.dr||r.d);
+    if(dev) act[dev]=Math.max(act[dev]||0, r.t);
   });
-  const activo = (id)=>{
-    const d=datosDevices[id];
-    const ultAct = Math.max(act[id]||0, (d&&d.seen)||0);
-    return (ahora-ultAct)<=DEV_ACT_MS;
-  };
+  // Online = escaneó algo en los últimos 30 min. El "seen" (latido de la app
+  // abierta) NO cuenta: si lleva 30 min sin mover nada, está offline aunque
+  // tenga la app abierta.
+  const activo = (id)=> act[id] ? (ahora-act[id])<=DEV_ACT_MS : false;
   // ordenar: activos primero, luego por última actividad reciente
   ids.sort((a,b)=>{
     const oa=activo(a)?1:0, ob=activo(b)?1:0;
     if(oa!==ob) return ob-oa;
-    const ua=Math.max(act[a]||0,(datosDevices[a].seen||0));
-    const ub=Math.max(act[b]||0,(datosDevices[b].seen||0));
+    const ua=act[a]||0;
+    const ub=act[b]||0;
     return ub-ua;
   });
   el.innerHTML = ids.map(id=>{
     const d = datosDevices[id];
-    const ultAct = Math.max(act[id]||0, d.seen||0);
+    // "última actividad" = último escaneo real (no el latido de la app).
+    const ultAct = act[id]||0;
     const enLinea = activo(id);
     const bloq = d.blocked===true;
     const nombre = d.name || d.u || t('sinNombre');
@@ -1090,8 +1112,11 @@ function renderProductividad(){
   const actC = {};
   const porContPersona = {}; // contNom -> { persona -> {nom,put,recv,ctns} }   (solo EN VIVO)
   const actCP = {};          // contNom -> persona -> dia -> {min,max}
-  function ini(o,k){ if(!o[k]) o[k]={nom:k, put:0, recv:0, ctns:0}; return o[k]; }
-  function track(store,nom,dia,t){ const m=store[nom]||(store[nom]={}); const d=m[dia]||(m[dia]={min:t,max:t}); if(t<d.min)d.min=t; if(t>d.max)d.max=t; }
+  function ini(o,k){ if(!o[k]) o[k]={nom:k, put:0, recv:0, ctns:0, palSet:new Set(), palAprox:0}; return o[k]; }
+  // Agrega un código de pallet al set (para no contar dos veces el mismo pallet en modo "ambos").
+  function addPal(o, code){ if(code) o.palSet.add(code); }
+  // track ahora guarda TODAS las marcas de tiempo del día (para poder recortar descansos de 1h+).
+  function track(store,nom,dia,t){ const m=store[nom]||(store[nom]={}); (m[dia]||(m[dia]=[])).push(t); }
 
   // Pallets (container|código) que SÍ tienen un registro de receiving separado (sin SKU).
   // Cuando el receiving y el put-away quedan en el MISMO registro, ese set NO lo incluye,
@@ -1115,11 +1140,14 @@ function renderProductividad(){
     const acp = actCP[cont] || (actCP[cont]={});
     if(esPut){ p.put++; c.put++; p.ctns+=r.q; c.ctns+=r.q; }
     else { p.recv++; c.recv++; }
+    // pallet distinto (modo "ambos" no debe contar dos veces el mismo pallet)
+    addPal(p, code); addPal(c, code);
     track(actP, nom, dia, r.t);
     track(actC, cont, dia, r.t);
     // desglose por persona DENTRO de cada container
     const cpp = ini(cp, nom);
     if(esPut){ cpp.put++; cpp.ctns+=r.q; } else { cpp.recv++; }
+    addPal(cpp, code);
     track(acp, nom, dia, r.t);
 
     // Receiving FUSIONADO: este registro tiene SKU (put) pero su pallet no tiene un
@@ -1128,8 +1156,10 @@ function renderProductividad(){
       const rNom = recvActorDe(r);
       const rp = ini(porPersona, rNom);
       rp.recv++; c.recv++;
+      addPal(rp, code);
       const rcpp = ini(cp, rNom);
       rcpp.recv++;
+      addPal(rcpp, code);
       track(actP, rNom, dia, r.t);
       track(acp, rNom, dia, r.t);
     }
@@ -1145,6 +1175,9 @@ function renderProductividad(){
         const e = grp[key]||{}; const nom = e.nom||key;
         const o = ini(par[1], nom);
         o.put+=(e.put||0); o.recv+=(e.recv||0); o.ctns+=(e.ctns||0);
+        // El histórico no guarda los códigos de cada pallet, así que aproximamos los
+        // pallets distintos con el mayor de put/recv (cada pallet se recibe y se acomoda 1 vez).
+        o.palAprox += Math.max(e.put||0, e.recv||0);
       }
     });
   }
@@ -1154,22 +1187,46 @@ function renderProductividad(){
     return;
   }
 
-  // Horas TOTALES (bruto): del primer al último escaneo de cada día (incluye tiempo muerto entre containers).
-  function horasActivas(store, nom){ const m=store[nom]; if(!m) return 0; let s=0; for(const d in m){ s+=(m[d].max-m[d].min); } return s/3600000; }
-  // Horas NETAS de una persona: suma del (max-min) DENTRO de cada container (no cuenta el tiempo entre containers).
-  function horasNeto(nom){ let s=0; for(const cont in actCP){ const pp=actCP[cont][nom]; if(pp){ for(const d in pp){ s+=(pp[d].max-pp[d].min); } } } return s/3600000; }
+  // Suma el tiempo de una lista de marcas (ms), recortando los descansos/huecos de 1h o más
+  // (almuerzo, fin de turno, etc.) para no contar ese tiempo muerto.
+  function msDeLista(ts){
+    if(!ts || ts.length<2) return 0;
+    const a = ts.slice().sort((x,y)=>x-y);
+    let s=0;
+    for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<BREAK_GAP_MS) s+=d; }
+    return s;
+  }
+  // Horas TOTALES (bruto): suma del tiempo de cada día, descontando descansos de 1h+.
+  function horasActivas(store, nom){ const m=store[nom]; if(!m) return 0; let s=0; for(const d in m){ s+=msDeLista(m[d]); } return s/3600000; }
+  // Horas NETAS de una persona: tiempo DENTRO de cada container (también descuenta descansos de 1h+).
+  function horasNeto(nom){ let s=0; for(const cont in actCP){ const pp=actCP[cont][nom]; if(pp){ for(const d in pp){ s+=msDeLista(pp[d]); } } } return s/3600000; }
+  // Pallets contados según el filtro. En "ambos" usamos pallets DISTINTOS (no sumamos put+recv
+  // porque es el mismo pallet); para histórico usamos la aproximación palAprox.
+  function cuentaDe(o){
+    if(prodTasaFiltro==='put') return o.put;
+    if(prodTasaFiltro==='recv') return o.recv;
+    return (o.palSet?o.palSet.size:0) + (o.palAprox||0);
+  }
   // esPersona=true en la tabla de personas: respeta el modo (total vs neto). En containers ambos coinciden.
   function tasa(o, store, esPersona){
     let horas = (esPersona && prodModoTiempo==='neto') ? horasNeto(o.nom) : horasActivas(store, o.nom);
-    // En modo "total" (bruto), restamos 1 hora de break automáticamente (solo para personas).
-    if(esPersona && prodModoTiempo==='total') horas = Math.max(0, horas - 1);
     if(horas < 0.25) return '—';
-    let cuenta = prodTasaFiltro==='put'?o.put : prodTasaFiltro==='recv'?o.recv : (o.put+o.recv);
-    return (cuenta/horas).toFixed(1);
+    return (cuentaDe(o)/horas).toFixed(1);
   }
 
   let totPut=0, totRecv=0, totCtns=0;
   Object.keys(porPersona).forEach(n=>{ const s=porPersona[n]; totPut+=s.put; totRecv+=s.recv; totCtns+=s.ctns; });
+  // Total de pallets DISTINTOS (no sumamos put+recv porque es el mismo pallet).
+  // En vivo: códigos únicos por container; histórico: aproximación con el mayor de put/recv.
+  const setGlobal = new Set();
+  regs.forEach(r=>{ const code=(r.c||'').trim(); if(code) setGlobal.add((r.contNom||r.clave)+'|'+code); });
+  let totPalAprox = 0;
+  for(const dia in datosHistorico){
+    if(!enPeriodo(dia)) continue;
+    const grp = (datosHistorico[dia]||{}).containers||{};
+    for(const key in grp){ const e=grp[key]||{}; totPalAprox += Math.max(e.put||0, e.recv||0); }
+  }
+  const totPal = setGlobal.size + totPalAprox;
 
   const nombres = Object.keys(porPersona).sort((a,b)=>(porPersona[b].put+porPersona[b].recv)-(porPersona[a].put+porPersona[a].recv));
   const filasP = nombres.map(n=>{
@@ -1221,7 +1278,7 @@ function renderProductividad(){
     <div class="prod-resumen">
       <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">${t('prodPutTot')}</div></div>
       <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">${t('prodRecvTot')}</div></div>
-      <div class="prc"><div class="prc-n">${totPut+totRecv}</div><div class="prc-l">${t('prodTotPal')}</div></div>
+      <div class="prc"><div class="prc-n">${totPal}</div><div class="prc-l">${t('prodTotPal')}</div></div>
     </div>
     <div class="prod-filtros">
       <div class="prod-filtro">
