@@ -193,6 +193,30 @@
   .actualizado{font-size:11px; color:var(--texto2); text-align:center; margin-top:16px;}
   .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#263238; color:#fff; padding:12px 20px; border-radius:30px; font-size:13px; font-weight:600; z-index:200; opacity:0; transition:opacity .25s; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,.3);}
   .toast.show{opacity:1;}
+  /* opción compacta de OTHERS dentro de la vista de containers */
+  .opc-others{display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--tarjeta); border:1px solid var(--borde); border-radius:10px; padding:8px 12px; margin-bottom:12px;}
+  .opc-others-txt{font-size:12.5px; color:var(--texto2);}
+  .opc-others-btn{flex-shrink:0; min-width:84px; padding:6px 12px; font-size:12.5px; font-weight:700; color:#fff; background:#90a4ae; border:none; border-radius:8px; cursor:pointer;}
+  /* productividad */
+  .prod-resumen{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px;}
+  .prc{background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:12px 8px; text-align:center; box-shadow:0 1px 5px rgba(0,0,0,.05);}
+  .prc-n{font-size:22px; font-weight:800; color:var(--azul); font-variant-numeric:tabular-nums;}
+  .prc-l{font-size:10.5px; color:var(--texto2); margin-top:2px;}
+  .prod-tit{font-size:14px; margin:18px 0 8px 0;}
+  .tabla th.n{text-align:center;}
+  .prod-nota{font-size:11px; color:var(--texto2); margin-top:10px; line-height:1.5;}
+  /* actividad en tiempo real */
+  .act-head{font-size:12.5px; font-weight:700; color:var(--rojo); margin-bottom:10px;}
+  .act-fila{display:flex; align-items:flex-start; gap:10px; background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:10px 12px; margin-bottom:8px; box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .act-ico{width:34px; height:34px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px;}
+  .act-ico.put{background:#e3f2fd;} .act-ico.recv{background:#fff3e0;}
+  .act-cuerpo{flex:1; min-width:0;}
+  .act-l1{font-size:13.5px;}
+  .act-au{color:var(--texto2); font-size:12px;}
+  .act-l2{font-size:12px; color:var(--texto2); margin-top:2px;}
+  .act-cont{font-weight:600;}
+  .act-time{font-size:11px; color:var(--texto2); text-align:right; flex-shrink:0; white-space:nowrap;}
+  .act-clock{font-weight:700;}
 </style>
 </head>
 <body>
@@ -228,6 +252,8 @@
       <button class="tab activa" data-vista="vivo">🟢 En vivo</button>
       <button class="tab" data-vista="dispositivos">📱 Dispositivos</button>
       <button class="tab" data-vista="containers">📦 Containers</button>
+      <button class="tab" data-vista="actividad">🔴 Actividad</button>
+      <button class="tab" data-vista="productividad">📊 Productividad</button>
       <button class="tab" data-vista="personas">👥 Personas</button>
     </div>
     <div class="toolbar">
@@ -246,17 +272,6 @@
         <textarea id="txtAnuncio" rows="2" placeholder="Escribe tu aviso… (ej: Reunión en 10 min)"></textarea>
         <button class="btn-accion" id="btnAnuncio">Enviar aviso</button>
       </div>
-      <div class="card-acc">
-        <h3>⚙️ Ajustes del equipo</h3>
-        <p>Estos ajustes se aplican a TODOS los escáneres del equipo.</p>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px">
-          <div>
-            <div style="font-weight:600">Ocultar grupo «OTHERS» (sin SKU)</div>
-            <div style="font-size:12px;color:#5a6b7a">Oculta los pallets sin SKU en todos los teléfonos.</div>
-          </div>
-          <button class="btn-accion" id="btnOcultarOthers" style="min-width:120px">…</button>
-        </div>
-      </div>
       <div class="seccion-tit">🟢 Trabajando ahora</div>
       <div id="vivo"></div>
     </section>
@@ -270,7 +285,23 @@
     <!-- VISTA CONTAINERS -->
     <section class="vista" id="vista-containers">
       <input class="buscar-glob" id="buscarGlobal" type="text" placeholder="🔎 Buscar AUnload, SKU o ubicación en todo el equipo…">
+      <div class="opc-others">
+        <span class="opc-others-txt">Ocultar «OTHERS» (sin SKU) en todos los teléfonos</span>
+        <button class="opc-others-btn" id="btnOcultarOthers" title="Aplica a todos los escáneres del equipo">…</button>
+      </div>
       <div id="containers"></div>
+    </section>
+
+    <!-- VISTA ACTIVIDAD (tiempo real) -->
+    <section class="vista" id="vista-actividad">
+      <div class="seccion-tit">🔴 Actividad en tiempo real</div>
+      <div id="actividad"></div>
+    </section>
+
+    <!-- VISTA PRODUCTIVIDAD -->
+    <section class="vista" id="vista-productividad">
+      <div class="seccion-tit">📊 Productividad</div>
+      <div id="productividad"></div>
     </section>
 
     <!-- VISTA PERSONAS -->
@@ -318,6 +349,7 @@ const db = firebase.database();
 
 const PRESENCIA_VIVA_MS = 90000;
 const DEV_ONLINE_MS = 120000;   // un dispositivo se considera "en línea" si su seen es reciente
+const DEV_ACT_MS = 30*60*1000;  // 30 min sin escanear (put-away/receiving) => offline por inactividad
 let equipoRef = null;
 let pinActual = null;
 let datosContainers = {};
@@ -478,10 +510,48 @@ function todosLosRegistros(){
       const r = c.r[rid];
       out.push({clave, rid, contNom:nom,
         c:r.c||'', u:r.u||'', s:r.s||'', q:parseInt(r.q)||0, t:r.t||0,
-        ur:r.ur||'', up:r.up||'', dr:r.dr||'', dp:r.dp||''});
+        ur:r.ur||'', up:r.up||'', dr:r.dr||'', dp:r.dp||'', d:r.d||''});
     }
   }
   return out;
+}
+
+// Nombre legible de un dispositivo (para los registros que solo traen device id).
+function nombreDisp(devId){
+  if(!devId) return '';
+  const d = datosDevices[devId];
+  return d ? (d.name || d.u || devId) : devId;
+}
+
+// Une los registros de un container por código AUnload en UN solo pallet lógico.
+// La app guarda el RECEIVING (ubicación, sin SKU) y el PUT-AWAY (SKU + CTNs) como
+// registros SEPARADOS con rids distintos. Sin unirlos se ven duplicados, el conteo
+// sale doble y cada ubicación muestra un ×2 falso. Aquí los combinamos.
+function consolidarRegs(entries){
+  const porCodigo = {}; const sueltos = [];
+  entries.forEach(r=>{
+    const code=(r.c||'').trim();
+    if(!code){ sueltos.push(Object.assign({}, r, {rids:[r.rid]})); return; }
+    (porCodigo[code]=porCodigo[code]||[]).push(r);
+  });
+  const out=[];
+  Object.keys(porCodigo).forEach(code=>{
+    const g = porCodigo[code].slice().sort((a,b)=>(a.t||0)-(b.t||0));
+    const m = {c:code, rids:g.map(x=>x.rid), u:'', s:'', q:0, ur:'', up:'', dr:'', dp:'', d:'', t:0, tRecv:0, tPut:0, rid:null};
+    let sT=-1, uT=-1, qT=-1;
+    g.forEach(x=>{
+      const t=x.t||0;
+      if(x.u&&x.u.trim() && t>=uT){ m.u=x.u.trim(); uT=t; }
+      if(x.s&&x.s.trim() && t>=sT){ m.s=x.s.trim(); sT=t; m.rid=x.rid; }   // SKU más reciente gana
+      if((parseInt(x.q)||0)>0 && t>=qT){ m.q=parseInt(x.q)||0; qT=t; }
+      if(x.ur) m.ur=x.ur; if(x.up) m.up=x.up; if(x.dr) m.dr=x.dr; if(x.dp) m.dp=x.dp; if(x.d) m.d=x.d;
+      if(x.s&&x.s.trim()){ m.tPut=Math.max(m.tPut,t); } else { m.tRecv=Math.max(m.tRecv,t); }
+      m.t=Math.max(m.t,t);
+    });
+    if(!m.rid) m.rid=g[g.length-1].rid;  // sin SKU: usa el último rid
+    out.push(m);
+  });
+  return out.concat(sueltos);
 }
 
 // ---------- render ----------
@@ -526,9 +596,9 @@ function render(){
   // totales (siempre, aunque la vista no esté activa)
   claves.forEach(clave=>{
     const c = datosContainers[clave];
-    const regs = c.r ? Object.values(c.r) : [];
-    regs.forEach(r=>{
-      if(esOtrosSku(r.s)) return;       // OTHERS no cuenta
+    const pallets = consolidarRegs(c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
+    pallets.forEach(r=>{
+      if(esOtrosSku(r.s) || !(r.s&&r.s.trim())) return;  // OTHERS / sin SKU no cuentan
       totalPallets++;
       totalCtns += (parseInt(r.q)||0);
     });
@@ -542,7 +612,8 @@ function render(){
     let html='';
     ordenadas.forEach(clave=>{
       const c = datosContainers[clave];
-      let regs = c.r ? Object.entries(c.r).map(([rid,r])=>({rid,...r})) : [];
+      // Unimos receiving + put-away en un solo pallet lógico (arregla duplicados y ×2).
+      let regs = consolidarRegs(c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
       // filtro global
       if(q){
         regs = regs.filter(r=>
@@ -577,6 +648,12 @@ function render(){
       let cuerpo='';
       skus.forEach(sku=>{
         const lista = grupos[sku]; let ctns=0; lista.forEach(r=>ctns+=(parseInt(r.q)||0));
+        // pallets × cajas por pallet (ej "3 pallets × 24 bxs")
+        const qtysSku = lista.map(r=>parseInt(r.q)||0).filter(x=>x>0);
+        const uniqQ = [...new Set(qtysSku)];
+        const detPal = (uniqQ.length===1 && qtysSku.length>0)
+          ? `${lista.length} pallet${lista.length!=1?'s':''} × ${uniqQ[0]} bxs · ${ctns} CTNs`
+          : `${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs`;
         lista.sort((a,b)=>{ const ua=a.u&&a.u.trim(), ub=b.u&&b.u.trim(); if(!!ua!==!!ub) return ua?-1:1; return (b.t||0)-(a.t||0); });
         let filas='';
         lista.forEach(r=>{
@@ -591,20 +668,21 @@ function render(){
             ${ubic}
             <span class="reg-cant">${(parseInt(r.q)||0)} CTNs · ${esc(r.c||'')}</span>
             ${quien}
-            <button class="reg-btn" title="Editar pallet" onclick="editarPallet('${esc(clave)}','${esc(r.rid)}')">✏️</button>
-            <button class="reg-btn" title="Mover pallet a otro container" onclick="moverPallet('${esc(clave)}','${esc(r.rid)}')">↗️</button>
-            <button class="reg-del" title="Borrar pallet" onclick="borrarPallet('${esc(clave)}','${esc(r.rid)}')">🗑</button>
+            <button class="reg-btn" title="Editar pallet" onclick="editarPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">✏️</button>
+            <button class="reg-btn" title="Mover pallet a otro container" onclick="moverPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">↗️</button>
+            <button class="reg-del" title="Borrar pallet" onclick="borrarPallet('${esc(clave)}','${esc((r.rids||[r.rid]).join(','))}')">🗑</button>
           </div>`;
         });
         const skuMover = sku!=='(sin SKU)'
           ? `<button class="sku-acc" title="Mover todos los pallets de este SKU a otro container" onclick="moverSku('${esc(clave)}','${esc(sku)}')">↗️ Mover SKU</button>` : '';
         cuerpo += `<div class="sku-grupo">
-          <div class="sku-head"><span class="sku-nom">${esc(sku)}</span><span class="sku-tot">${lista.length} pallet${lista.length!=1?'s':''} · ${ctns} CTNs</span>${skuMover}</div>
+          <div class="sku-head"><span class="sku-nom">${esc(sku)}</span><span class="sku-tot">${detPal}</span>${skuMover}</div>
           ${filas}
         </div>`;
       });
 
-      const totReg = (c.r?Object.values(c.r).filter(r=>!esOtrosSku(r.s)).length:0);
+      const palletsCont = consolidarRegs(c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
+      const totReg = palletsCont.filter(r=>!esOtrosSku(r.s) && r.s && r.s.trim()).length;
       html += `<div class="container-card ${abierto?'abierto':''}" data-clave="${esc(clave)}">
         <div class="container-head" onclick="toggle('${esc(clave)}')">
           <div class="cont-icono">📦</div>
@@ -631,6 +709,11 @@ function render(){
 
   // ----- PERSONAS -----
   renderPersonas();
+  // ----- PRODUCTIVIDAD / ACTIVIDAD -----
+  renderProductividad();
+  renderActividad();
+  // mantener sincronizado el switch de OTHERS (ahora vive en la vista de containers)
+  pintarOcultarOthers();
 
   document.getElementById('numContainers').textContent = totalCont;
   document.getElementById('numPallets').textContent = totalPallets;
@@ -643,31 +726,43 @@ function renderDispositivos(){
   const ids = Object.keys(datosDevices||{});
   if(ids.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay dispositivos registrados. Aparecerán cuando abran la app.</div>'; return; }
   const ahora = Date.now();
-  // ordenar: en línea primero, luego por seen reciente
+  // Mapa de última ACTIVIDAD real (put-away / receiving) por dispositivo.
+  // Un equipo se considera offline si lleva 30 min sin escanear nada.
+  const act = {};
+  todosLosRegistros().forEach(r=>{
+    [r.d, r.dp, r.dr].forEach(dev=>{ if(dev && r.t){ act[dev]=Math.max(act[dev]||0, r.t); } });
+  });
+  const activo = (id)=>{
+    const d=datosDevices[id];
+    const ultAct = Math.max(act[id]||0, (d&&d.seen)||0);
+    return (ahora-ultAct)<=DEV_ACT_MS;
+  };
+  // ordenar: activos primero, luego por última actividad reciente
   ids.sort((a,b)=>{
-    const da=datosDevices[a], dbb=datosDevices[b];
-    const oa=(da.online && ahora-(da.seen||0)<=DEV_ONLINE_MS)?1:0;
-    const ob=(dbb.online && ahora-(dbb.seen||0)<=DEV_ONLINE_MS)?1:0;
+    const oa=activo(a)?1:0, ob=activo(b)?1:0;
     if(oa!==ob) return ob-oa;
-    return (dbb.seen||0)-(da.seen||0);
+    const ua=Math.max(act[a]||0,(datosDevices[a].seen||0));
+    const ub=Math.max(act[b]||0,(datosDevices[b].seen||0));
+    return ub-ua;
   });
   el.innerHTML = ids.map(id=>{
     const d = datosDevices[id];
-    const enLinea = d.online && (ahora-(d.seen||0)<=DEV_ONLINE_MS);
+    const ultAct = Math.max(act[id]||0, d.seen||0);
+    const enLinea = activo(id);
     const bloq = d.blocked===true;
     const nombre = d.name || d.u || 'Sin nombre';
     const usuario = d.u ? esc(d.u) : 'sin nombre de usuario';
     const ver = d.v ? ('v'+esc(d.v)) : 'versión ?';
     let estBadge = bloq ? '<span class="badge-est bl">Bloqueado</span>'
-                  : enLinea ? '<span class="badge-est on">En línea</span>'
-                  : '<span class="badge-est off">Desconectado</span>';
+                  : enLinea ? '<span class="badge-est on">Activo</span>'
+                  : '<span class="badge-est off">Offline (inactivo)</span>';
     const fu = d.forceUpdate===true;
     return `<div class="dev ${enLinea?'online':''} ${bloq?'bloq':''}">
       <div class="dev-top">
         <div class="avatar" style="background:${colorAvatar(nombre)}">${esc(iniciales(nombre))}</div>
         <div class="dev-info">
           <div class="dev-nom">${esc(nombre)} ${estBadge}</div>
-          <div class="dev-meta">👤 ${usuario} · ${ver} · visto ${tiempoRelativo(d.seen||0)}</div>
+          <div class="dev-meta">👤 ${usuario} · ${ver} · última actividad ${ultAct?tiempoRelativo(ultAct):'—'}</div>
         </div>
       </div>
       <div class="dev-acc">
@@ -709,6 +804,113 @@ function renderPersonas(){
   </table>`;
 }
 
+// ----- PRODUCTIVIDAD: cuánto hace cada persona/equipo por hora -----
+function renderProductividad(){
+  const el = document.getElementById('productividad');
+  if(!el) return;
+  const regs = todosLosRegistros().filter(r=>r.t>0);
+  if(regs.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay actividad registrada.</div>'; return; }
+  const inicioDia = new Date(); inicioDia.setHours(0,0,0,0);
+  const t0 = inicioDia.getTime();
+
+  // Cada registro es UN evento: put-away si tiene SKU, receiving si no.
+  // actor = nombre de usuario (ur/up) o, si no hay, el nombre del dispositivo.
+  function actorDe(r){
+    const esPut = !!(r.s && r.s.trim());
+    if(esPut) return (r.up||'').trim() || nombreDisp(r.dp||r.d) || '—';
+    return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || '—';
+  }
+  const porPersona = {};   // nombre -> {put, recv, ctns, min, max, putHoy}
+  const porCont = {};      // contNom -> {put, recv, ctns, min, max}
+  function ini(o,k){ if(!o[k]) o[k]={put:0,recv:0,ctns:0,min:Infinity,max:0,putHoy:0}; return o[k]; }
+  regs.forEach(r=>{
+    const esPut = !!(r.s && r.s.trim());
+    const nom = actorDe(r);
+    const p = ini(porPersona, nom);
+    const c = ini(porCont, r.contNom||r.clave);
+    if(esPut){ p.put++; c.put++; p.ctns+=r.q; c.ctns+=r.q; if(r.t>=t0) p.putHoy++; }
+    else { p.recv++; c.recv++; }
+    p.min=Math.min(p.min,r.t); p.max=Math.max(p.max,r.t);
+    c.min=Math.min(c.min,r.t); c.max=Math.max(c.max,r.t);
+  });
+  function tasa(o){
+    const horas=(o.max-o.min)/3600000;
+    if(!isFinite(horas) || horas<0.25) return '—';
+    return (o.put/horas).toFixed(1);
+  }
+  const totPut = regs.filter(r=>r.s&&r.s.trim()).length;
+  const totRecv = regs.length-totPut;
+  const totCtns = regs.reduce((s,r)=>s+((r.s&&r.s.trim())?r.q:0),0);
+  const totHoy = regs.filter(r=>r.s&&r.s.trim()&&r.t>=t0).length;
+
+  const nombres = Object.keys(porPersona).sort((a,b)=>porPersona[b].put-porPersona[a].put);
+  const filasP = nombres.map(n=>{
+    const s=porPersona[n];
+    return `<tr>
+      <td><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(n)}">${esc(iniciales(n))}</div>${esc(n)}</div></td>
+      <td class="n">${s.put}</td><td class="n">${s.recv}</td><td class="n">${s.ctns}</td>
+      <td class="n"><b>${tasa(s)}</b></td><td class="n">${s.putHoy}</td>
+    </tr>`;
+  }).join('');
+
+  const conts = Object.keys(porCont).sort((a,b)=>porCont[b].put-porCont[a].put);
+  const filasC = conts.map(n=>{
+    const s=porCont[n];
+    return `<tr>
+      <td>📦 ${esc(n)}</td>
+      <td class="n">${s.put}</td><td class="n">${s.recv}</td><td class="n">${s.ctns}</td>
+      <td class="n"><b>${tasa(s)}</b></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="prod-resumen">
+      <div class="prc"><div class="prc-n">${totPut}</div><div class="prc-l">📦 Put-away total</div></div>
+      <div class="prc"><div class="prc-n">${totHoy}</div><div class="prc-l">📦 Put-away hoy</div></div>
+      <div class="prc"><div class="prc-n">${totRecv}</div><div class="prc-l">📥 Receiving total</div></div>
+      <div class="prc"><div class="prc-n">${totCtns}</div><div class="prc-l">CTNs put-away</div></div>
+    </div>
+    <h3 class="prod-tit">Por persona (promedio de pallets/hora)</h3>
+    <table class="tabla">
+      <tr><th>Persona</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">CTNs</th><th class="n">Pallets/h</th><th class="n">Hoy</th></tr>
+      ${filasP}
+    </table>
+    <h3 class="prod-tit">Por container</h3>
+    <table class="tabla">
+      <tr><th>Container</th><th class="n">📦 Put</th><th class="n">📥 Recv</th><th class="n">CTNs</th><th class="n">Pallets/h</th></tr>
+      ${filasC}
+    </table>
+    <div class="prod-nota">El promedio por hora se calcula entre el primer y el último escaneo de cada persona/container. Muestra "—" si el periodo es menor a 15 min.</div>`;
+}
+
+// ----- ACTIVIDAD EN TIEMPO REAL: feed de lo último que hizo cada dispositivo -----
+function renderActividad(){
+  const el = document.getElementById('actividad');
+  if(!el) return;
+  const regs = todosLosRegistros().filter(r=>r.t>0).sort((a,b)=>b.t-a.t).slice(0,80);
+  if(regs.length===0){ el.innerHTML='<div class="vivo-vacio">Todavía no hay actividad. Aparecerá aquí en cuanto alguien escanee.</div>'; return; }
+  const filas = regs.map(r=>{
+    const esPut = !!(r.s && r.s.trim());
+    const icono = esPut ? '📦' : '📥';
+    const tipo = esPut ? 'Put-away' : 'Receiving';
+    const actor = esPut ? ((r.up||'').trim()||nombreDisp(r.dp||r.d)||'—')
+                        : ((r.ur||'').trim()||nombreDisp(r.dr||r.d)||'—');
+    const det = esPut
+      ? `${esc(r.s)} · ${r.q} CTNs${r.u?(' → '+esc(r.u)):''}`
+      : `${r.u?('ubicó en '+esc(r.u)):'recibido'}`;
+    const hora = new Date(r.t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="act-fila">
+      <div class="act-ico ${esPut?'put':'recv'}">${icono}</div>
+      <div class="act-cuerpo">
+        <div class="act-l1"><b>${esc(actor)}</b> · ${tipo} <span class="act-au">${esc(r.c||'')}</span></div>
+        <div class="act-l2">${det} · <span class="act-cont">${esc(r.contNom||'')}</span></div>
+      </div>
+      <div class="act-time">${tiempoRelativo(r.t)}<br><span class="act-clock">${hora}</span></div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="act-head">🔴 En vivo · últimos ${regs.length} movimientos de todos los dispositivos</div>${filas}`;
+}
+
 function sello(){
   const d = new Date();
   document.getElementById('actualizado').textContent =
@@ -742,7 +944,7 @@ function pintarOcultarOthers(){
   if(!b) return;
   const on = datosConfig && datosConfig.ocultarOthers===true;
   b.textContent = on ? '✅ Oculto' : '👁️ Visible';
-  b.style.background = on ? '#1f8a4c' : '';
+  b.style.background = on ? '#1f8a4c' : '#90a4ae';
 }
 function toggleOcultarOthers(){
   const on = datosConfig && datosConfig.ocultarOthers===true;
@@ -757,10 +959,12 @@ function enviarAnuncio(){
     document.getElementById('txtAnuncio').value=''; toast('Aviso enviado a todos');
   });
 }
-function borrarPallet(clave, rid){
+function borrarPallet(clave, ridsCsv){
+  const rids = String(ridsCsv).split(',').filter(Boolean);
   modal({tit:'🗑 Borrar pallet', msg:'Se borrará este pallet para todo el equipo. ¿Continuar?', okTxt:'Borrar', rojo:true, onOk:()=>{
     conPin(()=>{
-      const up={}; up['tombstones/regs/'+rid]=Date.now(); up['containers/'+clave+'/r/'+rid]=null;
+      const up={};
+      rids.forEach(rid=>{ up['tombstones/regs/'+rid]=Date.now(); up['containers/'+clave+'/r/'+rid]=null; });
       equipoRef.update(up).then(()=>toast('Pallet borrado'));
     });
   }});
@@ -835,21 +1039,26 @@ let _ridSeq = 0;
 function nuevoRid(){ return 'mgr_' + Date.now().toString(36) + '_' + (_ridSeq++).toString(36) + Math.random().toString(36).slice(2,6); }
 
 // Mueve un pallet (registro) individual a otro container del MISMO equipo.
-function moverPallet(clave, rid){
+function moverPallet(clave, ridsCsv){
+  const rids = String(ridsCsv).split(',').filter(Boolean);
   const ops = opcionesContainers(clave);
   if(ops.length===0){ toast('No hay otro container al cual mover'); return; }
-  const r = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r[rid]:null;
-  const etq = r ? (r.s||r.c||'pallet') : 'pallet';
+  const cr = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r:{};
+  const r0 = cr[rids.find(id=>cr[id]&&(cr[id].s||'').trim())] || cr[rids[0]];
+  const etq = r0 ? (r0.s||r0.c||'pallet') : 'pallet';
   modal({tit:'↗️ Mover pallet', msg:'Mueve "'+etq+'" a otro container de este equipo.', input:'select', opciones:ops, valor:ops[0].v, okTxt:'Mover', onOk:(dest)=>{
     if(!dest) return;
     conPin(()=>{
-      const reg = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r[rid]:null;
-      if(!reg){ toast('Pallet no encontrado'); return; }
-      const nrid = nuevoRid();
+      const ccr = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r:null;
+      if(!ccr){ toast('Pallet no encontrado'); return; }
       const up={};
-      up['containers/'+dest+'/r/'+nrid] = reg;        // copia al destino con rid nuevo
-      up['containers/'+clave+'/r/'+rid] = null;        // borra del origen
-      up['tombstones/regs/'+rid] = Date.now();         // lápida al rid viejo (limpia teléfonos)
+      rids.forEach(rid=>{
+        if(!ccr[rid]) return;
+        const nrid = nuevoRid();
+        up['containers/'+dest+'/r/'+nrid] = ccr[rid];   // copia al destino con rid nuevo
+        up['containers/'+clave+'/r/'+rid] = null;         // borra del origen
+        up['tombstones/regs/'+rid] = Date.now();          // lápida al rid viejo (limpia teléfonos)
+      });
       equipoRef.update(up).then(()=>toast('Pallet movido')).catch(e=>toast('Error: '+(e.message||e)));
     });
   }});
@@ -860,9 +1069,13 @@ function moverSku(clave, sku){
   const ops = opcionesContainers(clave);
   if(ops.length===0){ toast('No hay otro container al cual mover'); return; }
   const c = datosContainers[clave];
-  const rids = c&&c.r ? Object.keys(c.r).filter(rid=>{ const s=(c.r[rid].s||'').trim(); return s===sku; }) : [];
+  // Pallets lógicos con este SKU → recogemos TODOS sus rids (receiving + put-away).
+  const pallets = consolidarRegs(c&&c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
+  const rids = [];
+  pallets.forEach(p=>{ if((p.s||'').trim()===sku){ (p.rids||[p.rid]).forEach(id=>rids.push(id)); } });
   if(rids.length===0){ toast('No hay pallets de ese SKU'); return; }
-  modal({tit:'↗️ Mover SKU', msg:'Mueve los '+rids.length+' pallet(s) del SKU "'+sku+'" a otro container.', input:'select', opciones:ops, valor:ops[0].v, okTxt:'Mover '+rids.length, onOk:(dest)=>{
+  const palCount = pallets.filter(p=>(p.s||'').trim()===sku).length;
+  modal({tit:'↗️ Mover SKU', msg:'Mueve los '+palCount+' pallet(s) del SKU "'+sku+'" a otro container.', input:'select', opciones:ops, valor:ops[0].v, okTxt:'Mover '+palCount, onOk:(dest)=>{
     if(!dest) return;
     conPin(()=>{
       const cc = datosContainers[clave];
@@ -881,28 +1094,37 @@ function moverSku(clave, sku){
 }
 
 // Edita los campos de un pallet: AUnload, SKU, ubicación y cantidad (CTNs).
-function editarPallet(clave, rid){
-  const r = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r[rid]:null;
-  if(!r){ toast('Pallet no encontrado'); return; }
+function editarPallet(clave, ridsCsv){
+  const rids = String(ridsCsv).split(',').filter(Boolean);
+  const cr = (datosContainers[clave]&&datosContainers[clave].r)?datosContainers[clave].r:null;
+  if(!cr){ toast('Pallet no encontrado'); return; }
+  // rid principal: el que tiene SKU (put-away); si no hay, el primero.
+  const ridPrim = rids.find(id=>cr[id]&&(cr[id].s||'').trim()) || rids[0];
+  // Valores combinados (lo más reciente / no vacío) para precargar el formulario.
+  const pal = consolidarRegs(rids.filter(id=>cr[id]).map(id=>Object.assign({rid:id}, cr[id])))[0]
+              || Object.assign({rid:ridPrim}, cr[ridPrim]||{});
+  if(!pal){ toast('Pallet no encontrado'); return; }
   const html = `
-    <div class="campo"><label>AUnload</label><input id="edC" type="text" value="${esc(r.c||'')}"></div>
-    <div class="campo"><label>SKU</label><input id="edS" type="text" value="${esc(r.s||'')}"></div>
-    <div class="campo"><label>Ubicación</label><input id="edU" type="text" value="${esc(r.u||'')}"></div>
-    <div class="campo"><label>CTNs (cantidad)</label><input id="edQ" type="number" inputmode="numeric" value="${parseInt(r.q)||0}"></div>`;
+    <div class="campo"><label>AUnload</label><input id="edC" type="text" value="${esc(pal.c||'')}"></div>
+    <div class="campo"><label>SKU</label><input id="edS" type="text" value="${esc(pal.s||'')}"></div>
+    <div class="campo"><label>Ubicación</label><input id="edU" type="text" value="${esc(pal.u||'')}"></div>
+    <div class="campo"><label>CTNs (cantidad)</label><input id="edQ" type="number" inputmode="numeric" value="${parseInt(pal.q)||0}"></div>`;
   modal({tit:'✏️ Editar pallet', msg:'Corrige los datos de este pallet para todo el equipo.', input:'html', html:html, okTxt:'Guardar', onOk:()=>{
     const nc=(document.getElementById('edC').value||'').trim();
     const ns=(document.getElementById('edS').value||'').trim();
     const nu=(document.getElementById('edU').value||'').trim().toUpperCase();
     const nq=parseInt(document.getElementById('edQ').value)||0;
     conPin(()=>{
+      const reg = cr[ridPrim] || {};
       const up={};
-      up['containers/'+clave+'/r/'+rid+'/c']=nc;
-      up['containers/'+clave+'/r/'+rid+'/s']=ns;
-      up['containers/'+clave+'/r/'+rid+'/u']=nu;
-      up['containers/'+clave+'/r/'+rid+'/q']=nq;
-      // Sube el timestamp para que la edición GANE el merge en todos los teléfonos
-      // (la app solo acepta el registro remoto si su tiempo es mayor que el local).
-      up['containers/'+clave+'/r/'+rid+'/t']=Date.now();
+      // Escribimos TODO en el rid principal y colapsamos los demás (arregla el ×2).
+      const nuevo = Object.assign({}, reg, {c:nc, s:ns, u:nu, q:nq, t:Date.now()});
+      up['containers/'+clave+'/r/'+ridPrim]=nuevo;
+      rids.forEach(id=>{
+        if(id===ridPrim) return;
+        up['containers/'+clave+'/r/'+id]=null;        // borra el registro duplicado
+        up['tombstones/regs/'+id]=Date.now();          // lápida (limpia teléfonos)
+      });
       equipoRef.update(up).then(()=>toast('Pallet actualizado')).catch(e=>toast('Error: '+(e.message||e)));
     });
   }});
