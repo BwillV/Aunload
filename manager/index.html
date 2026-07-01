@@ -760,7 +760,7 @@ function conectar(pin){
   }
   equipoRef = db.ref('equipos/'+pinActual);
 
-  equipoRef.child('containers').on('value', s=>{ datosContainers = s.val()||{}; render(); });
+  equipoRef.child('containers').on('value', s=>{ datosContainers = s.val()||{}; limpiarLapidasObsoletas(); render(); });
   equipoRef.child('presence').on('value', s=>{ datosPresencia = s.val()||{}; render(); });
   equipoRef.child('devices').on('value', s=>{ datosDevices = s.val()||{}; render(); });
   equipoRef.child('admin/pin').on('value', s=>{ adminPinGuardado = s.val()||null; });
@@ -772,6 +772,33 @@ function conectar(pin){
     document.getElementById('punto').className = 'punto '+(conectado?'on':'off');
     document.getElementById('lblEstado').textContent = conectado?t('enLinea'):t('sinConexion');
   });
+}
+
+// ---------- auto-reparación de lápidas (tombstones) ----------
+// Si un container está VIVO en la nube (tiene datos) pero también tiene una
+// "lápida" (tombstone) de borrado, la app del celular lo esconde durante 24h.
+// Esto pasa cuando se borra un container en el Manager y luego se vuelve a
+// escanear el mismo. Aquí borramos esa lápida obsoleta para que reaparezca
+// en todos los celulares al instante.
+function limpiarLapidasObsoletas(){
+  if(!equipoRef || !datosContainers) return;
+  var vivos = Object.keys(datosContainers).filter(function(k){
+    var c = datosContainers[k];
+    return c && typeof c === 'object';
+  });
+  if(vivos.length === 0) return;
+  equipoRef.child('tombstones/containers').get().then(function(snap){
+    var tombs = snap.val() || {};
+    var updates = {};
+    vivos.forEach(function(k){
+      if(tombs.hasOwnProperty(k)){
+        updates['tombstones/containers/'+k] = null;
+      }
+    });
+    if(Object.keys(updates).length){
+      equipoRef.update(updates);
+    }
+  }).catch(function(){});
 }
 
 // ---------- presencia ----------
