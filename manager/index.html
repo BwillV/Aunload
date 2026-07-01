@@ -227,6 +227,8 @@
   .prc-l{font-size:10.5px; color:var(--texto2); margin-top:2px;}
   .prod-filtros{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;}
   .prod-filtro{background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:12px; box-shadow:0 1px 5px rgba(0,0,0,.05);}
+  .prod-filtro.prod-filtro-off{opacity:.5; background:#f1f3f5;}
+  .prod-filtro.prod-filtro-off .prod-radio{cursor:not-allowed;}
   .prod-filtro-tit{font-size:12px; font-weight:700; color:var(--texto2); margin-bottom:8px;}
   .prod-radio{display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:4px; cursor:pointer;}
   .prod-radio input[type=radio]{margin:0; cursor:pointer;}
@@ -264,12 +266,13 @@
   .prod-semana-tit{font-size:16px; font-weight:800; color:var(--texto);}
   .prod-semana-sub{font-size:11.5px; color:#2e7d32; font-weight:700; margin-top:2px;}
   .grid-scroll{overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch;}
-  .tabla-grid{min-width:480px;}
+  .tabla-grid{min-width:560px;}
   .tabla-grid th, .tabla-grid td{padding:7px 5px; font-size:12px; text-align:center;}
   .tabla-grid th:first-child, .tabla-grid td:first-child{text-align:left;}
   .tabla-grid .grid-fecha{font-size:9.5px; color:var(--texto2); font-weight:400;}
   .tabla-grid .grid-nom{font-weight:600; white-space:nowrap;}
   .tabla-grid .grid-vacia{color:#c5ccd4;}
+  .tabla-grid .grid-prom-th, .tabla-grid .grid-prom{background:#eef4ff; border-left:2px solid #cfe0ff; color:var(--azul);}
   .sel-semana-wrap{margin:0 0 16px 0;}
   .sel-semana-btn{width:100%; padding:11px; font-size:13.5px; font-weight:700; color:var(--azul); background:var(--tarjeta); border:1.5px solid var(--azul); border-radius:12px; cursor:pointer;}
   .semana-lista{display:flex; flex-direction:column; gap:6px; max-height:50vh; overflow-y:auto;}
@@ -499,6 +502,7 @@ const I18N = {
   trabajandoAhora:['Trabajando ahora','Working now','正在工作'],
   sinSku:        ['(sin SKU)','(no SKU)','(无SKU)'],
   verTodo:       ['← Ver todo','← View all','← 查看全部'],
+  volverAtras:   ['← Volver','← Back','← 返回'],
   actividadDe:   ['Actividad de','Activity of','活动：'],
   sinActividad:  ['Todavía no hay actividad. Aparecerá aquí en cuanto alguien escanee.','No activity yet. It will appear here as soon as someone scans.','暂无活动。有人扫描后将显示在此处。'],
   sinActFiltro:  ['Sin actividad para mostrar.','No activity to show.','没有可显示的活动。'],
@@ -550,6 +554,10 @@ const I18N = {
   optMetActividad:['👷 Nuestro método','👷 Our method','👷 我们的方法'],
   ayudaMetEmpresa:['Método de la bodega: se toma la hora de inicio y de fin de cada container (su reloj) y se divide entre los pallets. Todos los que trabajaron ese container usan el mismo reloj, así nadie se infla por escanear en ráfagas. Los descansos se descuentan.','Warehouse method: each container\'s start and end time (its clock) is divided by its pallets. Everyone who worked that container shares the same clock, so nobody is inflated by burst scanning. Breaks are deducted.','仓库方法:取每个集装箱的开始和结束时间(其时钟)除以托盘数。处理该集装箱的所有人共用同一时钟,因此没人会因集中扫描而被夸大。休息时间会被扣除。'],
   ayudaMetActividad:['Nuestro método: mide el tiempo activo de cada persona (de su primer a su último escaneo). Puede inflarse si alguien escanea poquito y muy junto.','Our method: measures each person\'s active time (first to last scan). It can be inflated if someone scans little and close together.','我们的方法:测量每个人的活跃时间(从第一次到最后一次扫描)。如果有人扫描很少且很集中,可能会被夸大。'],
+  ayudaTiempoBloq:['Esta opción solo aplica a "Nuestro método". El Método de la bodega usa el reloj del container.','This option only applies to "Our method". The Warehouse method uses the container clock.','此选项仅适用于"我们的方法"。仓库方法使用集装箱时钟。'],
+  gridProm:      ['Prom.','Avg.','平均'],
+  hoyDia:        ['Hoy','Today','今天'],
+  porPersonaHoy: ['Por persona · ','By person · ','按人员 · '],
   prodTiempo:    ['Tiempo a usar:','Time to use:','使用时间:'],
   optTiempoTot:  ['⏱ Total del día','⏱ Whole day','⏱ 全天'],
   optTiempoNeto: ['✂️ Solo containers','✂️ Containers only','✂️ 仅集装箱'],
@@ -905,7 +913,7 @@ function render(){
   trabajando.forEach(it=>{ if(it.cont){ (trabajandoPorCont[it.cont]=trabajandoPorCont[it.cont]||[]).push(it); } });
 
   const vivoEl = document.getElementById('vivo');
-  const filaPersona = (it, vivo)=>`<div class="persona ${vivo?'':'off'}" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadDispositivo('${esc(it.id)}','${esc(it.nombre)}')">
+  const filaPersona = (it, vivo)=>`<div class="persona ${vivo?'':'off'}" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadDispositivo('${esc(it.id)}','${esc(it.nombre)}','vivo')">
       <div class="avatar" style="background:${colorAvatar(it.nombre)}">${esc(iniciales(it.nombre))}</div>
       <div class="persona-info">
         <div class="persona-nom">${esc(it.nombre)}</div>
@@ -1046,7 +1054,7 @@ function renderDispositivos(){
                   : '<span class="badge-est off">'+t('offlineInac')+'</span>';
     const fu = d.forceUpdate===true;
     return `<div class="dev ${enLinea?'online':''} ${bloq?'bloq':''}">
-      <div class="dev-top" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadDispositivo('${esc(id)}','${esc(nombre)}')">
+      <div class="dev-top" style="cursor:pointer" title="${esc(t('verActDe'))}" onclick="verActividadDispositivo('${esc(id)}','${esc(nombre)}','dispositivos')">
         <div class="avatar" style="background:${colorAvatar(nombre)}">${esc(iniciales(nombre))}</div>
         <div class="dev-info">
           <div class="dev-nom">${esc(nombre)} ${estBadge} <span style="color:#1565c0;font-size:12px">›</span></div>
@@ -1282,9 +1290,11 @@ function renderProductividad(){
   const regs = todosLosRegistros().filter(r=>r.t>0 && enSemana(claveDia(r.t)));
   const P = {};  // persona -> {nom,put,recv,palSet,palAprox,dias:{dia:{...,marks}},conts:{cont:{...,marks}}}
   const C = {};  // container -> {nom,put,recv,palSet,palAprox,marks,personas:{nom:{...,marks}}}
-  function iniP(n){ if(!P[n]) P[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,dias:{},conts:{}}; return P[n]; }
+  function iniP(n){ if(!P[n]) P[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,dias:{},conts:{},diaConts:{}}; return P[n]; }
   function iniPDia(p,d){ if(!p.dias[d]) p.dias[d]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.dias[d]; }
   function iniPCont(p,c){ if(!p.conts[c]) p.conts[c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.conts[c]; }
+  // por día y por container (para el detalle de "Por persona" del día en curso)
+  function iniPDiaCont(p,d,c){ if(!p.diaConts[d]) p.diaConts[d]={}; if(!p.diaConts[d][c]) p.diaConts[d][c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.diaConts[d][c]; }
   function iniC(c){ if(!C[c]) C[c]={nom:c,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[],personas:{}}; return C[c]; }
   function iniCP(c,n){ if(!c.personas[n]) c.personas[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return c.personas[n]; }
 
@@ -1292,10 +1302,10 @@ function renderProductividad(){
   regs.forEach(r=>{
     const cont=r.contNom||r.clave, dia=claveDia(r.t);
     const ra=actorRecv(r);
-    if(ra){ const p=iniP(ra); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t);
+    if(ra){ const p=iniP(ra); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t); iniPDiaCont(p,dia,cont).marks.push(r.t);
             const c=iniC(cont); c.marks.push(r.t); iniCP(c,ra).marks.push(r.t); }
     if(tieneUbic(r)){ const pa=actorPut(r);
-      if(pa){ const p=iniP(pa); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t);
+      if(pa){ const p=iniP(pa); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t); iniPDiaCont(p,dia,cont).marks.push(r.t);
               const c=iniC(cont); c.marks.push(r.t); iniCP(c,pa).marks.push(r.t); } }
   });
 
@@ -1310,6 +1320,7 @@ function renderProductividad(){
       const p=iniP(ra); p.recv++; if(code)p.palSet.add(cont+'|'+code);
       const pd=iniPDia(p,dia); pd.recv++; if(code)pd.palSet.add(cont+'|'+code);
       const pc=iniPCont(p,cont); pc.recv++; if(code)pc.palSet.add(code);
+      const pdc=iniPDiaCont(p,dia,cont); pdc.recv++; if(code)pdc.palSet.add(code);
       c.recv++; if(code)c.palSet.add(code);
       const cp=iniCP(c,ra); cp.recv++; if(code)cp.palSet.add(code);
       if(tieneUbic(m)){
@@ -1317,6 +1328,7 @@ function renderProductividad(){
         const p2=iniP(pa); p2.put++; if(code)p2.palSet.add(cont+'|'+code);
         const pd2=iniPDia(p2,dia); pd2.put++; if(code)pd2.palSet.add(cont+'|'+code);
         const pc2=iniPCont(p2,cont); pc2.put++; if(code)pc2.palSet.add(code);
+        const pdc2=iniPDiaCont(p2,dia,cont); pdc2.put++; if(code)pdc2.palSet.add(code);
         c.put++; if(code)c.palSet.add(code);
         const cp2=iniCP(c,pa); cp2.put++; if(code)cp2.palSet.add(code);
       }
@@ -1344,28 +1356,46 @@ function renderProductividad(){
     if(prodTasaFiltro==='recv') return o.recv||0;
     return (o.palSet?o.palSet.size:0)+(o.palAprox||0);
   }
-  // ---- MÉTODO DE LA BODEGA (empresa): el "reloj" es del CONTAINER, igual para todos ----
-  // Tiempo total (span) de un container en toda la semana (agrupado por día, descontando descanso).
-  function horasContainer(cn){ const c=C[cn]; return c?horasDeMarks(c.marks):0; }
-  // Span de un container en UN día concreto (para la cuadrícula).
-  function horasContDia(cn, dms){ const c=C[cn]; if(!c) return 0;
-    const dk=claveDia(dms); const mk=c.marks.filter(x=>claveDia(x)===dk); return msDia(mk)/3600000; }
-  // Containers que una persona tocó en un día (según sus marcas).
-  function contsPersonaDia(p, dk){ const s=new Set();
-    for(const cn in p.conts){ if(p.conts[cn].marks.some(x=>claveDia(x)===dk)) s.add(cn); } return s; }
-  // Horas totales de una persona en la semana según el método elegido.
-  function horasPersona(p){
-    if(prodMetodo==='empresa'){ let s=0; for(const cn in p.conts){ s+=horasContainer(cn); } return s; }
-    if(prodModoTiempo==='neto'){ let s=0; for(const cn in p.conts){ s+=horasDeMarks(p.conts[cn].marks); } return s; }
-    let s=0; for(const d in p.dias){ s+=msDia(p.dias[d].marks); } return s/3600000;
+  // ---- TIEMPO: el descanso SIEMPRE se cuenta UNA sola vez por día (nunca por container) ----
+  // ms trabajados en UN día a partir de VARIOS containers, descontando el descanso una sola vez.
+  //  - '1h'/'1.5h' (BR>0): se suma el span de cada container del día y se resta el descanso UNA vez al total.
+  //  - 'auto' (BR=0): se suman solo los tramos reales de cada container (huecos de 1h+ ya quedan fuera).
+  function msDiaConts(marksArrays){
+    let rawSpan=0, autoSum=0;
+    marksArrays.forEach(mk=>{
+      if(!mk || mk.length<2) return;
+      const a=mk.slice().sort((x,y)=>x-y);
+      rawSpan += a[a.length-1]-a[0];
+      for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<BREAK_GAP_MS) autoSum+=d; }
+    });
+    if(BR>0) return Math.max(0, rawSpan-BR);   // descanso fijo, una sola vez al día
+    return autoSum;                            // auto: solo tramos reales
   }
-  // Horas de una persona dentro de UN container (para el drill-down por persona).
+  // Marcas del día 'dk' de los containers que una persona tocó (fuente según el método).
+  function marksContsPersonaDia(p, dk){
+    const out=[];
+    for(const cn in p.conts){
+      const base = (prodMetodo==='empresa') ? (C[cn]?C[cn].marks:[]) : p.conts[cn].marks;
+      const mk = base.filter(x=>claveDia(x)===dk);
+      if(mk.length) out.push(mk);
+    }
+    return out;
+  }
+  // Horas de una persona en UN día (para la cuadrícula lun–vie y para "Por persona").
+  function horasPersonaDiaK(p, dk){
+    if(prodMetodo==='empresa' || prodModoTiempo==='neto') return msDiaConts(marksContsPersonaDia(p,dk))/3600000;
+    const d=p.dias[dk]; return d?msDia(d.marks)/3600000:0;   // 'actividad' total = span del día, descanso una vez
+  }
+  // Horas totales de una persona en la semana = suma de sus días (descanso ya contado una vez por día).
+  function horasPersona(p){ let s=0; for(const dk in p.dias){ s+=horasPersonaDiaK(p,dk); } return s; }
+  // Horas de una persona dentro de UN container (drill-down). Un container tiene un solo reloj por día,
+  // así que aquí el descanso ya sale una vez por día vía horasDeMarks.
+  function horasContainer(cn){ const c=C[cn]; return c?horasDeMarks(c.marks):0; }
   function horasPersonaCont(p, cn, pc){ return prodMetodo==='empresa' ? horasContainer(cn) : horasDeMarks(pc.marks); }
-  // Horas de una persona en un DÍA (para la cuadrícula lun–vie).
-  function horasPersonaDia(p, dms){
-    const dk=claveDia(dms);
-    if(prodMetodo==='empresa'){ let s=0; contsPersonaDia(p,dk).forEach(cn=>{ s+=horasContDia(cn,dms); }); return s; }
-    const d=p.dias[dk]; return d?msDia(d.marks)/3600000:0;
+  // Horas de un container en UN día (para el detalle de "Por persona" del día en curso).
+  function horasPersonaContDia(cn, pdc, dk){
+    if(prodMetodo==='empresa'){ const c=C[cn]; const mk=c?c.marks.filter(x=>claveDia(x)===dk):[]; return msDia(mk)/3600000; }
+    return msDia(pdc.marks)/3600000;
   }
   function tasaTxt(count, horas){ if(horas<0.25) return '—'; return Math.round(count/horas)+' '+t('ph'); }
 
@@ -1384,15 +1414,17 @@ function renderProductividad(){
   // ---- (punto 6) Cuadrícula semanal: filas=personas, columnas=Lun..Vie ----
   const diasSemana=[]; for(let i=0;i<5;i++){ const d=new Date(lun); d.setDate(d.getDate()+i); diasSemana.push(d.getTime()); }
   const nombresDias = idioma==='en'?['Mon','Tue','Wed','Thu','Fri'] : idioma==='zh'?['周一','周二','周三','周四','周五'] : ['Lun','Mar','Mié','Jue','Vie'];
-  const gridHead = `<tr><th>${t('thPersona')}</th>${nombresDias.map((n,i)=>`<th class="n">${n}<br><span class="grid-fecha">${ddmm(diasSemana[i])}</span></th>`).join('')}</tr>`;
+  const gridHead = `<tr><th>${t('thPersona')}</th>${nombresDias.map((n,i)=>`<th class="n">${n}<br><span class="grid-fecha">${ddmm(diasSemana[i])}</span></th>`).join('')}<th class="n grid-prom-th">${t('gridProm')}</th></tr>`;
   const gridRows = nombresP.map(nom=>{
     const p=P[nom];
     const celdas = diasSemana.map(dms=>{
       const d=p.dias[claveDia(dms)];
       if(!d) return '<td class="n grid-vacia">·</td>';
-      return '<td class="n">'+tasaTxt(cuentaDe(d), horasPersonaDia(p, dms))+'</td>';
+      return '<td class="n">'+tasaTxt(cuentaDe(d), horasPersonaDiaK(p, claveDia(dms)))+'</td>';
     }).join('');
-    return `<tr><td class="grid-nom"><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</div>${esc(nom)}</div></td>${celdas}</tr>`;
+    // Promedio de la semana = total de pallets ÷ total de horas de todos los días.
+    const prom = `<td class="n grid-prom"><b>${tasaTxt(cuentaDe(p), horasPersona(p))}</b></td>`;
+    return `<tr><td class="grid-nom"><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</div>${esc(nom)}</div></td>${celdas}${prom}</tr>`;
   }).join('');
   const grid = nombresP.length ? `<div class="grid-scroll"><table class="tabla tabla-grid">${gridHead}${gridRows}</table></div>`
                                : `<div class="vivo-vacio">${t('prodNingPersona')}</div>`;
@@ -1423,30 +1455,40 @@ function renderProductividad(){
       <label class="prod-radio"><input type="radio" name="prodMetodo" value="actividad" ${prodMetodo==='actividad'?'checked':''} onchange="cambiarProdMetodo('actividad')"> ${t('optMetActividad')}</label>
       <div class="prod-modo-ayuda">${prodMetodo==='empresa'?t('ayudaMetEmpresa'):t('ayudaMetActividad')}</div>
     </div>
-    ${prodMetodo==='actividad'?`<div class="prod-filtro">
-      <div class="prod-filtro-tit">${t('prodTiempo')}</div>
-      <label class="prod-radio"><input type="radio" name="prodModo" value="total" ${prodModoTiempo==='total'?'checked':''} onchange="cambiarProdModo('total')"> ${t('optTiempoTot')}</label>
-      <label class="prod-radio"><input type="radio" name="prodModo" value="neto" ${prodModoTiempo==='neto'?'checked':''} onchange="cambiarProdModo('neto')"> ${t('optTiempoNeto')}</label>
-      <div class="prod-modo-ayuda">${prodModoTiempo==='neto'?t('ayudaNeto'):t('ayudaTotal')}</div>
-    </div>`:''}
+    <div class="prod-filtro ${prodMetodo==='empresa'?'prod-filtro-off':''}">
+      <div class="prod-filtro-tit">${t('prodTiempo')}${prodMetodo==='empresa'?' 🔒':''}</div>
+      <label class="prod-radio"><input type="radio" name="prodModo" value="total" ${prodModoTiempo==='total'?'checked':''} ${prodMetodo==='empresa'?'disabled':''} onchange="cambiarProdModo('total')"> ${t('optTiempoTot')}</label>
+      <label class="prod-radio"><input type="radio" name="prodModo" value="neto" ${prodModoTiempo==='neto'?'checked':''} ${prodMetodo==='empresa'?'disabled':''} onchange="cambiarProdModo('neto')"> ${t('optTiempoNeto')}</label>
+      <div class="prod-modo-ayuda">${prodMetodo==='empresa'?t('ayudaTiempoBloq'):(prodModoTiempo==='neto'?t('ayudaNeto'):t('ayudaTotal'))}</div>
+    </div>
   </div>`;
 
-  // ---- (punto 4) Por persona: clic en el nombre despliega sus containers ----
-  const filasP = nombresP.map(nom=>{
-    const p=P[nom]; const abierta=prodPersonaAbierta===nom;
+  // ---- (punto 4) Por persona: SOLO el día en curso (la cuadrícula de arriba ya muestra toda la semana) ----
+  // Día a mostrar: hoy si estamos en la semana actual; si es una semana pasada, el último día con actividad.
+  let diaSelMs = Date.now();
+  if(!esActual){
+    diaSelMs = diasSemana[0];
+    for(let i=diasSemana.length-1;i>=0;i--){ const dk=claveDia(diasSemana[i]); if(nombresP.some(n=>P[n].dias[dk])){ diaSelMs=diasSemana[i]; break; } }
+  }
+  const diaSelK = claveDia(diaSelMs);
+  const etiquetaDia = esActual ? t('hoyDia') : ddmm(diaSelMs);
+  const nombresPDia = nombresP.filter(n=>P[n].dias[diaSelK]).sort((a,b)=>cuentaDe(P[b].dias[diaSelK])-cuentaDe(P[a].dias[diaSelK]));
+  const filasP = nombresPDia.map(nom=>{
+    const p=P[nom]; const pd=p.dias[diaSelK]; const abierta=prodPersonaAbierta===nom;
     const cab=`<tr class="cont-fila ${abierta?'abierta':''}" onclick="toggleProdPersona('${esc(nom)}')">
         <td><span class="dis-tri">${abierta?'▼':'▶'}</span> <span class="nom-cel inline"><span class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)}</span></td>
-        <td class="n">${p.put}</td><td class="n">${p.recv}</td>
-        <td class="n"><b>${tasaTxt(cuentaDe(p), horasPersona(p))}</b></td>
+        <td class="n">${pd.put}</td><td class="n">${pd.recv}</td>
+        <td class="n"><b>${tasaTxt(cuentaDe(pd), horasPersonaDiaK(p, diaSelK))}</b></td>
       </tr>`;
     if(!abierta) return cab;
-    const cs=Object.keys(p.conts).sort((a,b)=>cuentaDe(p.conts[b])-cuentaDe(p.conts[a]));
+    const dc = p.diaConts[diaSelK]||{};
+    const cs=Object.keys(dc).sort((a,b)=>cuentaDe(dc[b])-cuentaDe(dc[a]));
     let det;
     if(cs.length===0){ det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('archivado'))}</td></tr>`; }
     else {
       det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('verContPersona'))}</td></tr>`+cs.map(cn=>{
-        const pc=p.conts[cn];
-        return `<tr class="cont-sub"><td>📦 ${esc(cn)}</td><td class="n">${pc.put}</td><td class="n">${pc.recv}</td><td class="n"><b>${tasaTxt(cuentaDe(pc), horasPersonaCont(p, cn, pc))}</b></td></tr>`;
+        const pdc=dc[cn];
+        return `<tr class="cont-sub"><td>📦 ${esc(cn)}</td><td class="n">${pdc.put}</td><td class="n">${pdc.recv}</td><td class="n"><b>${tasaTxt(cuentaDe(pdc), horasPersonaContDia(cn, pdc, diaSelK))}</b></td></tr>`;
       }).join('');
     }
     return cab+det;
@@ -1466,7 +1508,7 @@ function renderProductividad(){
   const barraBorrar = `<div class="prod-borrar-bar"><button class="btn-borrar-sel" ${algunSel?'':'disabled'} onclick="pedirEliminarConts()">${t('selEliminar')}</button></div>`;
 
   el.innerHTML = headTit + grid + selSemana + filtros + `
-    <h3 class="prod-tit">${t('porPersona')}</h3>
+    <h3 class="prod-tit">${t('porPersonaHoy')}${esc(etiquetaDia)}</h3>
     <table class="tabla">
       <tr><th>${t('thPersona')}</th><th class="n">${t('thPut')}</th><th class="n">${t('thRecv')}</th><th class="n">${tasaLbl}</th></tr>
       ${filasP||`<tr><td colspan="4" class="cont-sub-nota">${t('prodNingPersona')}</td></tr>`}
@@ -1565,8 +1607,11 @@ function renderActividad(){
   // Cabecera (con botón "Ver todo" cuando hay filtro)
   let head;
   if(filtroActividad){
+    const btnVolver = filtroActividad.origen
+      ? `<button class="vertodo-btn" onclick="volverDeActividad()">${esc(t('volverAtras'))}</button>`
+      : `<button class="vertodo-btn" onclick="limpiarFiltroActividad()">${esc(t('verTodo'))}</button>`;
     head = `<div class="act-head act-head-filtro">
-      <button class="vertodo-btn" onclick="limpiarFiltroActividad()">${esc(t('verTodo'))}</button>
+      ${btnVolver}
       <span>${esc(t('actividadDe'))} <b>${esc(filtroActividad.label)}</b></span>
     </div>`;
   } else {
@@ -1604,9 +1649,9 @@ function verActividadPersona(nombre){
   cambiarVista('actividad');
   renderActividad();
 }
-// Mostrar solo la actividad de un dispositivo (desde "Dispositivos").
-function verActividadDispositivo(id, label){
-  filtroActividad = {tipo:'disp', valor:id, label:label||nombreDisp(id)||id};
+// Mostrar solo la actividad de un dispositivo. 'origen' = pantalla a la que se vuelve (vivo|dispositivos).
+function verActividadDispositivo(id, label, origen){
+  filtroActividad = {tipo:'disp', valor:id, label:label||nombreDisp(id)||id, origen:origen||'dispositivos'};
   cambiarVista('actividad');
   renderActividad();
 }
@@ -1614,6 +1659,12 @@ function verActividadDispositivo(id, label){
 function limpiarFiltroActividad(){
   filtroActividad = null;
   renderActividad();
+}
+// Volver a la pantalla de la que se entró (lista de dispositivos / en vivo).
+function volverDeActividad(){
+  const dest = (filtroActividad && filtroActividad.origen) || 'dispositivos';
+  filtroActividad = null;
+  cambiarVista(dest);
 }
 
 function cambiarProdTasa(v){
