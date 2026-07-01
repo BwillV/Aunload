@@ -1666,12 +1666,12 @@ function renderProductividad(){
     const h=datosHistorico[dia]||{};
     const gp=h.personas||{};
     for(const key in gp){ const e=gp[key]||{}; const nom=e.nom||key;
-      const p=iniP(nom); p.put+=(e.put||0); p.recv+=(e.recv||0); p.palAprox+=Math.max(e.put||0,e.recv||0);
-      const pd=iniPDia(p,dia); pd.put+=(e.put||0); pd.recv+=(e.recv||0); pd.palAprox+=Math.max(e.put||0,e.recv||0);
+      const p=iniP(nom); p.put+=(e.put||0); p.recv+=(e.recv||0); p.palAprox+=Math.min(e.put||0,e.recv||0);
+      const pd=iniPDia(p,dia); pd.put+=(e.put||0); pd.recv+=(e.recv||0); pd.palAprox+=Math.min(e.put||0,e.recv||0);
     }
     const gc=h.containers||{};
     for(const key in gc){ const e=gc[key]||{}; const nom=e.nom||key;
-      const c=iniC(nom); c.put+=(e.put||0); c.recv+=(e.recv||0); c.palAprox+=Math.max(e.put||0,e.recv||0);
+      const c=iniC(nom); c.put+=(e.put||0); c.recv+=(e.recv||0); c.palAprox+=Math.min(e.put||0,e.recv||0);
       if(!c.diaArch || dia>c.diaArch) c.diaArch=dia;
     }
   }
