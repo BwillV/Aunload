@@ -306,6 +306,9 @@
   /* ocultar personas de las estadísticas (ej: supervisor) */
   .btn-ocultar-persona{background:none; border:none; cursor:pointer; font-size:13px; opacity:.45; padding:2px 4px; line-height:1; vertical-align:middle;}
   .btn-ocultar-persona:hover{opacity:1;}
+  .btn-borrar-persona{background:none; border:none; cursor:pointer; font-size:13px; opacity:.45; padding:2px 4px; line-height:1; vertical-align:middle;}
+  .btn-borrar-persona:hover{opacity:1;}
+  .prod-span-dia{color:#6c757d; font-weight:600; margin-left:26px;}
   .prod-ocultos-bar{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:2px 0 12px 0; padding:8px 10px; background:var(--fondo2,#f4f6f8); border-radius:10px;}
   .prod-ocultos-lbl{font-size:12px; font-weight:700; color:var(--texto2);}
   .prod-oculto-chip{display:inline-flex; align-items:center; gap:6px; padding:5px 10px; font-size:12px; font-weight:600; color:var(--texto); background:#fff; border:1px solid var(--borde,#dfe4ea); border-radius:999px; cursor:pointer;}
@@ -670,6 +673,8 @@ const I18N = {
   prodOcultarTit: ['Ocultar de las estadísticas','Hide from stats','从统计中隐藏'],
   prodMostrarTit: ['Volver a mostrar en las estadísticas','Show again in stats','重新显示在统计中'],
   prodOcultasLbl: ['Personas ocultas','Hidden people','已隐藏人员'],
+  prodBorrarPersTit:['Borrar la actividad de esta persona (este día)','Delete this person\u2019s activity (this day)','删除此人当天的活动'],
+  prodBorrarPersMsg:['Se borrará TODA la actividad de esta persona en este día (en vivo y archivada) y afectará la productividad. Si un pallet fue compartido con un compañero, solo se quita la parte de esta persona. Esto no se puede deshacer.','ALL of this person\u2019s activity for this day (live and archived) will be deleted and will affect productivity. If a pallet was shared with a teammate, only this person\u2019s part is removed. This cannot be undone.','将删除此人当天的全部活动（实时和已归档），并影响生产率。如果某个托盘与同事共享，则仅移除此人的部分。此操作无法撤销。'],
   borrar:         ['Borrar','Delete','删除'],
   actBorrarTit:   ['Borrar movimiento','Delete movement','删除此操作'],
   actBorrarMsg:   ['Se borrará este movimiento para todo el equipo. Úsalo para eliminar lecturas repetidas (fantasma) y que la estadística quede bien. Esta acción no se puede deshacer.','This movement will be deleted for the whole team. Use it to remove repeated (phantom) reads so stats are correct. This cannot be undone.','将为整个团队删除此操作。用于移除重复(幽灵)读取，使统计准确。此操作无法撤销。'],
@@ -1426,6 +1431,10 @@ function actorDeRaw(r){
 // UN solo increment por destino (si no, en un update de Firebase el último gana).
 function archivarRegs(regsRaw, up){
   const agg = {};
+  // Para la ATRIBUCIÓN POR CONTAINER: por cada día+container guardamos las paletas
+  // distintas recibidas/ubicadas y quiénes participaron. Las paletas COMPLETADAS
+  // (mínimo recibidas/ubicadas) se atribuyen COMPLETAS a cada persona del equipo.
+  const contInfo = {};
   regsRaw.forEach(r=>{
     const t = r.t||Date.now();
     const dia = claveDia(t);
@@ -1440,6 +1449,26 @@ function archivarRegs(regsRaw, up){
       const a = agg[path] || (agg[path]={dia, tipo, key:keySan(nom), nom, put:0, recv:0, ctns:0});
       if(esPut){ a.put++; a.ctns+=q; } else a.recv++;
     });
+    if(contNom){
+      const ck = dia+'|'+contNom;
+      const ci = contInfo[ck] || (contInfo[ck]={dia, recvCodes:new Set(), putCodes:new Set(), personas:{}});
+      const code=(r.c||'').trim();
+      if(esPut){ if(code) ci.putCodes.add(code); }
+      else { if(code) ci.recvCodes.add(code); }
+      if(persona && persona!=='—') ci.personas[persona]=true;
+    }
+  });
+  // paletas completadas por container atribuidas a cada persona participante.
+  const palAgg = {};
+  Object.keys(contInfo).forEach(ck=>{
+    const ci = contInfo[ck];
+    const compl = Math.min(ci.recvCodes.size, ci.putCodes.size);
+    if(compl<=0) return;
+    Object.keys(ci.personas).forEach(nom=>{
+      const pk = ci.dia+'|'+keySan(nom);
+      const a = palAgg[pk] || (palAgg[pk]={dia:ci.dia, key:keySan(nom), nom, pal:0});
+      a.pal += compl;
+    });
   });
   Object.keys(agg).forEach(k=>{
     const a = agg[k];
@@ -1448,6 +1477,12 @@ function archivarRegs(regsRaw, up){
     if(a.put)  up[base+'/put']  = firebase.database.ServerValue.increment(a.put);
     if(a.recv) up[base+'/recv'] = firebase.database.ServerValue.increment(a.recv);
     if(a.ctns) up[base+'/ctns'] = firebase.database.ServerValue.increment(a.ctns);
+  });
+  Object.keys(palAgg).forEach(k=>{
+    const a = palAgg[k];
+    const base = 'historico/'+a.dia+'/personas/'+a.key;
+    up[base+'/nom'] = a.nom;
+    up[base+'/palCont'] = firebase.database.ServerValue.increment(a.pal);
   });
 }
 
@@ -1661,12 +1696,12 @@ function renderProductividad(){
   const regs = todosLosRegistros().filter(r=>r.t>0 && enSemana(claveDia(r.t)));
   const P = {};  // persona -> {nom,put,recv,palSet,palAprox,dias:{dia:{...,marks}},conts:{cont:{...,marks}}}
   const C = {};  // container -> {nom,put,recv,palSet,palAprox,marks,personas:{nom:{...,marks}}}
-  function iniP(n){ if(!P[n]) P[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,dias:{},conts:{},diaConts:{}}; return P[n]; }
+  function iniP(n){ if(!P[n]) P[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,dias:{},conts:{},diaConts:{},diaArch:{}}; return P[n]; }
   function iniPDia(p,d){ if(!p.dias[d]) p.dias[d]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.dias[d]; }
   function iniPCont(p,c){ if(!p.conts[c]) p.conts[c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.conts[c]; }
   // por día y por container (para el detalle de "Por persona" del día en curso)
   function iniPDiaCont(p,d,c){ if(!p.diaConts[d]) p.diaConts[d]={}; if(!p.diaConts[d][c]) p.diaConts[d][c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.diaConts[d][c]; }
-  function iniC(c){ if(!C[c]) C[c]={nom:c,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[],ultMs:0,personas:{}}; return C[c]; }
+  function iniC(c){ if(!C[c]) C[c]={nom:c,put:0,recv:0,putLive:0,recvLive:0,archCompl:0,palSet:new Set(),palAprox:0,marks:[],ultMs:0,personas:{}}; return C[c]; }
   function iniCP(c,n){ if(!c.personas[n]) c.personas[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return c.personas[n]; }
   // Conteo del container por DÍA (para repartir el reloj del container entre las personas que lo trabajaron).
   const Cdia={};  // container -> { dia -> {put,recv,palSet,palAprox} }
@@ -1696,7 +1731,7 @@ function renderProductividad(){
       const pd=iniPDia(p,dia); pd.recv++; if(code)pd.palSet.add(cont+'|'+code);
       const pc=iniPCont(p,cont); pc.recv++; if(code)pc.palSet.add(code);
       const pdc=iniPDiaCont(p,dia,cont); pdc.recv++; if(code)pdc.palSet.add(code);
-      c.recv++; if(code)c.palSet.add(code);
+      c.recv++; c.recvLive++; if(code)c.palSet.add(code);
       const cd=iniCDia(cont,dia); cd.recv++; if(code)cd.palSet.add(code);
       const cp=iniCP(c,ra); cp.recv++; if(code)cp.palSet.add(code);
       if(tieneUbic(m)){
@@ -1705,7 +1740,7 @@ function renderProductividad(){
         const pd2=iniPDia(p2,dia); pd2.put++; if(code)pd2.palSet.add(cont+'|'+code);
         const pc2=iniPCont(p2,cont); pc2.put++; if(code)pc2.palSet.add(code);
         const pdc2=iniPDiaCont(p2,dia,cont); pdc2.put++; if(code)pdc2.palSet.add(code);
-        c.put++; if(code)c.palSet.add(code);
+        c.put++; c.putLive++; if(code)c.palSet.add(code);
         const cd2=iniCDia(cont,dia); cd2.put++; if(code)cd2.palSet.add(code);
         const cp2=iniCP(c,pa); cp2.put++; if(code)cp2.palSet.add(code);
       }
@@ -1718,22 +1753,57 @@ function renderProductividad(){
     const h=datosHistorico[dia]||{};
     const gp=h.personas||{};
     for(const key in gp){ const e=gp[key]||{}; const nom=e.nom||key;
-      const p=iniP(nom); p.put+=(e.put||0); p.recv+=(e.recv||0); p.palAprox+=Math.min(e.put||0,e.recv||0);
-      const pd=iniPDia(p,dia); pd.put+=(e.put||0); pd.recv+=(e.recv||0); pd.palAprox+=Math.min(e.put||0,e.recv||0);
+      // 'palCont' = pallets COMPLETADOS del container atribuidos a esta persona (equipo: cada uno recibe el total).
+      // Datos viejos sin 'palCont' usan el mínimo put/recv como aproximación.
+      const compl = (e.palCont!=null) ? (e.palCont||0) : Math.min(e.put||0,e.recv||0);
+      const p=iniP(nom); p.put+=(e.put||0); p.recv+=(e.recv||0); p.palAprox+=compl;
+      if(!p.diaArch[dia]) p.diaArch[dia]={put:0,recv:0,compl:0};
+      p.diaArch[dia].put+=(e.put||0); p.diaArch[dia].recv+=(e.recv||0); p.diaArch[dia].compl+=compl;
+      const pd=iniPDia(p,dia); pd.put+=(e.put||0); pd.recv+=(e.recv||0); pd.palAprox+=compl;
     }
     const gc=h.containers||{};
     for(const key in gc){ const e=gc[key]||{}; const nom=e.nom||key;
-      const c=iniC(nom); c.put+=(e.put||0); c.recv+=(e.recv||0); c.palAprox+=Math.min(e.put||0,e.recv||0);
+      const compl = Math.min(e.put||0,e.recv||0);
+      const c=iniC(nom); c.put+=(e.put||0); c.recv+=(e.recv||0); c.palAprox+=compl; c.archCompl+=compl;
       if(!c.diaArch || dia>c.diaArch) c.diaArch=dia;
     }
   }
 
   // ---- conteo y tasa ----
+  // 'cuentaDe' = conteo CRUDO propio (lo que la persona/container escaneó). Se usa SOLO para
+  // repartir el reloj del container entre las personas en el modo "empresa" (proporción).
   function cuentaDe(o){ if(!o) return 0;
     if(prodTasaFiltro==='put') return o.put||0;
     if(prodTasaFiltro==='recv') return o.recv||0;
     return (o.palSet?o.palSet.size:0)+(o.palAprox||0);
   }
+  // ===== CONTEO POR CONTAINER (lo que se muestra en las estadísticas) =====
+  // Regla del warehouse (Wilson): se cuentan las PALETAS COMPLETADAS del container = mínimo(recibidas, ubicadas).
+  //  - Mientras el container está en progreso: recibidas > ubicadas ⇒ cuenta = ubicadas (lo realmente terminado).
+  //  - Cuando el container termina: recibidas == ubicadas ⇒ cuenta = el total del container.
+  // Ese total del container se ATRIBUYE COMPLETO a CADA persona que lo trabajó (equipo: 40 y 40, no 20 y 20).
+  function cuentaContainer(c){ if(!c) return 0;
+    if(prodTasaFiltro==='put') return c.put||0;
+    if(prodTasaFiltro==='recv') return c.recv||0;
+    return Math.min(c.recvLive||0, c.putLive||0) + (c.archCompl||0);
+  }
+  // Conteo de UN container en UN día (en vivo).
+  function cuentaContDia(cn, dk){ const cd=(Cdia[cn]||{})[dk]; if(!cd) return 0;
+    if(prodTasaFiltro==='put') return cd.put||0;
+    if(prodTasaFiltro==='recv') return cd.recv||0;
+    return Math.min(cd.recv||0, cd.put||0);
+  }
+  // Conteo de UNA persona en UN día = suma del total (completado) de CADA container que tocó ese día
+  // (atribución completa) + lo archivado de ese día.
+  function cuentaPersonaDia(p, dk){
+    let s=0; const dc=p.diaConts[dk]||{};
+    for(const cn in dc) s+=cuentaContDia(cn, dk);
+    const a=(p.diaArch&&p.diaArch[dk]);
+    if(a){ if(prodTasaFiltro==='put') s+=a.put||0; else if(prodTasaFiltro==='recv') s+=a.recv||0; else s+=a.compl||0; }
+    return s;
+  }
+  // Conteo de UNA persona en la semana = suma de sus días.
+  function cuentaPersona(p){ let s=0; for(const dk in p.dias) s+=cuentaPersonaDia(p, dk); return s; }
   // ---- TIEMPO: el descanso SIEMPRE se cuenta UNA sola vez por día (nunca por container) ----
   // ms trabajados en UN día a partir de VARIOS containers, descontando el descanso una sola vez.
   //  - '1h'/'1.5h' (BR>0): se suma el span de cada container del día y se resta el descanso UNA vez al total.
@@ -1829,7 +1899,7 @@ function renderProductividad(){
     </div>`;
 
   // Personas presentes esta semana. Las "ocultas" (ej: supervisor) NO figuran en las estadísticas.
-  const nombresPTodos = Object.keys(P).sort((a,b)=>cuentaDe(P[b])-cuentaDe(P[a]));
+  const nombresPTodos = Object.keys(P).sort((a,b)=>cuentaPersona(P[b])-cuentaPersona(P[a]));
   const nombresP = nombresPTodos.filter(n=>!prodOcultos[n]);
   const ocultosPresentes = nombresPTodos.filter(n=>prodOcultos[n]);
 
@@ -1848,10 +1918,10 @@ function renderProductividad(){
     const celdas = diasSemana.map(dms=>{
       const d=p.dias[claveDia(dms)];
       if(!d) return '<td class="n grid-vacia">·</td>';
-      return '<td class="n">'+tasaTxt(cuentaDe(d), horasPersonaDiaK(p, claveDia(dms)))+'</td>';
+      return '<td class="n">'+tasaTxt(cuentaPersonaDia(p, claveDia(dms)), horasPersonaDiaK(p, claveDia(dms)))+'</td>';
     }).join('');
     // Promedio de la semana = total de pallets ÷ total de horas de todos los días.
-    const prom = `<td class="n grid-prom"><b>${tasaTxt(cuentaDe(p), horasPersona(p))}</b></td>`;
+    const prom = `<td class="n grid-prom"><b>${tasaTxt(cuentaPersona(p), horasPersona(p))}</b></td>`;
     return `<tr><td class="grid-nom"><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</div>${esc(nom)}</div></td>${celdas}${prom}</tr>`;
   }).join('');
   const grid = nombresP.length ? `<div class="grid-scroll"><table class="tabla tabla-grid">${gridHead}${gridRows}</table></div>`
@@ -1901,23 +1971,26 @@ function renderProductividad(){
   }
   const diaSelK = claveDia(diaSelMs);
   const etiquetaDia = esActual ? t('hoyDia') : ddmm(diaSelMs);
-  const nombresPDia = nombresP.filter(n=>P[n].dias[diaSelK]).sort((a,b)=>cuentaDe(P[b].dias[diaSelK])-cuentaDe(P[a].dias[diaSelK]));
+  const nombresPDia = nombresP.filter(n=>P[n].dias[diaSelK]).sort((a,b)=>cuentaPersonaDia(P[b],diaSelK)-cuentaPersonaDia(P[a],diaSelK));
   const filasP = nombresPDia.map(nom=>{
     const p=P[nom]; const pd=p.dias[diaSelK]; const abierta=prodPersonaAbierta===nom;
+    // 🕒 Tiempo de la jornada: de la PRIMERA a la ÚLTIMA paleta escaneada ese día.
+    const diaMarks = pd.marks||[];
+    const spanTxt = diaMarks.length>0 ? ('🕒 '+horaHM(Math.min(...diaMarks))+' → '+horaHM(Math.max(...diaMarks))) : '';
     const cab=`<tr class="cont-fila ${abierta?'abierta':''}" onclick="toggleProdPersona('${esc(nom)}')">
-        <td><span class="dis-tri">${abierta?'▼':'▶'}</span> <span class="nom-cel inline"><span class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)}</span> <button class="btn-ocultar-persona" onclick="event.stopPropagation();ocultarPersona('${esc(nom)}')" title="${t('prodOcultarTit')}">🚫</button></td>
+        <td><span class="dis-tri">${abierta?'▼':'▶'}</span> <span class="nom-cel inline"><span class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)}</span> <button class="btn-ocultar-persona" onclick="event.stopPropagation();ocultarPersona('${esc(nom)}')" title="${t('prodOcultarTit')}">🚫</button> <button class="btn-borrar-persona" onclick="event.stopPropagation();borrarActPersonaDia('${esc(nom)}','${esc(diaSelK)}')" title="${t('prodBorrarPersTit')}">🗑</button>${spanTxt?`<br><small class="prod-span-dia">${spanTxt}</small>`:''}</td>
         <td class="n">${pd.put}</td><td class="n">${pd.recv}</td>
-        <td class="n"><b>${tasaTxt(cuentaDe(pd), horasPersonaDiaK(p, diaSelK))}</b></td>
+        <td class="n"><b>${tasaTxt(cuentaPersonaDia(p, diaSelK), horasPersonaDiaK(p, diaSelK))}</b></td>
       </tr>`;
     if(!abierta) return cab;
     const dc = p.diaConts[diaSelK]||{};
-    const cs=Object.keys(dc).sort((a,b)=>cuentaDe(dc[b])-cuentaDe(dc[a]));
+    const cs=Object.keys(dc).sort((a,b)=>cuentaContDia(b,diaSelK)-cuentaContDia(a,diaSelK));
     let det;
     if(cs.length===0){ det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('archivado'))}</td></tr>`; }
     else {
       det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('verContPersona'))}</td></tr>`+cs.map(cn=>{
         const pdc=dc[cn];
-        const totPal = cuentaDe(pdc);
+        const totPal = cuentaContDia(cn, diaSelK);
         const marcas = pdc.marks||[];
         const inicio = marcas.length>0 ? horaHM(Math.min(...marcas)) : '—';
         const fin = marcas.length>0 ? horaHM(Math.max(...marcas)) : '—';
@@ -1945,7 +2018,7 @@ function renderProductividad(){
   const nombresC = Object.keys(C).sort((a,b)=>{
     const da=contDiaMsProd(C[a]), db=contDiaMsProd(C[b]);
     if(db!==da) return db-da;
-    return cuentaDe(C[b])-cuentaDe(C[a]);
+    return cuentaContainer(C[b])-cuentaContainer(C[a]);
   });
   const algunSel = nombresC.some(cn=>prodContSel[cn]);
   let diaActualC=null;
@@ -1958,7 +2031,7 @@ function renderProductividad(){
     return sep+`<tr>
       <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onchange="toggleProdContSel('${esc(cn)}')"> 📦 ${esc(cn)}</label></td>
       <td class="n">${c.put}</td><td class="n">${c.recv}</td>
-      <td class="n"><b>${tasaTxt(cuentaDe(c), horasDeMarks(c.marks, cn))}</b></td>
+      <td class="n"><b>${tasaTxt(cuentaContainer(c), horasDeMarks(c.marks, cn))}</b></td>
     </tr>`;
   }).join('');
   const barraBorrar = `<div class="prod-borrar-bar"><button class="btn-borrar-sel" ${algunSel?'':'disabled'} onclick="pedirEliminarConts()">${t('selEliminar')}</button></div>`;
@@ -2161,6 +2234,51 @@ function borrarActividad(clave, rid){
   modal({tit:'🗑 '+t('actBorrarTit'), input:'html', html:html, okTxt:t('borrar'), rojo:true, onOk:function(){
     conPin(function(){
       const up = {}; up['containers/'+clave+'/r/'+rid] = null;
+      equipoRef.update(up).then(function(){ toast(t('actBorrada')); render(); })
+        .catch(function(e){ toast('Error: '+(e.message||e)); });
+    });
+  }});
+}
+
+// Borra TODA la actividad de UNA persona en UN día y afecta la productividad de inmediato.
+// Resuelve la "actividad fantasma": limpia el histórico (archivado) de esa persona ese día
+// Y borra sus registros EN VIVO de ese día. Si un registro fue compartido con otra persona
+// (recibido por uno y ubicado por otro) sólo se quita la parte de esta persona, para no
+// afectar el trabajo del compañero.
+function borrarActPersonaDia(nom, dia){
+  nom=(nom||'').trim();
+  const html = `<div style="font-size:14px;line-height:1.6">${t('prodBorrarPersMsg')}<br><br>
+      <b>${esc(nom)}</b><br>📅 ${esc(dia)}</div>`;
+  modal({tit:'🗑 '+t('prodBorrarPersTit'), input:'html', html:html, okTxt:t('borrar'), rojo:true, onOk:function(){
+    conPin(function(){
+      const up = {};
+      // 1) Histórico (archivado) de esa persona ese día → fuera (la fuente de la "actividad fantasma").
+      up['historico/'+dia+'/personas/'+keySan(nom)] = null;
+      // 2) Registros EN VIVO de ese día donde participó la persona.
+      Object.keys(datosContainers||{}).forEach(clave=>{
+        const c=datosContainers[clave]; if(!c||!c.r) return;
+        Object.keys(c.r).forEach(rid=>{
+          const r=c.r[rid]; if(!r||!r.t) return;
+          if(claveDia(r.t)!==dia) return;
+          const recvActor=((r.ur||'').trim()||nombreDisp(r.dr||r.d)||'');
+          const putActor =((r.up||'').trim()||nombreDisp(r.dp||r.d)||'');
+          const esPut=!!(r.u && String(r.u).trim());
+          const base='containers/'+clave+'/r/'+rid;
+          if(esPut && putActor===nom){
+            if(recvActor && recvActor!==nom){
+              // Compartido: quitar SÓLO el put-away de esta persona, conservar el receiving del compañero.
+              up[base+'/u']=null; up[base+'/up']=null; up[base+'/dp']=null;
+            } else {
+              up[base]=null; // registro completo de esta persona
+            }
+          } else if(!esPut && recvActor===nom){
+            up[base]=null; // receiving suyo (sin ubicar aún)
+          } else if(esPut && recvActor===nom && putActor!==nom){
+            // Recibido por esta persona pero ubicado por otro: quitar sólo su parte de receiving.
+            up[base+'/ur']=null; up[base+'/dr']=null;
+          }
+        });
+      });
       equipoRef.update(up).then(function(){ toast(t('actBorrada')); render(); })
         .catch(function(e){ toast('Error: '+(e.message||e)); });
     });
