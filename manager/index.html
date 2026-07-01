@@ -265,6 +265,8 @@
   .act-l2{font-size:12px; color:var(--texto2); margin-top:2px;}
   .act-cont{font-weight:600;}
   .act-time{font-size:11px; color:var(--texto2); text-align:right; flex-shrink:0; white-space:nowrap;}
+  .act-borrar{background:none; border:none; cursor:pointer; font-size:15px; opacity:.35; padding:4px 6px; flex-shrink:0; align-self:center; border-radius:8px;}
+  .act-borrar:hover{opacity:1; background:rgba(220,53,69,.12);}
   .act-clock{font-weight:700;}
   /* productividad por semana */
   .prod-semana-head{margin-bottom:12px;}
@@ -653,6 +655,11 @@ const I18N = {
   prodOcultarTit: ['Ocultar de las estadísticas','Hide from stats','从统计中隐藏'],
   prodMostrarTit: ['Volver a mostrar en las estadísticas','Show again in stats','重新显示在统计中'],
   prodOcultasLbl: ['Personas ocultas','Hidden people','已隐藏人员'],
+  borrar:         ['Borrar','Delete','删除'],
+  actBorrarTit:   ['Borrar movimiento','Delete movement','删除此操作'],
+  actBorrarMsg:   ['Se borrará este movimiento para todo el equipo. Úsalo para eliminar lecturas repetidas (fantasma) y que la estadística quede bien. Esta acción no se puede deshacer.','This movement will be deleted for the whole team. Use it to remove repeated (phantom) reads so stats are correct. This cannot be undone.','将为整个团队删除此操作。用于移除重复(幽灵)读取，使统计准确。此操作无法撤销。'],
+  actBorrada:     ['Movimiento borrado','Movement deleted','操作已删除'],
+  actNoExiste:    ['Ese movimiento ya no existe','That movement no longer exists','该操作已不存在'],
   verContPersona:['Containers trabajados','Containers worked','已处理集装箱'],
   selEliminar:   ['🗑 Eliminar seleccionados','🗑 Delete selected','🗑 删除所选'],
   cancelarSel:   ['Cancelar','Cancel','取消'],
@@ -2016,6 +2023,7 @@ function renderActividad(){
         <div class="act-l2">${det} · <span class="act-cont">${esc(r.contNom||'')}</span></div>
       </div>
       <div class="act-time">${tiempoRelativo(r.t)}<br><span class="act-clock">${hora}</span></div>
+      <button class="act-borrar" title="${t('actBorrarTit')}" onclick="borrarActividad('${esc(r.clave)}','${esc(r.rid)}')">🗑</button>
     </div>`;
   }).join('');
   el.innerHTML = head + filas;
@@ -2042,6 +2050,30 @@ function volverDeActividad(){
   const dest = (filtroActividad && filtroActividad.origen) || 'dispositivos';
   filtroActividad = null;
   cambiarVista(dest);
+}
+// Borra UN movimiento (registro) del container para todo el equipo. Sirve para
+// eliminar "lecturas fantasma" (put-away repetido de un pallet ya ubicado) y que
+// la estadística quede bien. Se elimina el registro completo de la nube.
+function borrarActividad(clave, rid){
+  const c = datosContainers[clave];
+  if(!c || !c.r || !c.r[rid]){ toast(t('actNoExiste')); return; }
+  const r = c.r[rid];
+  const nom = c.num||c.n||clave;
+  const esPut = !!(r.u && String(r.u).trim());
+  const actor = esPut ? ((r.up||'').trim()||nombreDisp(r.dp||r.d)||'—') : ((r.ur||'').trim()||nombreDisp(r.dr||r.d)||'—');
+  const tipo = esPut ? t('putaway') : t('receiving');
+  const hora = r.t ? new Date(r.t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : '—';
+  const html = `<div style="font-size:14px;line-height:1.6">${t('actBorrarMsg')}<br><br>
+      <b>${esc(actor)}</b> · ${tipo}<br>
+      ${esc(r.c||'')}${(r.s&&r.s.trim())?' · '+esc(r.s):''}${esPut?' → '+esc(r.u):''}<br>
+      📦 ${esc(nom)} · ${hora}</div>`;
+  modal({tit:'🗑 '+t('actBorrarTit'), input:'html', html:html, okTxt:t('borrar'), rojo:true, onOk:function(){
+    conPin(function(){
+      const up = {}; up['containers/'+clave+'/r/'+rid] = null;
+      equipoRef.update(up).then(function(){ toast(t('actBorrada')); render(); })
+        .catch(function(e){ toast('Error: '+(e.message||e)); });
+    });
+  }});
 }
 
 function cambiarProdTasa(v){
