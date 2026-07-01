@@ -1794,7 +1794,7 @@ function editarHoraCont(clave, cual){
     conPin(function(){
       const up = {};
       up['containers/'+clave+'/'+(cual==='ini'?'ovIni':'ovFin')] = ms;
-      equipoRef.update(up).then(function(){ toast(t('chGuardada')); render(); })
+      equipoRef.update(up).then(function(){ toast(t('chGuardada')); renderContDetalle(); })
         .catch(function(e){ toast('Error: '+(e.message||e)); });
     });
   }});
@@ -1806,7 +1806,7 @@ function resetHoraCont(clave){
   modal({tit:'↺ '+t('chReset'), input:'html', html:`<div style="font-size:14px">${t('chResetMsg')}</div>`, okTxt:t('chReset'), onOk:function(){
     conPin(function(){
       const up = {}; up['containers/'+clave+'/ovIni']=null; up['containers/'+clave+'/ovFin']=null;
-      equipoRef.update(up).then(function(){ toast(t('chResetOk')); render(); })
+      equipoRef.update(up).then(function(){ toast(t('chResetOk')); renderContDetalle(); })
         .catch(function(e){ toast('Error: '+(e.message||e)); });
     });
   }});
@@ -2512,7 +2512,7 @@ function borrarActividad(clave, rid){
   modal({tit:'🗑 '+t('actBorrarTit'), input:'html', html:html, okTxt:t('borrar'), rojo:true, onOk:function(){
     conPin(function(){
       const up = {}; up['containers/'+clave+'/r/'+rid] = null;
-      equipoRef.update(up).then(function(){ toast(t('actBorrada')); render(); })
+      equipoRef.update(up).then(function(){ toast(t('actBorrada')); if(contDetalleAbierto===clave){renderContDetalle();}else{render();} })
         .catch(function(e){ toast('Error: '+(e.message||e)); });
     });
   }});
