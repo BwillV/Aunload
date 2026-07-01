@@ -1,7 +1,7 @@
 {
-  "versionCode": 31,
-  "versionName": "4.3",
-  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.3.apk",
+  "versionCode": 32,
+  "versionName": "4.4",
+  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.4.apk",
   "updateRequired": false,
-  "message": "🎉 Actualización 4.3\n\n• 🕒 El RELOJ de inicio/fin dentro de cada container ahora es más pequeño y compacto (🕒 inicio → fin), para que no estorbe ni se vea asimétrico.\n\n• 🔄 AVISO DE ACTUALIZACIÓN: cuando el encargado envía un aviso marcado como actualización, aparece ENCIMA de cualquier app con el botón «Actualizar ahora». Ya no hace falta cerrar la app y volver a abrirla para que salga la actualización.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Toca el botón verde de arriba, o primero DESACTÍVALO y luego ACTÍVALO."
+  "message": "🎉 Actualización 4.4\n\n• 👤 TARJETAS DE PERSONAS: dentro de cada container ahora sale una tarjetita por cada quien trabajó o está trabajando ahí. Toca a alguien y solo verás SU trabajo (sus SKUs y su reloj de inicio/fin). La tarjeta «👥 Todos» viene seleccionada por defecto y muestra todo.\n\n• 🗑️ Se quitó el botón «Excluir»: ya no hace falta, ahora seleccionas directamente a la persona que quieres ver.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Toca el botón verde de arriba, o primero DESACTÍVALO y luego ACTÍVALO."
 }
