@@ -1,7 +1,7 @@
 {
-  "versionCode": 28,
-  "versionName": "4.0",
-  "downloadUrl": "https://github.com/BwillV/Aunload/releases/download/v4.0/AUnloadRescue-4.0.apk",
+  "versionCode": 29,
+  "versionName": "4.1",
+  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.1.apk",
   "updateRequired": false,
-  "message": "🎉 Actualización 4.0\n\n• Cada container ahora muestra la HORA DE INICIO y FIN (primer y último receiving/put away) en letra grande, justo debajo de Active. Incluye la opción «Excluir a:» para que el trabajo de una persona no cuente en ese cálculo.\n\n• Dentro de cada SKU puedes activar «Mostrar pallets × cantidad» (menú de los tres puntitos ⋮).\n\n• Si en receiving se puso una cantidad de cajas y luego se corrige en put away, ahora SIEMPRE vale la última (la corregida).\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Primero DESACTÍVALO y luego ACTÍVALO. Al abrir la app te saldrá un recuadro con un botón para hacerlo directo."
+  "message": "🎉 Actualización 4.1\n\n• 📍 Ahora el escáner reconoce «Dock» + número como UBICACIÓN (por ejemplo Dock18, Dock-5, DOCK23, dock 7). No hace falta configurar nada.\n\n• 🆕 Formatos de ubicación configurables desde AU Manager: el encargado puede agregar nuevas palabras (Bay, Puerta, Rampa…) desde la página del Manager y TODOS los teléfonos las reconocen en segundos, SIN tener que actualizar la app otra vez.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Primero DESACTÍVALO y luego ACTÍVALO."
 }

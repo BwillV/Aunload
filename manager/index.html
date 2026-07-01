@@ -396,6 +396,14 @@
         <span class="opc-others-txt" data-i18n="ocultarTxt">Ocultar «OTHERS» (sin SKU) en todos los teléfonos</span>
         <button class="opc-others-btn" id="btnOcultarOthers" title="Aplica a todos los escáneres del equipo">…</button>
       </div>
+      <div class="opc-others" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="opc-others-txt">📍 Formatos de ubicación (palabra + número, ej: <b>Dock18</b>)</span>
+          <button class="opc-others-btn" style="background:#1565c0" onclick="agregarUbicFormato()">+ Agregar formato</button>
+        </div>
+        <div id="ubicFormatos" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        <div style="font-size:11px;color:#78909c">Se aplican a TODOS los teléfonos del equipo en segundos, sin actualizar la app.</div>
+      </div>
       <div id="contSelBar" class="cont-sel-bar"></div>
       <div id="containers"></div>
     </section>
@@ -777,7 +785,7 @@ function conectar(pin){
   equipoRef.child('presence').on('value', s=>{ datosPresencia = s.val()||{}; render(); });
   equipoRef.child('devices').on('value', s=>{ datosDevices = s.val()||{}; render(); });
   equipoRef.child('admin/pin').on('value', s=>{ adminPinGuardado = s.val()||null; });
-  equipoRef.child('config').on('value', s=>{ datosConfig = s.val()||{}; pintarOcultarOthers(); });
+  equipoRef.child('config').on('value', s=>{ datosConfig = s.val()||{}; pintarOcultarOthers(); pintarUbicFormatos(); });
   equipoRef.child('historico').on('value', s=>{ datosHistorico = s.val()||{}; render(); });
 
   db.ref('.info/connected').on('value', s=>{
@@ -2095,6 +2103,48 @@ function toggleOcultarOthers(){
   conPin(()=> equipoRef.child('config/ocultarOthers').set(!on)
     .then(()=>toast(!on ? 'OTHERS oculto en todos los teléfonos' : 'OTHERS visible de nuevo'))
     .catch(e=>toast('Error: '+(e&&e.message?e.message:e))) );
+}
+// ----- Formatos de ubicación extra (palabra + número) -----
+// Lista los formatos que el equipo reconoce como ubicación. "Dock" y los
+// formatos clásicos (20-A-01, F11-31) vienen integrados en la app; aquí solo
+// se administran los EXTRA, que se guardan en config/ubicPrefijos (CSV) y los
+// teléfonos toman en segundos sin actualizar la app.
+function ubicListaExtra(){
+  const csv = (datosConfig && datosConfig.ubicPrefijos) ? String(datosConfig.ubicPrefijos) : '';
+  return csv.split(/[,;\n]/).map(s=>s.trim()).filter(Boolean);
+}
+function pintarUbicFormatos(){
+  const el = document.getElementById('ubicFormatos');
+  if(!el) return;
+  const fija = (txt)=>`<span style="display:inline-flex;align-items:center;background:#e8f5e9;color:#1f8a4c;border-radius:14px;padding:4px 10px;font-size:12px;font-weight:600">${txt} ✓</span>`;
+  const extra = (p)=>`<span style="display:inline-flex;align-items:center;gap:6px;background:#e3f2fd;color:#1565c0;border-radius:14px;padding:4px 10px;font-size:12px;font-weight:600">${esc(p)} + n° <b style="cursor:pointer;color:#c62828" title="Quitar" onclick="quitarUbicFormato('${esc(p)}')">✕</b></span>`;
+  let html = fija('Dock + n°') + fija('20-A-01') + fija('F11-31');
+  const lista = ubicListaExtra();
+  html += lista.map(extra).join('');
+  if(lista.length===0) html += '<span style="color:#90a4ae;font-size:12px;align-self:center">(sin formatos extra)</span>';
+  el.innerHTML = html;
+}
+function agregarUbicFormato(){
+  modal({tit:'📍 Nuevo formato de ubicación', msg:'Escribe la palabra que va ANTES del número (ej: Bay, Puerta, Rampa). El escáner la reconocerá como ubicación cuando venga seguida de un número: p. ej. "Bay12", "Bay-3", "Bay 7".', input:'text', okTxt:'Agregar', onOk:(v)=>{
+    const p = (v||'').trim();
+    if(!p) return;
+    if(!/^[A-Za-z0-9]{1,15}$/.test(p)){ toast('Usa solo letras/números, sin espacios (máx 15)'); return; }
+    if(p.toLowerCase()==='dock'){ toast('«Dock» ya viene reconocido siempre'); return; }
+    const lista = ubicListaExtra();
+    if(lista.some(x=>x.toLowerCase()===p.toLowerCase())){ toast('Ese formato ya existe'); return; }
+    lista.push(p);
+    conPin(()=> equipoRef.child('config/ubicPrefijos').set(lista.join(','))
+      .then(()=>toast('Formato «'+p+'» agregado. Los teléfonos lo tomarán en segundos.'))
+      .catch(e=>toast('Error: '+(e&&e.message?e.message:e))) );
+  }});
+}
+function quitarUbicFormato(p){
+  modal({tit:'Quitar formato', msg:'¿Quitar el formato «'+esc(String(p))+' + número»? Los teléfonos dejarán de reconocerlo como ubicación.', okTxt:'Quitar', rojo:true, onOk:()=>{
+    const lista = ubicListaExtra().filter(x=>x.toLowerCase()!==String(p).toLowerCase());
+    conPin(()=> equipoRef.child('config/ubicPrefijos').set(lista.join(','))
+      .then(()=>toast('Formato quitado'))
+      .catch(e=>toast('Error: '+(e&&e.message?e.message:e))) );
+  }});
 }
 function enviarAnuncio(){
   const txt = document.getElementById('txtAnuncio').value.trim();
