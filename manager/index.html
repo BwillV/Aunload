@@ -147,6 +147,11 @@
   .ch-bloque{flex:1; background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:10px 12px; text-align:center;}
   .ch-lbl{font-size:12px; font-weight:700; color:var(--texto2); text-transform:uppercase; letter-spacing:.5px;}
   .ch-hora{font-size:26px; font-weight:800; color:var(--azul); margin-top:2px; line-height:1.1;}
+  .ch-edit{background:none; border:none; cursor:pointer; font-size:15px; margin-left:6px; opacity:.65; vertical-align:middle;}
+  .ch-edit:hover{opacity:1;}
+  .ch-manual{color:#c77700; font-size:12px;}
+  .ch-reset{display:block; margin:10px auto 0; background:#fff3e0; color:#c77700; border:1px solid #ffcc80; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer;}
+  .ch-reset:hover{background:#ffe0b2;}
   .ch-excluir{display:flex; align-items:center; gap:8px; margin-top:10px;}
   .ch-ex-lbl{font-size:13px; font-weight:600; color:var(--texto2);}
   .ch-select{flex:1; padding:7px 10px; font-size:14px; border:1px solid var(--borde); border-radius:10px; background:var(--tarjeta); color:var(--texto);}
@@ -591,6 +596,17 @@ const I18N = {
   ctBorrar:      ['🗑 Borrar','🗑 Delete','🗑 删除'],
   chInicio:      ['Inicio','Start','开始'],
   chFin:         ['Fin','End','结束'],
+  chEditar:      ['Editar hora','Edit time','编辑时间'],
+  chEditIni:     ['Editar hora de inicio','Edit start time','编辑开始时间'],
+  chEditFin:     ['Editar hora de fin','Edit end time','编辑结束时间'],
+  chEditMsg:     ['Corrige la fecha y hora. Esta hora manda sobre la calculada de los escaneos (útil para quitar movimientos fantasma del reloj).','Set the date and time. This overrides the time calculated from scans (useful to remove ghost movements from the clock).','设置日期和时间。此时间将覆盖根据扫描计算的时间（用于从计时中移除幽灵记录）。'],
+  chEditVacio:   ['Escribe una fecha y hora válida.','Enter a valid date and time.','请输入有效的日期和时间。'],
+  chGuardada:    ['✅ Hora actualizada','✅ Time updated','✅ 时间已更新'],
+  chReset:       ['↺ Quitar hora manual','↺ Clear manual time','↺ 清除手动时间'],
+  chResetMsg:    ['¿Volver a las horas calculadas automáticamente de los escaneos?','Return to the times auto-calculated from scans?','恢复为根据扫描自动计算的时间？'],
+  chResetOk:     ['✅ Horas restauradas','✅ Times restored','✅ 时间已恢复'],
+  cdActividad:   ['Actividad del container','Container activity','集装箱活动'],
+  guardar:       ['Guardar','Save','保存'],
   chExcluir:     ['Excluir a:','Exclude:','排除:'],
   chNadie:       ['— Nadie —','— Nobody —','— 无 —'],
   todosLabel:    ['Todos','Everyone','全部'],
@@ -1649,11 +1665,62 @@ function renderContDetalle(){
     if(ar && (!soloPers || ar===soloPers)) marcar(tRecv(r));
     if(tieneUbic(r) && ap && (!soloPers || ap===soloPers)) marcar(tPut(r));
   });
+  // Override manual de horas (si el admin las corrigió). Se guarda en el container.
+  const ovI = (c.ovIni>0) ? c.ovIni : null;
+  const ovF = (c.ovFin>0) ? c.ovFin : null;
+  const iniShow = ovI!==null ? ovI : ini;
+  const finShow = ovF!==null ? ovF : fin;
+  const editable = !soloPers; // solo se editan las horas globales del container (vista "Todos")
+  const btnEdI = editable ? `<button class="ch-edit" title="${t('chEditar')}" onclick="editarHoraCont('${esc(clave)}','ini')">✏️</button>` : '';
+  const btnEdF = editable ? `<button class="ch-edit" title="${t('chEditar')}" onclick="editarHoraCont('${esc(clave)}','fin')">✏️</button>` : '';
+  const resetOv = (editable && (ovI!==null||ovF!==null)) ? `<button class="ch-reset" onclick="resetHoraCont('${esc(clave)}')">${t('chReset')}</button>` : '';
+  const marcaEd = ms=>ms!==null && ((ms===ovI)||(ms===ovF)) ? ' <span class="ch-manual">✎</span>' : '';
   const horarioHtml=`<div class="cont-horario">
     <div class="ch-tiempos">
-      <div class="ch-bloque"><div class="ch-lbl">${t('chInicio')}</div><div class="ch-hora">${horaHM(ini)}</div></div>
-      <div class="ch-bloque"><div class="ch-lbl">${t('chFin')}</div><div class="ch-hora">${horaHM(fin)}</div></div>
+      <div class="ch-bloque"><div class="ch-lbl">${t('chInicio')}${(ovI!==null)?marcaEd(ovI):''}</div><div class="ch-hora">${horaHM(iniShow)}${btnEdI}</div></div>
+      <div class="ch-bloque"><div class="ch-lbl">${t('chFin')}${(ovF!==null)?marcaEd(ovF):''}</div><div class="ch-hora">${horaHM(finShow)}${btnEdF}</div></div>
     </div>
+    ${resetOv}
+  </div>`;
+
+  // ---- Lista de ACTIVIDAD del container (eventos individuales) para cazar fantasmas ----
+  // Igual que la pantalla de Actividad, pero solo de ESTE container: cada escaneo separado
+  // en recv (📥) y put (📦) con su hora real, y botón 🗑 para borrar el movimiento fantasma.
+  let evCont=[];
+  rawRegs.forEach(r=>{
+    const rr = Object.assign({clave, contNom:nom}, r);
+    eventosDeRegistro(rr).forEach(ev=>{
+      if(soloPers && ev.actor!==soloPers) return;
+      evCont.push(ev);
+    });
+  });
+  evCont.sort((a,b)=>(b.ts||b.r.t)-(a.ts||a.r.t));
+  const abiertaAct = !!skusAbiertos['__ACT__'];
+  let actFilas='';
+  evCont.forEach(ev=>{
+    const r=ev.r; const esP=ev.tipo==='put';
+    const evT=ev.ts||r.t;
+    const hora=evT?new Date(evT).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}):'—';
+    const sku=(r.s&&r.s.trim())?esc(r.s):'';
+    const det=esP ? `${sku?sku+' · ':''}${parseInt(r.q)||0} CTNs → ${esc(r.u||'')}` : (sku?(sku+' · '+(parseInt(r.q)||0)+' CTNs'):t('recibido'));
+    actFilas+=`<div class="act-fila">
+      <div class="act-ico ${esP?'put':'recv'}">${esP?'📦':'📥'}</div>
+      <div class="act-cuerpo">
+        <div class="act-l1"><b>${esc(ev.actor||'—')}</b> · ${esP?t('putaway'):t('receiving')} <span class="act-au">${esc(r.c||'')}</span></div>
+        <div class="act-l2">${det}</div>
+      </div>
+      <div class="act-time"><span class="act-clock">${hora}</span></div>
+      <button class="act-borrar" title="${t('actBorrarTit')}" onclick="borrarActividad('${esc(clave)}','${esc(r.rid)}')">🗑</button>
+    </div>`;
+  });
+  if(evCont.length===0) actFilas=`<div class="vivo-vacio">${t('sinActividad')}</div>`;
+  const actividadHtml=`<div class="cd-sku-grupo">
+    <div class="cd-sku-cab" onclick="toggleSku('__ACT__')">
+      <span class="cd-sku-tri">${abiertaAct?'▼':'▶'}</span>
+      <span class="sku-nom">🔴 ${t('cdActividad')}</span>
+      <span class="cd-sku-meta">${evCont.length} ${t('movimientos')}</span>
+    </div>
+    ${abiertaAct?`<div class="cd-sku-body">${actFilas}</div>`:''}
   </div>`;
 
   ov.innerHTML = `
@@ -1670,9 +1737,59 @@ function renderContDetalle(){
       </div>
       ${selectorPersonasHtml}
       ${horarioHtml}
+      ${actividadHtml}
       ${cuerpo}
     </div>`;
   ov.classList.add('show');
+}
+
+// Editar manualmente la hora de inicio o fin del container (override guardado en Firebase).
+// 'cual' = 'ini' | 'fin'. Se usa un <input type="datetime-local"> precargado con el valor actual.
+function editarHoraCont(clave, cual){
+  const c = datosContainers[clave];
+  if(!c){ toast(t('actNoExiste')); return; }
+  // Valor actual: override si existe, si no, el calculado de las marcas.
+  const rawRegs = c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : [];
+  let ini=null, fin=null;
+  rawRegs.forEach(r=>{
+    const ar=actorRecv(r), ap=actorPut(r);
+    if(ar){ const x=tRecv(r); if(x>0){ if(ini===null||x<ini)ini=x; if(fin===null||x>fin)fin=x; } }
+    if(tieneUbic(r) && ap){ const x=tPut(r); if(x>0){ if(ini===null||x<ini)ini=x; if(fin===null||x>fin)fin=x; } }
+  });
+  const actual = cual==='ini' ? (c.ovIni>0?c.ovIni:ini) : (c.ovFin>0?c.ovFin:fin);
+  const base = actual || Date.now();
+  // datetime-local necesita 'YYYY-MM-DDTHH:mm' en hora local.
+  const d = new Date(base);
+  const pad=n=>String(n).padStart(2,'0');
+  const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const titulo = cual==='ini' ? t('chEditIni') : t('chEditFin');
+  const html = `<div style="font-size:14px;line-height:1.6">${t('chEditMsg')}<br><br>
+      <input type="datetime-local" id="edHoraInput" value="${val}" style="width:100%;padding:10px;font-size:16px;border:1px solid #ccc;border-radius:8px">
+    </div>`;
+  modal({tit:'🕒 '+titulo, input:'html', html:html, okTxt:t('guardar'), onOk:function(){
+    const inp = document.getElementById('edHoraInput');
+    if(!inp || !inp.value){ toast(t('chEditVacio')); return; }
+    const ms = new Date(inp.value).getTime();
+    if(!ms || isNaN(ms)){ toast(t('chEditVacio')); return; }
+    conPin(function(){
+      const up = {};
+      up['containers/'+clave+'/'+(cual==='ini'?'ovIni':'ovFin')] = ms;
+      equipoRef.update(up).then(function(){ toast(t('chGuardada')); render(); })
+        .catch(function(e){ toast('Error: '+(e.message||e)); });
+    });
+  }});
+}
+// Quitar el override manual de horas y volver a las horas calculadas de los escaneos.
+function resetHoraCont(clave){
+  const c = datosContainers[clave];
+  if(!c){ toast(t('actNoExiste')); return; }
+  modal({tit:'↺ '+t('chReset'), input:'html', html:`<div style="font-size:14px">${t('chResetMsg')}</div>`, okTxt:t('chReset'), onOk:function(){
+    conPin(function(){
+      const up = {}; up['containers/'+clave+'/ovIni']=null; up['containers/'+clave+'/ovFin']=null;
+      equipoRef.update(up).then(function(){ toast(t('chResetOk')); render(); })
+        .catch(function(e){ toast('Error: '+(e.message||e)); });
+    });
+  }});
 }
 
 
@@ -1796,6 +1913,42 @@ function renderProductividad(){
       const compl = Math.min(e.put||0,e.recv||0);
       const c=iniC(nom); c.put+=(e.put||0); c.recv+=(e.recv||0); c.palAprox+=compl; c.archCompl+=compl;
       if(!c.diaArch || dia>c.diaArch) c.diaArch=dia;
+    }
+  }
+
+  // ---- Override manual de horas por container (corrección del admin) ----
+  // Si el admin editó la hora de inicio/fin de un container, esas horas MANDAN sobre las
+  // calculadas de los escaneos. Recortamos las marcas fuera de la ventana [ovIni, ovFin] y
+  // fijamos los límites, para que tanto la vista como la productividad usen las horas corregidas.
+  const ovPorCont = {};  // nombre de container -> {ini, fin}
+  for(const clave in datosContainers){
+    const cc = datosContainers[clave];
+    if(cc && (cc.ovIni>0 || cc.ovFin>0)){
+      const nom = cc.num||cc.n||clave;
+      ovPorCont[nom] = {ini: cc.ovIni>0?cc.ovIni:null, fin: cc.ovFin>0?cc.ovFin:null};
+    }
+  }
+  function aplicaOv(cn, marks){
+    const ov = ovPorCont[cn];
+    if(!ov || !marks) return marks;
+    const lo = ov.ini!=null ? ov.ini : -Infinity;
+    const hi = ov.fin!=null ? ov.fin :  Infinity;
+    let out = marks.filter(x=>x>=lo && x<=hi);
+    if(ov.ini!=null) out.push(ov.ini);
+    if(ov.fin!=null) out.push(ov.fin);
+    return out;
+  }
+  if(Object.keys(ovPorCont).length){
+    for(const cn in C){
+      if(!ovPorCont[cn]) continue;
+      const c=C[cn];
+      c.marks = aplicaOv(cn, c.marks);
+      for(const nm in c.personas){ c.personas[nm].marks = aplicaOv(cn, c.personas[nm].marks); }
+    }
+    for(const nom in P){
+      const p=P[nom];
+      for(const cn in p.conts){ if(ovPorCont[cn]) p.conts[cn].marks = aplicaOv(cn, p.conts[cn].marks); }
+      for(const dk in p.diaConts){ for(const cn in p.diaConts[dk]){ if(ovPorCont[cn]) p.diaConts[dk][cn].marks = aplicaOv(cn, p.diaConts[dk][cn].marks); } }
     }
   }
 
