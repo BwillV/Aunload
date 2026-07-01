@@ -1490,7 +1490,11 @@ function renderProductividad(){
     else {
       det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('verContPersona'))}</td></tr>`+cs.map(cn=>{
         const pdc=dc[cn];
-        return `<tr class="cont-sub"><td>📦 ${esc(cn)}</td><td class="n">${pdc.put}</td><td class="n">${pdc.recv}</td><td class="n"><b>${tasaTxt(cuentaDe(pdc), horasPersonaContDia(cn, pdc, diaSelK))}</b></td></tr>`;
+        const totPal = cuentaDe(pdc);
+        const marcas = pdc.marks||[];
+        const inicio = marcas.length>0 ? horaHM(Math.min(...marcas)) : '—';
+        const fin = marcas.length>0 ? horaHM(Math.max(...marcas)) : '—';
+        return `<tr class="cont-sub"><td>📦 ${esc(cn)}<br><small style="color:#6c757d;">Total: ${totPal} ${totPal===1?'pallet':'pallets'} · ${inicio} → ${fin}</small></td><td class="n">${pdc.put}</td><td class="n">${pdc.recv}</td><td class="n"><b>${tasaTxt(totPal, horasPersonaContDia(cn, pdc, diaSelK))}</b></td></tr>`;
       }).join('');
     }
     return cab+det;
