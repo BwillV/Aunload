@@ -347,6 +347,7 @@
     <div class="toolbar">
       <button class="btn-mini" id="btnCambiar" data-i18n="tbCambiar">↺ Cambiar equipo</button>
       <button class="btn-mini" id="btnExpandir" data-i18n="tbExpandir" style="display:none;">⊕ Expandir todo</button>
+      <button class="btn-mini" id="btnActualizar" data-i18n="tbActualizar">🔄 Actualizar</button>
       <button class="btn-mini" id="btnCSV" data-i18n="tbCSV">⬇ Exportar CSV</button>
     </div>
   </header>
@@ -485,6 +486,7 @@ const I18N = {
   tbCambiar:     ['↺ Cambiar equipo','↺ Change team','↺ 切换团队'],
   tbExpandir:    ['⊕ Expandir todo','⊕ Expand all','⊕ 全部展开'],
   tbContraer:    ['⊖ Contraer todo','⊖ Collapse all','⊖ 全部收起'],
+  tbActualizar:  ['🔄 Actualizar','🔄 Refresh','🔄 刷新'],
   tbCSV:         ['⬇ Exportar CSV','⬇ Export CSV','⬇ 导出CSV'],
   avisoTit:      ['📢 Enviar aviso a todos','📢 Send notice to all','📢 向所有人发送通知'],
   avisoDesc:     ['El mensaje aparecerá en todos los escáneres del equipo.','The message will appear on all team scanners.','消息将显示在团队所有扫描器上。'],
@@ -1984,6 +1986,7 @@ document.getElementById('btnEntrar').onclick = ()=>{ const v=document.getElement
 document.getElementById('inputPin').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=e.target.value; if(v.trim()) conectar(v); } });
 document.getElementById('btnCambiar').onclick = ()=>{ localStorage.removeItem('aunload_pin'); location.reload(); };
 document.getElementById('btnExpandir').onclick = ()=>{ todoExpandido=!todoExpandido; document.getElementById('btnExpandir').textContent = todoExpandido?t('tbContraer'):t('tbExpandir'); render(); };
+document.getElementById('btnActualizar').onclick = ()=>{ location.reload(); };
 document.getElementById('btnCSV').onclick = exportarCSV;
 document.getElementById('btnAnuncio').onclick = enviarAnuncio;
 document.getElementById('btnOcultarOthers').onclick = toggleOcultarOthers;
