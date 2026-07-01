@@ -229,6 +229,11 @@
   .prod-filtro{background:var(--tarjeta); border:1px solid var(--borde); border-radius:12px; padding:12px; box-shadow:0 1px 5px rgba(0,0,0,.05);}
   .prod-filtro.prod-filtro-off{opacity:.5; background:#f1f3f5;}
   .prod-filtro.prod-filtro-off .prod-radio{cursor:not-allowed;}
+  .brk-cont{margin-top:6px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+  .brk-chk{display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--azul); font-weight:600; cursor:pointer; background:#eef4ff; border:1px solid #cfe0ff; border-radius:8px; padding:4px 8px;}
+  .brk-chk input{width:15px; height:15px; accent-color:var(--azul);}
+  .brk-inputs{display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--texto2);}
+  .brk-num{width:46px; padding:4px 6px; border:1px solid #cfd6dd; border-radius:7px; font-size:13px; text-align:center;}
   .prod-filtro-tit{font-size:12px; font-weight:700; color:var(--texto2); margin-bottom:8px;}
   .prod-radio{display:flex; align-items:center; gap:6px; font-size:13px; margin-bottom:4px; cursor:pointer;}
   .prod-radio input[type=radio]{margin:0; cursor:pointer;}
@@ -452,7 +457,9 @@ let vistaActual = 'vivo';
 let prodTasaFiltro = localStorage.getItem('prodTasaFiltro') || 'put';     // 'put', 'recv', 'ambos'
 let prodMetodo = localStorage.getItem('prodMetodo') || 'empresa';         // 'empresa' (reloj del container, como en la bodega) | 'actividad' (nuestro, tiempo activo de la persona)
 let prodModoTiempo = localStorage.getItem('prodModoTiempo') || 'total';   // (solo modo 'actividad') 'total' (bruto, sin cortar) | 'neto' (suma por container)
-let prodBreak = localStorage.getItem('prodBreak') || 'auto';              // 'auto' | '1h' | '1.5h' — cómo se descuenta el descanso
+let prodBreak = localStorage.getItem('prodBreak') || 'auto';              // 'auto' | '1h' | '1.5h' | 'cont' — cómo se descuenta el descanso
+let prodBreaksCont = {};  // descanso manual por día+container: { 'dia|container': {on:bool, h:int, m:int} }
+try{ prodBreaksCont = JSON.parse(localStorage.getItem('prodBreaksCont')||'{}')||{}; }catch(e){ prodBreaksCont = {}; }
 let prodSemana = null;           // lunes 00:00 (ms) de la semana seleccionada; null = semana actual
 let datosHistorico = {};         // estadísticas archivadas por día (persisten aunque se borren containers)
 let filtroActividad = null;      // {tipo:'persona'|'disp', valor, label} para ver actividad de uno solo
@@ -593,9 +600,14 @@ const I18N = {
   optBreak1:     ['☕ 1 hora','☕ 1 hour','☕ 1小时'],
   optBreak15:    ['☕ 1.5 horas','☕ 1.5 hours','☕ 1.5小时'],
   optBreakAuto:  ['🤖 Automático','🤖 Automatic','🤖 自动'],
+  optBreakCont:  ['📦 Según el container','📦 Per container','📦 按集装箱'],
   ayudaBreak1:   ['Se descuenta 1 hora fija de descanso del tiempo trabajado de cada día.','A fixed 1 hour break is deducted from each day\'s worked time.','每天的工作时间扣除固定1小时休息。'],
   ayudaBreak15:  ['Se descuentan 1.5 horas fijas de descanso del tiempo trabajado de cada día.','A fixed 1.5 hour break is deducted from each day\'s worked time.','每天的工作时间扣除固定1.5小时休息。'],
   ayudaBreakAuto:['Automático: descuenta cualquier hueco de 1 hora o más entre un pallet y el siguiente.','Automatic: deducts any gap of 1 hour or more between one pallet and the next.','自动:扣除托盘之间1小时或以上的任何间隔。'],
+  ayudaBreakCont:['Según el container: abre una persona en "Por persona", marca ✅ el descanso en el container donde salió a break y escribe las horas y minutos. Se descuenta solo de ese container.','Per container: open a person under "By person", check ✅ the break on the container where they took a break and enter hours and minutes. It is deducted only from that container.','按集装箱:在"按人员"中打开某人,在其休息的集装箱上勾选✅并输入小时和分钟。仅从该集装箱扣除。'],
+  brkAplicar:    ['☕ Aplicar descanso','☕ Apply break','☕ 应用休息'],
+  brkH:          ['h','h','时'],
+  brkM:          ['min','min','分'],
   semanaDe:      ['Semana','Week','本周'],
   semanaActual:  ['Semana actual','Current week','本周'],
   selSemana:     ['📅 Seleccionar semana','📅 Select week','📅 选择周'],
@@ -1270,8 +1282,24 @@ function renderProductividad(){
   const el = document.getElementById('productividad');
   if(!el) return;
 
-  // Descuento de descanso: 'auto' = huecos de 1h+ ; '1h'/'1.5h' = resta fija al span del día.
+  // Descuento de descanso: 'auto' = huecos de 1h+ ; '1h'/'1.5h' = resta fija al span del día ; 'cont' = descanso manual marcado por container.
+  const esCont = prodBreak==='cont';
   const BR = prodBreak==='1.5h' ? 5400000 : prodBreak==='1h' ? 3600000 : 0;
+  // Descanso manual (ms) marcado para un día+container (modo 'cont').
+  function breakContMs(dk, cn){
+    if(!esCont) return 0;
+    const b = prodBreaksCont[dk+'|'+cn];
+    if(!b || !b.on) return 0;
+    return ((b.h||0)*60 + (b.m||0))*60000;
+  }
+  // ms de un container en UN día = span (reloj del container) menos el descanso manual de ese container (modo 'cont').
+  function msContDiaCont(cn, marks, dk){
+    const mk = (marks||[]).filter(x=>claveDia(x)===dk);
+    if(mk.length<2) return 0;
+    const a = mk.slice().sort((x,y)=>x-y);
+    const span = a[a.length-1]-a[0];
+    return Math.max(0, span - breakContMs(dk,cn));
+  }
 
   // ---- helpers de tiempo ----
   // ms trabajados de una lista de marcas DE UN MISMO DÍA.
@@ -1282,10 +1310,11 @@ function renderProductividad(){
     let s=0; for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<BREAK_GAP_MS) s+=d; } return s;
   }
   // horas de una lista de marcas que puede abarcar varios días (se agrupa por día).
-  function horasDeMarks(marks){
+  // Si se pasa 'cn' y el modo es 'cont', se descuenta el descanso manual de ese container por día.
+  function horasDeMarks(marks, cn){
     if(!marks || marks.length<2) return 0;
     const byDay={}; marks.forEach(t=>{ (byDay[claveDia(t)]=byDay[claveDia(t)]||[]).push(t); });
-    let s=0; for(const d in byDay){ s+=msDia(byDay[d]); } return s/3600000;
+    let s=0; for(const d in byDay){ s += (esCont && cn) ? msContDiaCont(cn, byDay[d], d) : msDia(byDay[d]); } return s/3600000;
   }
 
   // ---- 1) Datos EN VIVO de la semana seleccionada ----
@@ -1383,8 +1412,18 @@ function renderProductividad(){
     }
     return out;
   }
+  // Suma de horas por container de una persona en UN día (modo 'cont': span - descanso manual de cada container).
+  function horasContPersonaDiaCont(p, dk){
+    let s=0;
+    for(const cn in p.conts){
+      const base = (prodMetodo==='empresa') ? (C[cn]?C[cn].marks:[]) : p.conts[cn].marks;
+      s += msContDiaCont(cn, base, dk);
+    }
+    return s/3600000;
+  }
   // Horas de una persona en UN día (para la cuadrícula lun–vie y para "Por persona").
   function horasPersonaDiaK(p, dk){
+    if(esCont) return horasContPersonaDiaCont(p, dk);   // descanso manual por container
     if(prodMetodo==='empresa' || prodModoTiempo==='neto') return msDiaConts(marksContsPersonaDia(p,dk))/3600000;
     const d=p.dias[dk]; return d?msDia(d.marks)/3600000:0;   // 'actividad' total = span del día, descanso una vez
   }
@@ -1392,10 +1431,11 @@ function renderProductividad(){
   function horasPersona(p){ let s=0; for(const dk in p.dias){ s+=horasPersonaDiaK(p,dk); } return s; }
   // Horas de una persona dentro de UN container (drill-down). Un container tiene un solo reloj por día,
   // así que aquí el descanso ya sale una vez por día vía horasDeMarks.
-  function horasContainer(cn){ const c=C[cn]; return c?horasDeMarks(c.marks):0; }
-  function horasPersonaCont(p, cn, pc){ return prodMetodo==='empresa' ? horasContainer(cn) : horasDeMarks(pc.marks); }
+  function horasContainer(cn){ const c=C[cn]; return c?horasDeMarks(c.marks, cn):0; }
+  function horasPersonaCont(p, cn, pc){ return prodMetodo==='empresa' ? horasContainer(cn) : horasDeMarks(pc.marks, cn); }
   // Horas de un container en UN día (para el detalle de "Por persona" del día en curso).
   function horasPersonaContDia(cn, pdc, dk){
+    if(esCont){ const marks=(prodMetodo==='empresa')?(C[cn]?C[cn].marks:[]):pdc.marks; return msContDiaCont(cn, marks, dk)/3600000; }
     if(prodMetodo==='empresa'){ const c=C[cn]; const mk=c?c.marks.filter(x=>claveDia(x)===dk):[]; return msDia(mk)/3600000; }
     return msDia(pdc.marks)/3600000;
   }
@@ -1449,7 +1489,8 @@ function renderProductividad(){
       <label class="prod-radio"><input type="radio" name="prodBreak" value="auto" ${prodBreak==='auto'?'checked':''} onchange="cambiarProdBreak('auto')"> ${t('optBreakAuto')}</label>
       <label class="prod-radio"><input type="radio" name="prodBreak" value="1h" ${prodBreak==='1h'?'checked':''} onchange="cambiarProdBreak('1h')"> ${t('optBreak1')}</label>
       <label class="prod-radio"><input type="radio" name="prodBreak" value="1.5h" ${prodBreak==='1.5h'?'checked':''} onchange="cambiarProdBreak('1.5h')"> ${t('optBreak15')}</label>
-      <div class="prod-modo-ayuda">${prodBreak==='1h'?t('ayudaBreak1'):prodBreak==='1.5h'?t('ayudaBreak15'):t('ayudaBreakAuto')}</div>
+      <label class="prod-radio"><input type="radio" name="prodBreak" value="cont" ${prodBreak==='cont'?'checked':''} onchange="cambiarProdBreak('cont')"> ${t('optBreakCont')}</label>
+      <div class="prod-modo-ayuda">${prodBreak==='1h'?t('ayudaBreak1'):prodBreak==='1.5h'?t('ayudaBreak15'):prodBreak==='cont'?t('ayudaBreakCont'):t('ayudaBreakAuto')}</div>
     </div>
     <div class="prod-filtro">
       <div class="prod-filtro-tit">${t('prodMetodoLbl')}</div>
@@ -1494,7 +1535,15 @@ function renderProductividad(){
         const marcas = pdc.marks||[];
         const inicio = marcas.length>0 ? horaHM(Math.min(...marcas)) : '—';
         const fin = marcas.length>0 ? horaHM(Math.max(...marcas)) : '—';
-        return `<tr class="cont-sub"><td>📦 ${esc(cn)}<br><small style="color:#6c757d;">Total: ${totPal} ${totPal===1?'pallet':'pallets'} · ${inicio} → ${fin}</small></td><td class="n">${pdc.put}</td><td class="n">${pdc.recv}</td><td class="n"><b>${tasaTxt(totPal, horasPersonaContDia(cn, pdc, diaSelK))}</b></td></tr>`;
+        let brkUI='';
+        if(esCont){
+          const b=prodBreaksCont[diaSelK+'|'+cn]||{on:false,h:0,m:0};
+          const dkE=esc(diaSelK), cnE=esc(cn);
+          brkUI=`<div class="brk-cont"><label class="brk-chk"><input type="checkbox" ${b.on?'checked':''} onchange="toggleBreakCont('${dkE}','${cnE}',this.checked)"> ${t('brkAplicar')}</label>`
+            + (b.on?`<span class="brk-inputs"><input type="number" min="0" max="23" value="${b.h||0}" onchange="setBreakCont('${dkE}','${cnE}','h',this.value)" onclick="event.stopPropagation()" class="brk-num"> ${t('brkH')} <input type="number" min="0" max="59" value="${b.m||0}" onchange="setBreakCont('${dkE}','${cnE}','m',this.value)" onclick="event.stopPropagation()" class="brk-num"> ${t('brkM')}</span>`:'')
+            + `</div>`;
+        }
+        return `<tr class="cont-sub"><td>📦 ${esc(cn)}<br><small style="color:#6c757d;">Total: ${totPal} ${totPal===1?'pallet':'pallets'} · ${inicio} → ${fin}</small>${brkUI}</td><td class="n">${pdc.put}</td><td class="n">${pdc.recv}</td><td class="n"><b>${tasaTxt(totPal, horasPersonaContDia(cn, pdc, diaSelK))}</b></td></tr>`;
       }).join('');
     }
     return cab+det;
@@ -1508,7 +1557,7 @@ function renderProductividad(){
     return `<tr>
       <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onchange="toggleProdContSel('${esc(cn)}')"> 📦 ${esc(cn)}</label></td>
       <td class="n">${c.put}</td><td class="n">${c.recv}</td>
-      <td class="n"><b>${tasaTxt(cuentaDe(c), horasDeMarks(c.marks))}</b></td>
+      <td class="n"><b>${tasaTxt(cuentaDe(c), horasDeMarks(c.marks, cn))}</b></td>
     </tr>`;
   }).join('');
   const barraBorrar = `<div class="prod-borrar-bar"><button class="btn-borrar-sel" ${algunSel?'':'disabled'} onclick="pedirEliminarConts()">${t('selEliminar')}</button></div>`;
@@ -1533,6 +1582,19 @@ function toggleProdPersona(nom){ prodPersonaAbierta = (prodPersonaAbierta===nom)
 function toggleProdContSel(cn){ if(prodContSel[cn]) delete prodContSel[cn]; else prodContSel[cn]=true; renderProductividad(); }
 // (punto 3) Cambia el modo de descuento de descanso.
 function cambiarProdBreak(v){ prodBreak=v; localStorage.setItem('prodBreak',v); renderProductividad(); }
+// Descanso manual por container (modo 'cont').
+function guardarBreaksCont(){ try{ localStorage.setItem('prodBreaksCont', JSON.stringify(prodBreaksCont)); }catch(e){} }
+function toggleBreakCont(dk, cn, on){
+  const k=dk+'|'+cn; const b=prodBreaksCont[k]||{h:0,m:0}; b.on=!!on; prodBreaksCont[k]=b;
+  guardarBreaksCont(); renderProductividad();
+}
+function setBreakCont(dk, cn, campo, val){
+  const k=dk+'|'+cn; const b=prodBreaksCont[k]||{on:true,h:0,m:0};
+  let n=parseInt(val,10); if(isNaN(n)||n<0) n=0;
+  if(campo==='m' && n>59) n=59; if(campo==='h' && n>23) n=23;
+  b[campo]=n; b.on=true; prodBreaksCont[k]=b;
+  guardarBreaksCont(); renderProductividad();
+}
 // (punto 7) Selector de semanas del año en curso.
 function abrirSelectorSemana(){
   const hoyLun=lunesDe(Date.now()); const anio=new Date().getFullYear();
