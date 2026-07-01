@@ -774,12 +774,13 @@ function conectar(pin){
   });
 }
 
-// ---------- auto-reparación de lápidas (tombstones) ----------
+// ---------- auto-reparación de lápidas (tombstones) + restauración de respaldos ----------
 // Si un container está VIVO en la nube (tiene datos) pero también tiene una
 // "lápida" (tombstone) de borrado, la app del celular lo esconde durante 24h.
 // Esto pasa cuando se borra un container en el Manager y luego se vuelve a
-// escanear el mismo. Aquí borramos esa lápida obsoleta para que reaparezca
-// en todos los celulares al instante.
+// escanear el mismo. Aquí borramos esa lápida obsoleta Y además restauramos
+// automáticamente todos los pallets del respaldo (si existe), para que no se
+// pierda la historia cuando se reutiliza un número de container.
 function limpiarLapidasObsoletas(){
   if(!equipoRef || !datosContainers) return;
   var vivos = Object.keys(datosContainers).filter(function(k){
@@ -787,14 +788,41 @@ function limpiarLapidasObsoletas(){
     return c && typeof c === 'object';
   });
   if(vivos.length === 0) return;
-  equipoRef.child('tombstones/containers').get().then(function(snap){
-    var tombs = snap.val() || {};
+  
+  // Primero buscamos lápidas y respaldos en paralelo.
+  Promise.all([
+    equipoRef.child('tombstones/containers').get(),
+    equipoRef.child('respaldos/containers').get()
+  ]).then(function(snaps){
+    var tombs = snaps[0].val() || {};
+    var respaldos = snaps[1].val() || {};
     var updates = {};
-    vivos.forEach(function(k){
-      if(tombs.hasOwnProperty(k)){
-        updates['tombstones/containers/'+k] = null;
+    
+    vivos.forEach(function(clave){
+      // 1. Si tiene lápida, borrarla.
+      if(tombs.hasOwnProperty(clave)){
+        updates['tombstones/containers/'+clave] = null;
+      }
+      
+      // 2. Si tiene respaldo, RESTAURAR todos los pallets viejos.
+      if(respaldos.hasOwnProperty(clave)){
+        var respaldo = respaldos[clave] || {};
+        var contActual = datosContainers[clave] || {};
+        var regsRespaldo = respaldo.r || {};
+        var regsActuales = contActual.r || {};
+        
+        // Fusionar: copiar todos los registros del respaldo que NO existen ya.
+        for(var rid in regsRespaldo){
+          if(!regsActuales.hasOwnProperty(rid)){
+            updates['containers/'+clave+'/r/'+rid] = regsRespaldo[rid];
+          }
+        }
+        
+        // Borrar el respaldo después de restaurar (ya cumplió su función).
+        updates['respaldos/containers/'+clave] = null;
       }
     });
+    
     if(Object.keys(updates).length){
       equipoRef.update(updates);
     }
@@ -1706,6 +1734,8 @@ function ejecutarEliminarConts(nombres, borrarStats){
         const regsRaw=Object.keys(c.r||{}).map(rid=>Object.assign({}, c.r[rid], {contNom:cn}));
         archivarRegs(regsRaw, up);
       }
+      // NUEVO: Guardar respaldo completo del container para recuperarlo si se vuelve a escanear.
+      up['respaldos/containers/'+clave]=JSON.parse(JSON.stringify(c));
       up['tombstones/containers/'+clave]=Date.now();
       up['containers/'+clave]=null;
     }
@@ -1899,6 +1929,8 @@ function borrarContainer(clave, nom){
       const cont = datosContainers[clave]||{};
       const regsRaw = Object.keys(cont.r||{}).map(rid=>Object.assign({}, cont.r[rid], {contNom:nom}));
       archivarRegs(regsRaw, up);
+      // NUEVO: Guardar respaldo completo del container para recuperarlo si se vuelve a escanear.
+      up['respaldos/containers/'+clave]=JSON.parse(JSON.stringify(cont));
       up['tombstones/containers/'+clave]=Date.now(); up['containers/'+clave]=null;
       equipoRef.update(up).then(()=>toast('Container borrado'));
     });
@@ -2083,6 +2115,8 @@ function fusionarContainer(clave, nom){
       const up={};
       const regs = c.r||{};
       Object.keys(regs).forEach(rid=>{ up['containers/'+dest+'/r/'+rid]=regs[rid]; });
+      // NUEVO: Guardar respaldo completo por si se vuelve a escanear el container origen.
+      up['respaldos/containers/'+clave]=JSON.parse(JSON.stringify(c));
       up['containers/'+clave]=null;
       up['tombstones/containers/'+clave]=Date.now();
       equipoRef.update(up).then(()=>toast('Container fusionado')).catch(e=>toast('Error: '+(e.message||e)));
