@@ -150,6 +150,13 @@
   .ch-excluir{display:flex; align-items:center; gap:8px; margin-top:10px;}
   .ch-ex-lbl{font-size:13px; font-weight:600; color:var(--texto2);}
   .ch-select{flex:1; padding:7px 10px; font-size:14px; border:1px solid var(--borde); border-radius:10px; background:var(--tarjeta); color:var(--texto);}
+  /* Selector de personas (tarjetas) v4.4 */
+  .selector-personas{padding:12px 14px; background:#fafbfc; border-bottom:1px solid var(--gris-claro);}
+  .sp-titulo{font-size:12px; font-weight:600; color:var(--texto2); margin-bottom:8px;}
+  .sp-fila{display:flex; flex-wrap:wrap; gap:8px;}
+  .persona-tarjeta{display:inline-block; padding:10px 20px; font-size:14px; font-weight:700; border-radius:10px; cursor:pointer; transition:all .15s; background:#e3f2fd; color:#1565c0; border:2px solid transparent;}
+  .persona-tarjeta:hover{background:#bbdefb; transform:translateY(-1px);}
+  .persona-tarjeta.seleccionada{background:var(--verde); color:#fff; border-color:var(--verde);}
   .sku-grupo{border-bottom:1px solid var(--gris-claro);}
   .sku-grupo:last-child{border-bottom:none;}
   /* SKU: nombre arriba (línea completa) y la info de pallets debajo, como en la app */
@@ -506,7 +513,8 @@ try{ prodOcultos = JSON.parse(localStorage.getItem('prodOcultos')||'{}')||{}; }c
 let contSel = {};                // containers seleccionados en la pestaña Containers (clave -> true)
 let contDetalleAbierto = null;   // clave del container abierto en su pantalla de detalle
 let skusAbiertos = {};           // sku -> true (expandidos dentro de la pantalla de detalle)
-let excluirInicio = {};          // clave de container -> persona a excluir del cálculo de inicio/fin
+let excluirInicio = {};          // clave de container -> persona a excluir del cálculo de inicio/fin (DEPRECATED v4.4 — reemplazado por filtroPersonaCont)
+let filtroPersonaCont = {};      // clave de container -> persona seleccionada (null/"Todos" = mostrar todos)
 let conectado = false;           // estado de conexión actual (para traducir el rótulo al cambiar idioma)
 
 // ---------- IDIOMAS (es / en / zh) — igual que la app ----------
@@ -582,6 +590,9 @@ const I18N = {
   chFin:         ['Fin','End','结束'],
   chExcluir:     ['Excluir a:','Exclude:','排除:'],
   chNadie:       ['— Nadie —','— Nobody —','— 无 —'],
+  todosLabel:    ['Todos','Everyone','全部'],
+  quienTrabajoAqui: ['¿Quién trabajó aquí?','Who worked here?','谁在这里作业？'],
+  tocaParaFiltrar: ['Toca a alguien para ver solo su trabajo','Tap someone to see only their work','点击某人只查看他的工作'],
   sinPallets:    ['Sin pallets todavía.','No pallets yet.','暂无托盘。'],
   pallet:        ['pallet','pallet','托盘'],
   pallets:       ['pallets','pallets','托盘'],
@@ -1454,6 +1465,10 @@ function toggleSku(sku){
   if(skusAbiertos[sku]) delete skusAbiertos[sku]; else skusAbiertos[sku]=true;
   renderContDetalle();
 }
+function seleccionarPersonaCont(clave, persona){
+  if(persona === 'Todos') delete filtroPersonaCont[clave]; else filtroPersonaCont[clave] = persona;
+  renderContDetalle();
+}
 function renderContDetalle(){
   const ov = document.getElementById('contDetalle');
   if(!ov) return;
@@ -1462,7 +1477,34 @@ function renderContDetalle(){
   const c = datosContainers[clave];
   const nom = c.num||c.n||clave;
 
-  let regs = consolidarRegs(c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : []);
+  // ---- Recolectar todas las personas que trabajaron/trabajan en este container ----
+  const rawRegs = c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : [];
+  const todasPersonas = {}; // nombre -> true
+  // 1) Personas activas (trabajando AHORA según presencia)
+  const presenciaCont = presenciaDeContainer(clave);
+  if(presenciaCont && presenciaCont.activos){
+    presenciaCont.activos.forEach(p=>{ if(p.n) todasPersonas[p.n]=true; });
+  }
+  // 2) Personas históricas (aparecen en los registros)
+  rawRegs.forEach(r=>{
+    const ar=actorRecv(r); if(ar) todasPersonas[ar]=true;
+    const ap=actorPut(r); if(ap) todasPersonas[ap]=true;
+  });
+  const listaPersonas = Object.keys(todasPersonas).sort();
+
+  // ---- Filtrar registros por persona seleccionada (si hay filtro) ----
+  const filtroActual = filtroPersonaCont[clave] || null;
+  let regsParaProcesar = rawRegs;
+  if(filtroActual && filtroActual !== 'Todos'){
+    regsParaProcesar = rawRegs.filter(r=>{
+      const actores = [];
+      const ar=actorRecv(r); if(ar) actores.push(ar);
+      const ap=actorPut(r); if(ap) actores.push(ap);
+      return actores.includes(filtroActual);
+    });
+  }
+
+  let regs = consolidarRegs(regsParaProcesar);
 
   // ubicaciones duplicadas
   const conteoU={};
@@ -1526,24 +1568,33 @@ function renderContDetalle(){
   });
   if(skus.length===0) cuerpo=`<div class="vivo-vacio">${t('contSinSku')}</div>`;
 
-  // ---- Horario del container (inicio/fin) ----
-  const rawRegs = c.r ? Object.values(c.r) : [];
-  function actoresRaw(r){ const a=[]; const ar=actorRecv(r); if(ar) a.push(ar); if(tieneUbic(r)){ const ap=actorPut(r); if(ap) a.push(ap); } return a; }
-  const genteCont=[];
-  rawRegs.forEach(r=>{ actoresRaw(r).forEach(a=>{ if(a && !genteCont.includes(a)) genteCont.push(a); }); });
-  genteCont.sort();
-  const excl=excluirInicio[clave]||'';
+  // ---- Selector de personas (tarjetas) ----
+  let selectorPersonasHtml = '';
+  if(listaPersonas.length > 0){
+    const esTodos = !filtroActual || filtroActual === 'Todos';
+    let tarjetas = `<div class="persona-tarjeta ${esTodos?'seleccionada':''}" onclick="seleccionarPersonaCont('${esc(clave)}','Todos')">👥 ${t('todosLabel')||'Todos'}</div>`;
+    listaPersonas.forEach(p=>{
+      const sel = filtroActual === p;
+      tarjetas += `<div class="persona-tarjeta ${sel?'seleccionada':''}" onclick="seleccionarPersonaCont('${esc(clave)}','${esc(p)}')">👤 ${esc(p)}</div>`;
+    });
+    selectorPersonasHtml = `<div class="selector-personas">
+      <div class="sp-titulo">👷 ${t('quienTrabajoAqui')||'¿Quién trabajó aquí?'} · ${t('tocaParaFiltrar')||'Toca a alguien para ver solo su trabajo'}</div>
+      <div class="sp-fila">${tarjetas}</div>
+    </div>`;
+  }
+
+  // ---- Horario del container (inicio/fin) — filtrado por persona seleccionada ----
   let ini=null, fin=null;
-  rawRegs.forEach(r=>{ if(!r.t||r.t<=0) return; if(excl && actoresRaw(r).includes(excl)) return; if(ini===null||r.t<ini) ini=r.t; if(fin===null||r.t>fin) fin=r.t; });
-  const optsExcl=['<option value="">'+t('chNadie')+'</option>']
-    .concat(genteCont.map(g=>`<option value="${esc(g)}" ${g===excl?'selected':''}>${esc(g)}</option>`)).join('');
+  regsParaProcesar.forEach(r=>{
+    if(!r.t||r.t<=0) return;
+    if(ini===null||r.t<ini) ini=r.t;
+    if(fin===null||r.t>fin) fin=r.t;
+  });
   const horarioHtml=`<div class="cont-horario">
     <div class="ch-tiempos">
       <div class="ch-bloque"><div class="ch-lbl">${t('chInicio')}</div><div class="ch-hora">${horaHM(ini)}</div></div>
       <div class="ch-bloque"><div class="ch-lbl">${t('chFin')}</div><div class="ch-hora">${horaHM(fin)}</div></div>
     </div>
-    ${genteCont.length>1 ? `<div class="ch-excluir"><span class="ch-ex-lbl">${t('chExcluir')}</span>
-      <select class="ch-select" onchange="cambiarExcluir('${esc(clave)}', this.value)">${optsExcl}</select></div>` : ''}
   </div>`;
 
   ov.innerHTML = `
@@ -1558,6 +1609,7 @@ function renderContDetalle(){
         <button class="accion warn" onclick="fusionarContainer('${esc(clave)}','${esc(nom)}')">${t('ctFusionar')}</button>
         <button class="accion peli" onclick="borrarContainer('${esc(clave)}','${esc(nom)}')">${t('ctBorrar')}</button>
       </div>
+      ${selectorPersonasHtml}
       ${horarioHtml}
       ${cuerpo}
     </div>`;
