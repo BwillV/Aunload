@@ -1290,9 +1290,34 @@ function renderDispositivos(){
           ? `<button class="accion ok" onclick="desbloquearDev('${esc(id)}')">${t('btnDesbloq')}</button>`
           : `<button class="accion peli" onclick="bloquearDev('${esc(id)}')">${t('btnBloq')}</button>`}
         <button class="accion ${fu?'ok':'warn'}" onclick="forzarUpdate('${esc(id)}',${fu?'true':'false'})">${fu?t('btnUpdPedido'):t('btnForzarUpd')}</button>
+        <button class="accion peli" onclick="borrarDev('${esc(id)}','${esc(nombre)}')">🗑 Borrar</button>
       </div>
     </div>`;
   }).join('');
+  // Botón de limpieza masiva arriba de la lista (solo si hay dispositivos inactivos/sin nombre).
+  const candidatos = dispositivosParaLimpiar();
+  const cab = candidatos.length>0
+    ? `<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+         <button class="accion peli" style="padding:8px 14px;font-size:13px" onclick="limpiarDispositivos()">🧹 Limpiar inactivos (${candidatos.length})</button>
+       </div>`
+    : '';
+  el.innerHTML = cab + el.innerHTML;
+}
+
+// Dispositivos "para limpiar": sin nombre puesto Y sin actividad en 24 h (duplicados
+// viejos tras reinstalar, o dispositivos "sin nombre" que quedaron colgados).
+function dispositivosParaLimpiar(){
+  const act = ultActDispositivo();
+  const ahora = Date.now();
+  const DIA = 24*60*60*1000;
+  return Object.keys(datosDevices||{}).filter(id=>{
+    const d = datosDevices[id]||{};
+    if(d.blocked===true) return false;          // nunca tocar los bloqueados
+    const sinNombre = !(d.name && d.name.trim());
+    const ultAct = act[id]||0;
+    const inactivo = !ultAct || (ahora-ultAct) > DIA;
+    return sinNombre && inactivo;
+  });
 }
 
 // ----- HISTÓRICO / PERÍODOS -----
@@ -2033,6 +2058,30 @@ function desbloquearDev(id){
 }
 function forzarUpdate(id, yaPedido){
   conPin(()=> equipoRef.child('devices/'+id+'/forceUpdate').set(!yaPedido).then(()=>toast(!yaPedido?'Se pidió actualizar':'Cancelado')) );
+}
+// Borra UN dispositivo de la lista del Manager (útil para duplicados tras reinstalar
+// o para los "sin nombre" que quedaron colgados). No borra los containers ni las
+// estadísticas: solo quita ese dispositivo de la lista de Dispositivos.
+function borrarDev(id, nombre){
+  modal({tit:'🗑 Borrar dispositivo', msg:'Se quitará "'+(nombre||'sin nombre')+'" de la lista de dispositivos. Sus escaneos y estadísticas NO se borran. Si ese teléfono vuelve a abrir la app, aparecerá de nuevo. ¿Continuar?', okTxt:'Borrar', rojo:true, onOk:()=>{
+    conPin(()=> equipoRef.child('devices/'+id).remove()
+      .then(()=>toast('Dispositivo borrado'))
+      .catch(e=>toast('Error: '+(e&&e.message?e.message:e))) );
+  }});
+}
+// Borra de un golpe todos los dispositivos SIN nombre e inactivos (24 h+).
+function limpiarDispositivos(){
+  const cand = dispositivosParaLimpiar();
+  if(cand.length===0){ toast('No hay dispositivos inactivos para limpiar'); return; }
+  modal({tit:'🧹 Limpiar dispositivos', msg:'Se quitarán '+cand.length+' dispositivo(s) sin nombre e inactivos (más de 24 h sin escanear). Sus escaneos y estadísticas NO se borran. Los que sigan activos o tengan nombre NO se tocan. ¿Continuar?', okTxt:'Limpiar', rojo:true, onOk:()=>{
+    conPin(()=>{
+      const up={};
+      cand.forEach(id=>{ up['devices/'+id]=null; });
+      equipoRef.update(up)
+        .then(()=>toast(cand.length+' dispositivo(s) limpiados'))
+        .catch(e=>toast('Error: '+(e&&e.message?e.message:e)));
+    });
+  }});
 }
 function pintarOcultarOthers(){
   const b = document.getElementById('btnOcultarOthers');
