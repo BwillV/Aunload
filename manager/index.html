@@ -185,6 +185,8 @@
   .card-acc p{margin:0 0 10px 0; font-size:12.5px; color:var(--texto2);}
   .card-acc textarea, .card-acc input[type=text]{width:100%; padding:11px; font-size:14px; border:1px solid var(--borde); border-radius:10px; outline:none; font-family:inherit; resize:vertical;}
   .card-acc textarea:focus, .card-acc input:focus{border-color:var(--azul);}
+  .aviso-upd-chk{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; color:var(--texto2); cursor:pointer;}
+  .aviso-upd-chk input{width:18px; height:18px; flex:0 0 auto; cursor:pointer;}
   .btn-accion{margin-top:10px; width:100%; padding:12px; font-size:15px; font-weight:700; color:#fff; background:var(--azul); border:none; border-radius:11px; cursor:pointer;}
   .btn-accion.rojo{background:var(--rojo);}
   .btn-accion.verde{background:var(--verde);}
@@ -387,6 +389,7 @@
         <h3 data-i18n="avisoTit">📢 Enviar aviso a todos</h3>
         <p data-i18n="avisoDesc">El mensaje aparecerá en todos los escáneres del equipo.</p>
         <textarea id="txtAnuncio" rows="2" data-i18n-ph="avisoPh" placeholder="Escribe tu aviso… (ej: Reunión en 10 min)"></textarea>
+        <label class="aviso-upd-chk"><input type="checkbox" id="chkAvisoUpdate"> <span data-i18n="avisoUpdChk">🔄 Es aviso de actualización (muestra botón «Actualizar ahora»)</span></label>
         <button class="btn-accion" id="btnAnuncio" data-i18n="avisoBtn">Enviar aviso</button>
       </div>
       <div class="seccion-tit" data-i18n="trabajando">🟢 Trabajando ahora</div>
@@ -535,6 +538,7 @@ const I18N = {
   avisoPh:       ['Escribe tu aviso… (ej: Reunión en 10 min)','Type your notice… (e.g. Meeting in 10 min)','输入通知…(例如：10分钟后开会)'],
   avisoBtn:      ['Enviar aviso','Send notice','发送通知'],
   avisoEnviado:  ['Aviso enviado a todos','Notice sent to all','已向所有人发送通知'],
+  avisoUpdChk:   ['🔄 Es aviso de actualización (muestra botón «Actualizar ahora»)','🔄 This is an update notice (shows an «Update now» button)','🔄 这是更新通知（显示"立即更新"按钮）'],
   trabajando:    ['🟢 Trabajando ahora','🟢 Working now','🟢 正在工作'],
   dispTit:       ['📱 Dispositivos del equipo','📱 Team devices','📱 团队设备'],
   buscarPh:      ['🔎 Buscar AUnload, SKU o ubicación en todo el equipo…','🔎 Search AUnload, SKU or location across the team…','🔎 在整个团队中搜索 AUnload、SKU 或库位…'],
@@ -2242,8 +2246,11 @@ function quitarUbicFormato(p){
 function enviarAnuncio(){
   const txt = document.getElementById('txtAnuncio').value.trim();
   if(!txt){ toast('Escribe un mensaje primero'); return; }
-  equipoRef.child('announce').set({id:String(Date.now()), text:txt, ts:Date.now()}).then(()=>{
-    document.getElementById('txtAnuncio').value=''; toast('Aviso enviado a todos');
+  const esUpdate = !!document.getElementById('chkAvisoUpdate').checked;
+  equipoRef.child('announce').set({id:String(Date.now()), text:txt, ts:Date.now(), update:esUpdate}).then(()=>{
+    document.getElementById('txtAnuncio').value='';
+    document.getElementById('chkAvisoUpdate').checked=false;
+    toast(esUpdate ? 'Aviso de actualización enviado a todos' : 'Aviso enviado a todos');
   });
 }
 function borrarPallet(clave, ridsCsv){

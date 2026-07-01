@@ -1,7 +1,7 @@
 {
-  "versionCode": 30,
-  "versionName": "4.2",
-  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.2.apk",
+  "versionCode": 31,
+  "versionName": "4.3",
+  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.3.apk",
   "updateRequired": false,
-  "message": "🎉 Actualización 4.2\n\n• ⏱️ Arreglado el tiempo «fantasma» en put-away: si vuelves a leer la misma tarima en el mismo sitio, ya NO se cambia la hora final. Así la estadística no se infla por re-lecturas.\n\n• 🗑️ AU Manager: ahora puedes borrar un movimiento suelto (lectura repetida/fantasma) desde la pestaña Actividad para que la estadística quede bien.\n\n• 🔘 El botón para REACTIVAR el botón flotante ahora aparece ARRIBA del todo en este recuadro de novedades.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Toca el botón verde de arriba, o primero DESACTÍVALO y luego ACTÍVALO."
+  "message": "🎉 Actualización 4.3\n\n• 🕒 El RELOJ de inicio/fin dentro de cada container ahora es más pequeño y compacto (🕒 inicio → fin), para que no estorbe ni se vea asimétrico.\n\n• 🔄 AVISO DE ACTUALIZACIÓN: cuando el encargado envía un aviso marcado como actualización, aparece ENCIMA de cualquier app con el botón «Actualizar ahora». Ya no hace falta cerrar la app y volver a abrirla para que salga la actualización.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Toca el botón verde de arriba, o primero DESACTÍVALO y luego ACTÍVALO."
 }
