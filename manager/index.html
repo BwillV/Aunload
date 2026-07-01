@@ -486,7 +486,7 @@ const db = firebase.database();
 const PRESENCIA_VIVA_MS = 90000;
 const DEV_ONLINE_MS = 120000;   // un dispositivo se considera "en línea" si su seen es reciente
 const DEV_ACT_MS = 30*60*1000;  // 30 min sin escanear (put-away/receiving) => offline por inactividad
-const BREAK_GAP_MS = 60*60*1000; // un hueco de 1h o más (almuerzo/launch) NO cuenta como tiempo trabajado
+const BREAK_GAP_MS = 2*60*60*1000; // (regla Wilson) corte automático por inactividad: un hueco de MÁS de 2h "congela" el tiempo y abre un nuevo segmento; los segmentos se SUMAN
 let equipoRef = null;
 let pinActual = null;
 let datosContainers = {};
@@ -646,7 +646,7 @@ const I18N = {
   perTodoN:      ['Todo','All','全部'],
   sinActPeriodo: ['No hay actividad en el período seleccionado.','No activity in the selected period.','所选时间段内没有活动。'],
   prodPeriodoLbl:['Período','Period','时间段'],
-  prodNota:      ['Las estadísticas de containers borrados quedan guardadas y se suman aquí. Toca un container para ver el promedio y las personas dentro. El promedio por hora usa solo la actividad reciente; muestra "—" si hay menos de 15 min de actividad. En "Ambos" cada pallet se cuenta una sola vez (no se suman put-away y receiving del mismo pallet).','Stats from deleted containers are saved and added here. Tap a container to see its average and the people inside. The hourly average uses only recent activity; shows "—" if there is less than 15 min of activity. In "Both" each pallet is counted once (put-away and receiving of the same pallet are not added together).','已删除集装箱的统计数据会被保存并汇总在此。点击集装箱可查看其平均值和内部人员。每小时平均值仅使用近期活动；活动少于15分钟时显示"—"。在"两者"中每个托盘只计一次(同一托盘的上架和收货不重复累加)。'],
+  prodNota:      ['p/h = (paletas ÷ minutos trabajados) × 60. El tiempo va del primer al último escaneo; si pasan más de 2 h sin actividad, ese hueco no cuenta y al reanudar se suma un nuevo tramo. Un container trabajado en pareja da la misma p/h a ambos; en "Por persona" verás además tu ritmo individual (👤). Muestra "—" con menos de 15 min. En "Ambos" cada pallet se cuenta una sola vez.','p/h = (pallets ÷ minutes worked) × 60. Time runs from the first to the last scan; gaps over 2 h don\'t count and resuming adds a new segment. A container worked as a pair gives both the same p/h; in "By person" you also see your individual pace (👤). Shows "—" under 15 min. In "Both" each pallet is counted once.','每小时=(托盘÷工作分钟)×60。时间从首次到末次扫描；超过2小时的间隔不计，恢复后累加新时段。结对处理的集装箱两人相同;在"按人员"中还会显示个人速度(👤)。少于15分钟显示"—"。"两者"中每托盘只计一次。'],
   archivado:     ['archivado (sin detalle por persona)','archived (no per-person detail)','已归档(无人员明细)'],
   promedio:      ['Promedio del container','Container average','集装箱平均'],
   actualizado:   ['Actualizado en vivo','Updated live','实时更新'],
@@ -694,6 +694,9 @@ const I18N = {
   fueraServicioVacio:['Todos los dispositivos del equipo están activos.','All team devices are active.','团队所有设备都处于活动状态。'],
   trabajandoVacio:['Nadie está escaneando en este momento.','Nobody is scanning right now.','目前没有人在扫描。'],
   haceMin:       ['última actividad','last activity','最后活动'],
+  lblTotalCont:  ['Total:','Total:','合计:'],
+  indStatTit:    ['Ritmo individual de esta persona (sus paletas ÷ su tiempo activo)','This person\'s individual pace (their pallets ÷ their active time)','此人的个人速度(其托盘数÷其活跃时间)'],
+  soloSemanasConDatos:['Solo se muestran las semanas con actividad.','Only weeks with activity are shown.','仅显示有活动的周。'],
   cerrarLbl:     ['Cerrar','Close','关闭']
 };
 function t(k){ const e=I18N[k]; if(!e) return k; return e[idioma==='en'?1:idioma==='zh'?2:0] || e[0]; }
@@ -1419,6 +1422,17 @@ function textoSemanaSel(){
   const lun = semanaSelLun(); const dom = new Date(lun); dom.setDate(dom.getDate()+6);
   return t('semanaDe')+' '+ddmm(lun)+' › '+ddmm(dom.getTime());
 }
+// Mapea el NOMBRE de un container (el que se muestra en Productividad) a la CLAVE viva en
+// datosContainers, para poder abrir su pantalla de detalle. Devuelve null si ya no existe en vivo
+// (ej: container borrado cuyas estadísticas quedaron archivadas).
+function claveDeContainer(nom){
+  if(!nom) return null;
+  for(const clave in datosContainers){
+    const c=datosContainers[clave]||{}; const cn=c.num||c.n||clave;
+    if(cn===nom) return clave;
+  }
+  return null;
+}
 // Actor (nombre) de un registro CRUDO de Firebase (no consolidado).
 function actorDeRaw(r){
   const esPut = !!(r.s && String(r.s).trim());
@@ -1682,7 +1696,10 @@ function renderProductividad(){
     if(!marks || marks.length<2) return 0;
     const a = marks.slice().sort((x,y)=>x-y);
     if(BR>0){ const span=a[a.length-1]-a[0]; return Math.max(0, span-BR); }
-    let s=0; for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<BREAK_GAP_MS) s+=d; } return s;
+    // Corte por inactividad (regla Wilson): sumamos los tramos consecutivos; un hueco de MÁS de 2h
+    // corta el segmento (su tiempo NO se cuenta) y el siguiente escaneo abre un nuevo segmento.
+    // La suma de tramos ≤2h equivale a sumar el span de cada segmento (varios segmentos posibles el mismo día).
+    let s=0; for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<=BREAK_GAP_MS) s+=d; } return s;
   }
   // horas de una lista de marcas que puede abarcar varios días (se agrupa por día).
   // Si se pasa 'cn' y el modo es 'cont', se descuenta el descanso manual de ese container por día.
@@ -1814,7 +1831,7 @@ function renderProductividad(){
       if(!mk || mk.length<2) return;
       const a=mk.slice().sort((x,y)=>x-y);
       rawSpan += a[a.length-1]-a[0];
-      for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<BREAK_GAP_MS) autoSum+=d; }
+      for(let i=1;i<a.length;i++){ const d=a[i]-a[i-1]; if(d>0 && d<=BREAK_GAP_MS) autoSum+=d; }
     });
     if(BR>0) return Math.max(0, rawSpan-BR);   // descanso fijo, una sola vez al día
     return autoSum;                            // auto: solo tramos reales
@@ -1990,10 +2007,20 @@ function renderProductividad(){
     else {
       det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('verContPersona'))}</td></tr>`+cs.map(cn=>{
         const pdc=dc[cn];
-        const totPal = cuentaContDia(cn, diaSelK);
+        const totPal = cuentaContDia(cn, diaSelK);                 // total del container ese día (completadas)
         const marcas = pdc.marks||[];
         const inicio = marcas.length>0 ? horaHM(Math.min(...marcas)) : '—';
         const fin = marcas.length>0 ? horaHM(Math.max(...marcas)) : '—';
+        // Estadística GENERAL del container (regla de pareja: misma p/h para todos los que lo trabajaron)
+        // = total del container ÷ reloj completo del container ese día.
+        const generalPh = tasaTxt(totPal, clockContDiaMs(cn, diaSelK)/3600000);
+        // Estadística INDIVIDUAL de esta persona en el container = SUS paletas ÷ SU tiempo activo (primer→último escaneo suyo, corte a >2h).
+        const indPal = prodTasaFiltro==='put' ? (pdc.put||0) : prodTasaFiltro==='recv' ? (pdc.recv||0) : Math.min(pdc.recv||0, pdc.put||0);
+        const indPh = tasaTxt(indPal, msDia(pdc.marks)/3600000);
+        const clave = claveDeContainer(cn);
+        const nomCel = clave
+          ? `<span class="cont-link" style="cursor:pointer;color:#1565c0" onclick="event.stopPropagation();abrirContDetalle('${esc(clave)}')">📦 ${esc(cn)} ›</span>`
+          : `📦 ${esc(cn)}`;
         let brkUI='';
         if(esCont){
           const b=prodBreaksCont[diaSelK+'|'+cn]||{on:false,h:0,m:0};
@@ -2002,7 +2029,7 @@ function renderProductividad(){
             + (b.on?`<span class="brk-inputs"><input type="number" min="0" max="23" value="${b.h||0}" onchange="setBreakCont('${dkE}','${cnE}','h',this.value)" onclick="event.stopPropagation()" class="brk-num"> ${t('brkH')} <input type="number" min="0" max="59" value="${b.m||0}" onchange="setBreakCont('${dkE}','${cnE}','m',this.value)" onclick="event.stopPropagation()" class="brk-num"> ${t('brkM')}</span>`:'')
             + `</div>`;
         }
-        return `<tr class="cont-sub"><td>📦 ${esc(cn)}<br><small style="color:#6c757d;">Total: ${totPal} ${totPal===1?'pallet':'pallets'} · ${inicio} → ${fin}</small>${brkUI}</td><td class="n">${pdc.put}</td><td class="n">${pdc.recv}</td><td class="n"><b>${tasaTxt(totPal, horasPersonaContDia(cn, pdc, diaSelK))}</b></td></tr>`;
+        return `<tr class="cont-sub"><td>${nomCel}<br><small style="color:#6c757d;">${t('lblTotalCont')} ${totPal} ${totPal===1?'pallet':'pallets'} · ${inicio} → ${fin}</small>${brkUI}</td><td class="n">${pdc.put}</td><td class="n">${pdc.recv}</td><td class="n"><b>${generalPh}</b><br><small class="ind-ph" title="${t('indStatTit')}">👤 ${indPh}</small></td></tr>`;
       }).join('');
     }
     return cab+det;
@@ -2028,8 +2055,19 @@ function renderProductividad(){
     const dkC=msC?claveDia(msC):'';
     let sep='';
     if(dkC!==diaActualC){ diaActualC=dkC; sep=`<tr class="dia-sep-row"><td colspan="4">${esc(etiquetaDiaAgrup(msC))}</td></tr>`; }
+    // (punto 5) Hora de inicio y fin del container = primer → último escaneo (recv o put).
+    const mks = c.marks||[];
+    const iniC = mks.length>0 ? horaHM(Math.min(...mks)) : '—';
+    const finC = mks.length>0 ? horaHM(Math.max(...mks)) : '—';
+    const horarioC = mks.length>0 ? `<br><small style="color:#6c757d;">🕒 ${iniC} → ${finC}</small>` : '';
+    // (punto 2) Toca el nombre para abrir el detalle del container (toda su actividad + borrar registros).
+    const clave = claveDeContainer(cn);
+    const nomC = clave
+      ? `<span class="cont-link" style="cursor:pointer;color:#1565c0" onclick="event.stopPropagation();abrirContDetalle('${esc(clave)}')">📦 ${esc(cn)} ›</span>`
+      : `📦 ${esc(cn)}`;
+    // (punto 5) Regla de pareja: la p/h del container (general) es la que aplica a AMBAS personas.
     return sep+`<tr>
-      <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onchange="toggleProdContSel('${esc(cn)}')"> 📦 ${esc(cn)}</label></td>
+      <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onclick="event.stopPropagation()" onchange="toggleProdContSel('${esc(cn)}')"></label> ${nomC}${horarioC}</td>
       <td class="n">${c.put}</td><td class="n">${c.recv}</td>
       <td class="n"><b>${tasaTxt(cuentaContainer(c), horasDeMarks(c.marks, cn))}</b></td>
     </tr>`;
@@ -2073,17 +2111,29 @@ function setBreakCont(dk, cn, campo, val){
   b[campo]=n; b.on=true; prodBreaksCont[k]=b;
   guardarBreaksCont(); renderProductividad();
 }
-// (punto 7) Selector de semanas del año en curso.
+// (punto 6) Conjunto de lunes (ms) de las semanas que TIENEN datos (histórico archivado + registros en vivo).
+function semanasConDatos(){
+  const set={};
+  // Convierte una clave de día 'YYYY-MM-DD' a ms (mediodía, para evitar problemas de zona horaria).
+  const diaKeyAMs=(dk)=>{ const p=String(dk).split('-'); if(p.length!==3) return 0; return new Date(+p[0], +p[1]-1, +p[2], 12,0,0).getTime(); };
+  for(const dia in (datosHistorico||{})){ const ms=diaKeyAMs(dia); if(ms) set[lunesDe(ms)]=true; }
+  todosLosRegistros().forEach(r=>{ if(r && r.t>0) set[lunesDe(r.t)]=true; });
+  return set;
+}
+// (punto 6) Selector de semanas: SOLO las semanas que tienen datos de trabajo (+ la semana actual siempre).
 function abrirSelectorSemana(){
-  const hoyLun=lunesDe(Date.now()); const anio=new Date().getFullYear();
-  let primerLun=lunesDe(new Date(anio,0,1).getTime());
-  if(new Date(primerLun).getFullYear()<anio) primerLun+=7*86400000;
-  const selLun=semanaSelLun(); const filas=[];
-  for(let l=hoyLun; l>=primerLun; l-=7*86400000){
-    const dom=l+6*86400000; const sel=(l===selLun);
-    filas.push(`<button class="semana-opt ${sel?'sel':''}" onclick="seleccionarSemana(${l})">lun ${ddmm(l)} › dom ${ddmm(dom)}</button>`);
-  }
-  const html=`<div class="semana-lista">${filas.join('')}</div><div class="semana-leyenda">${t('anioEnCurso')}: ${anio}</div>`;
+  const hoyLun=lunesDe(Date.now());
+  const conDatos=semanasConDatos();
+  conDatos[hoyLun]=true;                       // la semana actual siempre se puede elegir
+  const selLun=semanaSelLun(); conDatos[selLun]=true;   // y la que ya esté seleccionada
+  const luns=Object.keys(conDatos).map(Number).sort((a,b)=>b-a);   // más reciente primero
+  const filas=luns.map(l=>{
+    const dom=l+6*86400000; const sel=(l===selLun); const esActual=(l===hoyLun);
+    return `<button class="semana-opt ${sel?'sel':''}" onclick="seleccionarSemana(${l})">lun ${ddmm(l)} › dom ${ddmm(dom)}${esActual?' · '+t('semanaActual'):''}</button>`;
+  });
+  const html = filas.length
+    ? `<div class="semana-lista">${filas.join('')}</div><div class="semana-leyenda">${t('soloSemanasConDatos')}</div>`
+    : `<div class="vivo-vacio">${t('prodNingPersona')}</div>`;
   modal({tit:t('selSemanaTit'), input:'html', html, okTxt:t('cerrarLbl'), onOk:()=>{}});
 }
 function seleccionarSemana(lunMs){ prodSemana=(lunMs===lunesDe(Date.now()))?null:lunMs; prodPersonaAbierta=null; cerrarModal(); renderProductividad(); }
@@ -2146,12 +2196,43 @@ function coincideFiltro(r){
   }
   return true;
 }
+// (punto 1) Divide un registro en EVENTOS por persona: un receiving (quien recibió) y, si ya tiene
+// ubicación, un put-away (quien ubicó). Así, cuando dos personas trabajan el mismo pallet/container,
+// cada una ve su propia actividad por separado (no solo la última acción compartida).
+function eventosDeRegistro(r){
+  const out=[];
+  const recvActor=actorRecv(r);
+  const putActor=actorPut(r);
+  const esPut=tieneUbic(r);
+  // Evento de RECEIVING (siempre que haya alguien que recibió).
+  if(recvActor){
+    out.push({tipo:'recv', actor:recvActor, dev:(r.dr||r.d||''), r});
+  }
+  // Evento de PUT-AWAY (solo si el pallet ya tiene ubicación).
+  if(esPut && putActor){
+    // Evitar duplicar: si el mismo actor recibió y ubicó, mostramos ambos eventos igual (son 2 acciones distintas).
+    out.push({tipo:'put', actor:putActor, dev:(r.dp||r.d||''), r});
+  }
+  return out;
+}
 function renderActividad(){
   const el = document.getElementById('actividad');
   if(!el) return;
-  let regs = todosLosRegistros().filter(r=>r.t>0);
-  if(filtroActividad) regs = regs.filter(coincideFiltro);
-  regs = regs.sort((a,b)=>b.t-a.t).slice(0,80);
+  const regs = todosLosRegistros().filter(r=>r.t>0);
+  // Construimos la lista de EVENTOS (uno por persona-acción) en vez de un evento por registro.
+  let eventos=[];
+  regs.forEach(r=>{ eventosDeRegistro(r).forEach(ev=>eventos.push(ev)); });
+  // Filtro por persona (su propia actividad) o por dispositivo.
+  if(filtroActividad){
+    if(filtroActividad.tipo==='persona'){
+      const v=filtroActividad.valor;
+      eventos=eventos.filter(ev=>ev.actor===v);
+    } else if(filtroActividad.tipo==='disp'){
+      const v=filtroActividad.valor;
+      eventos=eventos.filter(ev=>ev.dev===v || ev.r.d===v || ev.r.dp===v || ev.r.dr===v);
+    }
+  }
+  eventos = eventos.sort((a,b)=>b.r.t-a.r.t).slice(0,80);
   // Cabecera (con botón "Ver todo" cuando hay filtro)
   let head;
   if(filtroActividad){
@@ -2163,18 +2244,18 @@ function renderActividad(){
       <span>${esc(t('actividadDe'))} <b>${esc(filtroActividad.label)}</b></span>
     </div>`;
   } else {
-    head = `<div class="act-head">🔴 ${esc(t('envivo'))} · ${esc(t('ultimosMov'))} ${regs.length} ${esc(t('movimientos'))}</div>`;
+    head = `<div class="act-head">🔴 ${esc(t('envivo'))} · ${esc(t('ultimosMov'))} ${eventos.length} ${esc(t('movimientos'))}</div>`;
   }
-  if(regs.length===0){
+  if(eventos.length===0){
     el.innerHTML = head + '<div class="vivo-vacio">'+(filtroActividad?t('sinActFiltro'):t('sinActividad'))+'</div>';
     return;
   }
-  const filas = regs.map(r=>{
-    // PUT-AWAY = ya tiene ubicación asignada. RECEIVING = apenas entró al sistema (sin ubicación).
-    const esPut = tieneUbic(r);
+  const filas = eventos.map(ev=>{
+    const r=ev.r;
+    const esPut = ev.tipo==='put';
     const icono = esPut ? '📦' : '📥';
     const tipo = esPut ? t('putaway') : t('receiving');
-    const actor = esPut ? (actorPut(r)||'—') : (actorRecv(r)||'—');
+    const actor = ev.actor||'—';
     const skuTxt = (r.s && r.s.trim()) ? esc(r.s) : '';
     const det = esPut
       ? `${skuTxt?skuTxt+' · ':''}${r.q} CTNs → ${esc(r.u)}`
