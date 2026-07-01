@@ -1631,6 +1631,40 @@ function renderProductividad(){
     });
   }
 
+  // ---- REGLA EMPRESA: container compartido => los que hicieron 2+ put-aways se cuentan el container COMPLETO ----
+  // Si 2+ personas hicieron put-away en un container, SOLO cuentan los que hicieron ≥2 put-aways, y se cuentan TODO el container.
+  for(const cont in C){
+    const c=C[cont];
+    // ¿Quiénes hicieron put-away en este container?
+    const personasConPut = Object.keys(c.personas||{}).filter(nom=>(c.personas[nom].put||0)>0);
+    if(personasConPut.length<2) continue;  // no es compartido, regla no aplica
+    // Es compartido (2+ personas). Ver quiénes califican (2+ put-aways).
+    const califican = personasConPut.filter(nom=>(c.personas[nom].put||0)>=2);
+    if(califican.length===0) continue;  // nadie hizo 2+ put-aways, regla no aplica
+    // Los que califican se cuentan TODO el container (pallets completos del container).
+    const palletsTotales = c.palSet.size;  // pallets únicos del container completo
+    califican.forEach(nom=>{
+      const p=P[nom]; if(!p) return;
+      const cp=c.personas[nom];
+      // Limpiar el conteo individual que ya se había hecho (líneas 1616-1629) y poner el total.
+      // Nota: el .palSet de la persona YA tiene cont+'|'+code; lo dejamos así para no romper nada,
+      // pero agregamos todos los pallets del container que aún no estaban (de otros trabajadores).
+      c.palSet.forEach(code=>{ p.palSet.add(cont+'|'+code); });
+      // En el desglose por container de la persona, reemplazamos con el total.
+      const pc=p.conts[cont]; if(pc){ pc.palSet.clear(); c.palSet.forEach(code=>pc.palSet.add(code)); }
+      // Por día+container: para cada día donde esta persona trabajó este container, le damos el total.
+      for(const dk in p.diaConts){ if(p.diaConts[dk][cont]){
+        const pdc=p.diaConts[dk][cont]; pdc.palSet.clear(); c.palSet.forEach(code=>pdc.palSet.add(code));
+      }}
+      // Por día: agregar los pallets del container completo al día de esa persona (si tocó el container ese día).
+      for(const dk in p.dias){ const d=p.dias[dk];
+        // si hay marcas del container en ese día, agregar todos los pallets
+        const hayMarcas = (pc&&pc.marks||[]).some(t=>claveDia(t)===dk);
+        if(hayMarcas){ c.palSet.forEach(code=>d.palSet.add(cont+'|'+code)); }
+      }
+    });
+  }
+
   // ---- 2) Datos ARCHIVADOS (histórico) de la misma semana ----
   for(const dia in datosHistorico){
     if(!enSemana(dia)) continue;
