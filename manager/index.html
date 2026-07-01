@@ -446,7 +446,8 @@ let filtroGlobal = '';
 let vistaActual = 'vivo';
 // Filtros de productividad (persisten en localStorage)
 let prodTasaFiltro = localStorage.getItem('prodTasaFiltro') || 'put';     // 'put', 'recv', 'ambos'
-let prodModoTiempo = localStorage.getItem('prodModoTiempo') || 'total';   // 'total' (bruto, sin cortar) | 'neto' (suma por container)
+let prodMetodo = localStorage.getItem('prodMetodo') || 'empresa';         // 'empresa' (reloj del container, como en la bodega) | 'actividad' (nuestro, tiempo activo de la persona)
+let prodModoTiempo = localStorage.getItem('prodModoTiempo') || 'total';   // (solo modo 'actividad') 'total' (bruto, sin cortar) | 'neto' (suma por container)
 let prodBreak = localStorage.getItem('prodBreak') || 'auto';              // 'auto' | '1h' | '1.5h' — cómo se descuenta el descanso
 let prodSemana = null;           // lunes 00:00 (ms) de la semana seleccionada; null = semana actual
 let datosHistorico = {};         // estadísticas archivadas por día (persisten aunque se borren containers)
@@ -544,6 +545,11 @@ const I18N = {
   optPut:        ['📦 Put-away','📦 Put-away','📦 上架'],
   optRecv:       ['📥 Receiving','📥 Receiving','📥 收货'],
   optAmbos:      ['📊 Ambos','📊 Both','📊 两者'],
+  prodMetodoLbl: ['Cómo se calcula:','How it\'s calculated:','计算方式:'],
+  optMetEmpresa: ['🏢 Método de la bodega','🏢 Warehouse method','🏢 仓库方法'],
+  optMetActividad:['👷 Nuestro método','👷 Our method','👷 我们的方法'],
+  ayudaMetEmpresa:['Método de la bodega: se toma la hora de inicio y de fin de cada container (su reloj) y se divide entre los pallets. Todos los que trabajaron ese container usan el mismo reloj, así nadie se infla por escanear en ráfagas. Los descansos se descuentan.','Warehouse method: each container\'s start and end time (its clock) is divided by its pallets. Everyone who worked that container shares the same clock, so nobody is inflated by burst scanning. Breaks are deducted.','仓库方法:取每个集装箱的开始和结束时间(其时钟)除以托盘数。处理该集装箱的所有人共用同一时钟,因此没人会因集中扫描而被夸大。休息时间会被扣除。'],
+  ayudaMetActividad:['Nuestro método: mide el tiempo activo de cada persona (de su primer a su último escaneo). Puede inflarse si alguien escanea poquito y muy junto.','Our method: measures each person\'s active time (first to last scan). It can be inflated if someone scans little and close together.','我们的方法:测量每个人的活跃时间(从第一次到最后一次扫描)。如果有人扫描很少且很集中,可能会被夸大。'],
   prodTiempo:    ['Tiempo a usar:','Time to use:','使用时间:'],
   optTiempoTot:  ['⏱ Total del día','⏱ Whole day','⏱ 全天'],
   optTiempoNeto: ['✂️ Solo containers','✂️ Containers only','✂️ 仅集装箱'],
@@ -1338,9 +1344,28 @@ function renderProductividad(){
     if(prodTasaFiltro==='recv') return o.recv||0;
     return (o.palSet?o.palSet.size:0)+(o.palAprox||0);
   }
+  // ---- MÉTODO DE LA BODEGA (empresa): el "reloj" es del CONTAINER, igual para todos ----
+  // Tiempo total (span) de un container en toda la semana (agrupado por día, descontando descanso).
+  function horasContainer(cn){ const c=C[cn]; return c?horasDeMarks(c.marks):0; }
+  // Span de un container en UN día concreto (para la cuadrícula).
+  function horasContDia(cn, dms){ const c=C[cn]; if(!c) return 0;
+    const dk=claveDia(dms); const mk=c.marks.filter(x=>claveDia(x)===dk); return msDia(mk)/3600000; }
+  // Containers que una persona tocó en un día (según sus marcas).
+  function contsPersonaDia(p, dk){ const s=new Set();
+    for(const cn in p.conts){ if(p.conts[cn].marks.some(x=>claveDia(x)===dk)) s.add(cn); } return s; }
+  // Horas totales de una persona en la semana según el método elegido.
   function horasPersona(p){
+    if(prodMetodo==='empresa'){ let s=0; for(const cn in p.conts){ s+=horasContainer(cn); } return s; }
     if(prodModoTiempo==='neto'){ let s=0; for(const cn in p.conts){ s+=horasDeMarks(p.conts[cn].marks); } return s; }
     let s=0; for(const d in p.dias){ s+=msDia(p.dias[d].marks); } return s/3600000;
+  }
+  // Horas de una persona dentro de UN container (para el drill-down por persona).
+  function horasPersonaCont(p, cn, pc){ return prodMetodo==='empresa' ? horasContainer(cn) : horasDeMarks(pc.marks); }
+  // Horas de una persona en un DÍA (para la cuadrícula lun–vie).
+  function horasPersonaDia(p, dms){
+    const dk=claveDia(dms);
+    if(prodMetodo==='empresa'){ let s=0; contsPersonaDia(p,dk).forEach(cn=>{ s+=horasContDia(cn,dms); }); return s; }
+    const d=p.dias[dk]; return d?msDia(d.marks)/3600000:0;
   }
   function tasaTxt(count, horas){ if(horas<0.25) return '—'; return Math.round(count/horas)+' '+t('ph'); }
 
@@ -1365,8 +1390,7 @@ function renderProductividad(){
     const celdas = diasSemana.map(dms=>{
       const d=p.dias[claveDia(dms)];
       if(!d) return '<td class="n grid-vacia">·</td>';
-      const horas=msDia(d.marks)/3600000;
-      return '<td class="n">'+tasaTxt(cuentaDe(d), horas)+'</td>';
+      return '<td class="n">'+tasaTxt(cuentaDe(d), horasPersonaDia(p, dms))+'</td>';
     }).join('');
     return `<tr><td class="grid-nom"><div class="nom-cel"><div class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</div>${esc(nom)}</div></td>${celdas}</tr>`;
   }).join('');
@@ -1394,11 +1418,17 @@ function renderProductividad(){
       <div class="prod-modo-ayuda">${prodBreak==='1h'?t('ayudaBreak1'):prodBreak==='1.5h'?t('ayudaBreak15'):t('ayudaBreakAuto')}</div>
     </div>
     <div class="prod-filtro">
+      <div class="prod-filtro-tit">${t('prodMetodoLbl')}</div>
+      <label class="prod-radio"><input type="radio" name="prodMetodo" value="empresa" ${prodMetodo==='empresa'?'checked':''} onchange="cambiarProdMetodo('empresa')"> ${t('optMetEmpresa')}</label>
+      <label class="prod-radio"><input type="radio" name="prodMetodo" value="actividad" ${prodMetodo==='actividad'?'checked':''} onchange="cambiarProdMetodo('actividad')"> ${t('optMetActividad')}</label>
+      <div class="prod-modo-ayuda">${prodMetodo==='empresa'?t('ayudaMetEmpresa'):t('ayudaMetActividad')}</div>
+    </div>
+    ${prodMetodo==='actividad'?`<div class="prod-filtro">
       <div class="prod-filtro-tit">${t('prodTiempo')}</div>
       <label class="prod-radio"><input type="radio" name="prodModo" value="total" ${prodModoTiempo==='total'?'checked':''} onchange="cambiarProdModo('total')"> ${t('optTiempoTot')}</label>
       <label class="prod-radio"><input type="radio" name="prodModo" value="neto" ${prodModoTiempo==='neto'?'checked':''} onchange="cambiarProdModo('neto')"> ${t('optTiempoNeto')}</label>
       <div class="prod-modo-ayuda">${prodModoTiempo==='neto'?t('ayudaNeto'):t('ayudaTotal')}</div>
-    </div>
+    </div>`:''}
   </div>`;
 
   // ---- (punto 4) Por persona: clic en el nombre despliega sus containers ----
@@ -1416,7 +1446,7 @@ function renderProductividad(){
     else {
       det=`<tr class="cont-sub"><td colspan="4" class="cont-sub-nota">${esc(t('verContPersona'))}</td></tr>`+cs.map(cn=>{
         const pc=p.conts[cn];
-        return `<tr class="cont-sub"><td>📦 ${esc(cn)}</td><td class="n">${pc.put}</td><td class="n">${pc.recv}</td><td class="n"><b>${tasaTxt(cuentaDe(pc), horasDeMarks(pc.marks))}</b></td></tr>`;
+        return `<tr class="cont-sub"><td>📦 ${esc(cn)}</td><td class="n">${pc.put}</td><td class="n">${pc.recv}</td><td class="n"><b>${tasaTxt(cuentaDe(pc), horasPersonaCont(p, cn, pc))}</b></td></tr>`;
       }).join('');
     }
     return cab+det;
@@ -1594,6 +1624,11 @@ function cambiarProdTasa(v){
 function cambiarProdModo(v){
   prodModoTiempo = v;
   localStorage.setItem('prodModoTiempo', v);
+  renderProductividad();
+}
+function cambiarProdMetodo(v){
+  prodMetodo = v;
+  localStorage.setItem('prodMetodo', v);
   renderProductividad();
 }
 
