@@ -292,6 +292,14 @@
   .btn-borrar-sel{padding:9px 14px; font-size:13px; font-weight:700; color:#fff; background:var(--rojo); border:none; border-radius:10px; cursor:pointer;}
   .btn-borrar-sel:disabled{background:#cfd8dc; color:#90a4ae; cursor:default;}
   .nom-cel.inline{display:inline-flex; align-items:center; gap:8px; vertical-align:middle;}
+  /* ocultar personas de las estadísticas (ej: supervisor) */
+  .btn-ocultar-persona{background:none; border:none; cursor:pointer; font-size:13px; opacity:.45; padding:2px 4px; line-height:1; vertical-align:middle;}
+  .btn-ocultar-persona:hover{opacity:1;}
+  .prod-ocultos-bar{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:2px 0 12px 0; padding:8px 10px; background:var(--fondo2,#f4f6f8); border-radius:10px;}
+  .prod-ocultos-lbl{font-size:12px; font-weight:700; color:var(--texto2);}
+  .prod-oculto-chip{display:inline-flex; align-items:center; gap:6px; padding:5px 10px; font-size:12px; font-weight:600; color:var(--texto); background:#fff; border:1px solid var(--borde,#dfe4ea); border-radius:999px; cursor:pointer;}
+  .prod-oculto-chip:hover{border-color:var(--verde,#2e7d32);}
+  .avatar-xs{width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:700; flex-shrink:0;}
   /* pantalla de detalle de container */
   .cont-detalle{position:fixed; inset:0; background:var(--fondo); z-index:150; overflow-y:auto; display:none;}
   .cont-detalle.show{display:block;}
@@ -488,6 +496,8 @@ let filtroActividad = null;      // {tipo:'persona'|'disp', valor, label} para v
 let prodContAbierto = null;      // container expandido en Productividad (drill-down por persona)
 let prodPersonaAbierta = null;   // persona expandida en Productividad (drill-down por container)
 let prodContSel = {};            // containers marcados para eliminar en Productividad (nombre -> true)
+let prodOcultos = {};            // personas ocultadas de las estadísticas (nombre -> true). Ej: supervisor que hace receiving.
+try{ prodOcultos = JSON.parse(localStorage.getItem('prodOcultos')||'{}')||{}; }catch(e){ prodOcultos = {}; }
 let contSel = {};                // containers seleccionados en la pestaña Containers (clave -> true)
 let contDetalleAbierto = null;   // clave del container abierto en su pantalla de detalle
 let skusAbiertos = {};           // sku -> true (expandidos dentro de la pantalla de detalle)
@@ -640,6 +650,9 @@ const I18N = {
   anioEnCurso:   ['Año en curso','Current year','本年度'],
   ph:            ['p/h','p/h','托/时'],
   prodNingPersona:['Sin actividad esta semana.','No activity this week.','本周无活动。'],
+  prodOcultarTit: ['Ocultar de las estadísticas','Hide from stats','从统计中隐藏'],
+  prodMostrarTit: ['Volver a mostrar en las estadísticas','Show again in stats','重新显示在统计中'],
+  prodOcultasLbl: ['Personas ocultas','Hidden people','已隐藏人员'],
   verContPersona:['Containers trabajados','Containers worked','已处理集装箱'],
   selEliminar:   ['🗑 Eliminar seleccionados','🗑 Delete selected','🗑 删除所选'],
   cancelarSel:   ['Cancelar','Cancel','取消'],
@@ -1631,40 +1644,6 @@ function renderProductividad(){
     });
   }
 
-  // ---- REGLA EMPRESA: container compartido => los que hicieron 2+ put-aways se cuentan el container COMPLETO ----
-  // Si 2+ personas hicieron put-away en un container, SOLO cuentan los que hicieron ≥2 put-aways, y se cuentan TODO el container.
-  for(const cont in C){
-    const c=C[cont];
-    // ¿Quiénes hicieron put-away en este container?
-    const personasConPut = Object.keys(c.personas||{}).filter(nom=>(c.personas[nom].put||0)>0);
-    if(personasConPut.length<2) continue;  // no es compartido, regla no aplica
-    // Es compartido (2+ personas). Ver quiénes califican (2+ put-aways).
-    const califican = personasConPut.filter(nom=>(c.personas[nom].put||0)>=2);
-    if(califican.length===0) continue;  // nadie hizo 2+ put-aways, regla no aplica
-    // Los que califican se cuentan TODO el container (pallets completos del container).
-    const palletsTotales = c.palSet.size;  // pallets únicos del container completo
-    califican.forEach(nom=>{
-      const p=P[nom]; if(!p) return;
-      const cp=c.personas[nom];
-      // Limpiar el conteo individual que ya se había hecho (líneas 1616-1629) y poner el total.
-      // Nota: el .palSet de la persona YA tiene cont+'|'+code; lo dejamos así para no romper nada,
-      // pero agregamos todos los pallets del container que aún no estaban (de otros trabajadores).
-      c.palSet.forEach(code=>{ p.palSet.add(cont+'|'+code); });
-      // En el desglose por container de la persona, reemplazamos con el total.
-      const pc=p.conts[cont]; if(pc){ pc.palSet.clear(); c.palSet.forEach(code=>pc.palSet.add(code)); }
-      // Por día+container: para cada día donde esta persona trabajó este container, le damos el total.
-      for(const dk in p.diaConts){ if(p.diaConts[dk][cont]){
-        const pdc=p.diaConts[dk][cont]; pdc.palSet.clear(); c.palSet.forEach(code=>pdc.palSet.add(code));
-      }}
-      // Por día: agregar los pallets del container completo al día de esa persona (si tocó el container ese día).
-      for(const dk in p.dias){ const d=p.dias[dk];
-        // si hay marcas del container en ese día, agregar todos los pallets
-        const hayMarcas = (pc&&pc.marks||[]).some(t=>claveDia(t)===dk);
-        if(hayMarcas){ c.palSet.forEach(code=>d.palSet.add(cont+'|'+code)); }
-      }
-    });
-  }
-
   // ---- 2) Datos ARCHIVADOS (histórico) de la misma semana ----
   for(const dia in datosHistorico){
     if(!enSemana(dia)) continue;
@@ -1751,7 +1730,16 @@ function renderProductividad(){
       ${esActual?`<div class="prod-semana-sub">${t('semanaActual')}</div>`:''}
     </div>`;
 
-  const nombresP = Object.keys(P).sort((a,b)=>cuentaDe(P[b])-cuentaDe(P[a]));
+  // Personas presentes esta semana. Las "ocultas" (ej: supervisor) NO figuran en las estadísticas.
+  const nombresPTodos = Object.keys(P).sort((a,b)=>cuentaDe(P[b])-cuentaDe(P[a]));
+  const nombresP = nombresPTodos.filter(n=>!prodOcultos[n]);
+  const ocultosPresentes = nombresPTodos.filter(n=>prodOcultos[n]);
+
+  // ---- Barra de personas ocultas: chips con ↩️ para volver a mostrarlas ----
+  const barraOcultos = ocultosPresentes.length ? `<div class="prod-ocultos-bar">
+      <span class="prod-ocultos-lbl">🙈 ${t('prodOcultasLbl')}:</span>
+      ${ocultosPresentes.map(nom=>`<button class="prod-oculto-chip" onclick="mostrarPersona('${esc(nom)}')" title="${t('prodMostrarTit')}"><span class="avatar-xs" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)} ↩️</button>`).join('')}
+    </div>` : '';
 
   // ---- (punto 6) Cuadrícula semanal: filas=personas, columnas=Lun..Vie ----
   const diasSemana=[]; for(let i=0;i<5;i++){ const d=new Date(lun); d.setDate(d.getDate()+i); diasSemana.push(d.getTime()); }
@@ -1819,7 +1807,7 @@ function renderProductividad(){
   const filasP = nombresPDia.map(nom=>{
     const p=P[nom]; const pd=p.dias[diaSelK]; const abierta=prodPersonaAbierta===nom;
     const cab=`<tr class="cont-fila ${abierta?'abierta':''}" onclick="toggleProdPersona('${esc(nom)}')">
-        <td><span class="dis-tri">${abierta?'▼':'▶'}</span> <span class="nom-cel inline"><span class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)}</span></td>
+        <td><span class="dis-tri">${abierta?'▼':'▶'}</span> <span class="nom-cel inline"><span class="avatar-sm" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)}</span> <button class="btn-ocultar-persona" onclick="event.stopPropagation();ocultarPersona('${esc(nom)}')" title="${t('prodOcultarTit')}">🚫</button></td>
         <td class="n">${pd.put}</td><td class="n">${pd.recv}</td>
         <td class="n"><b>${tasaTxt(cuentaDe(pd), horasPersonaDiaK(p, diaSelK))}</b></td>
       </tr>`;
@@ -1877,7 +1865,7 @@ function renderProductividad(){
   }).join('');
   const barraBorrar = `<div class="prod-borrar-bar"><button class="btn-borrar-sel" ${algunSel?'':'disabled'} onclick="pedirEliminarConts()">${t('selEliminar')}</button></div>`;
 
-  el.innerHTML = headTit + grid + selSemana + filtros + `
+  el.innerHTML = headTit + grid + barraOcultos + selSemana + filtros + `
     <h3 class="prod-tit">${t('porPersonaHoy')}${esc(etiquetaDia)}</h3>
     <table class="tabla">
       <tr><th>${t('thPersona')}</th><th class="n">${t('thPut')}</th><th class="n">${t('thRecv')}</th><th class="n">${tasaLbl}</th></tr>
@@ -1893,6 +1881,10 @@ function renderProductividad(){
 }
 // (punto 4) Abre/cierra el detalle por container de una persona.
 function toggleProdPersona(nom){ prodPersonaAbierta = (prodPersonaAbierta===nom)?null:nom; renderProductividad(); }
+// Oculta una persona de las estadísticas (ej: supervisor que hace receiving y no debe contar).
+function guardarProdOcultos(){ try{ localStorage.setItem('prodOcultos', JSON.stringify(prodOcultos)); }catch(e){} }
+function ocultarPersona(nom){ prodOcultos[nom]=true; if(prodPersonaAbierta===nom) prodPersonaAbierta=null; guardarProdOcultos(); renderProductividad(); }
+function mostrarPersona(nom){ delete prodOcultos[nom]; guardarProdOcultos(); renderProductividad(); }
 // (punto 5) Marca/desmarca un container para eliminarlo.
 function toggleProdContSel(cn){ if(prodContSel[cn]) delete prodContSel[cn]; else prodContSel[cn]=true; renderProductividad(); }
 // (punto 3) Cambia el modo de descuento de descanso.
