@@ -1102,6 +1102,21 @@ function actorPut(r){ return (r.up||'').trim() || nombreDisp(r.dp||r.d) || ''; }
 // se recibió si luego alguien más lo ubicó. Usamos tr/tp y caemos a 't' solo si faltan.
 function tRecv(r){ return (r && r.tr>0) ? r.tr : (r && r.t>0 ? r.t : 0); }
 function tPut(r){ return (r && r.tp>0) ? r.tp : (r && r.t>0 ? r.t : 0); }
+// Registro "vacío" = sin SKU y sin cajas. Es un fantasma (p. ej. una relectura que solo
+// dejó una ubicación sin mercancía). NO cuenta como pallet ni genera movimiento.
+function regVacio(r){ return !(r && r.s && String(r.s).trim()) && (parseInt(r&&r.q)||0)<=0; }
+// Registro "viejo" = la app no guardó ninguna señal nueva (tr/tp/ur/up/dr/dp). Solo trae
+// el dispositivo genérico 'd'. Para esos usamos la ubicación para clasificar recv/put.
+function regLegacy(r){ return !(r && ((r.tr>0)||(r.tp>0)||(r.ur&&String(r.ur).trim())||(r.up&&String(r.up).trim())||(r.dr&&String(r.dr).trim())||(r.dp&&String(r.dp).trim()))); }
+// ¿Hubo RECEIVING de verdad? La app marca receiving SOLO cuando se captura el SKU
+// (marcarReceiving en fijoSku). Por eso un receiving real SIEMPRE tiene SKU. En registros
+// viejos (legacy) sin ubicación, lo tratamos como receiving.
+function huboRecv(r){ if(!r) return false; if(r.s && String(r.s).trim()) return true; return regLegacy(r) && !tieneUbic(r); }
+// Actor del receiving: quien capturó el SKU (ur) o su dispositivo (dr). NUNCA se infiere del
+// 'd' genérico (última mano que tocó) salvo en registros viejos: eso creaba "receiving fantasma"
+// cuando alguien solo hizo put-away sobre un pallet que otro recibió.
+function actorDeRecv(r){ return (r.ur||'').trim() || nombreDisp(r.dr) || (regLegacy(r)?nombreDisp(r.d):'') || ''; }
+function actorDePut(r){ return (r.up||'').trim() || nombreDisp(r.dp) || (regLegacy(r)?nombreDisp(r.d):'') || ''; }
 
 // Última actividad REAL (último escaneo de receiving o put-away) por dispositivo y por persona.
 // Sirve para marcar offline/inactivo: el "latido" de tener la app abierta NO cuenta como actividad.
@@ -1109,13 +1124,16 @@ function mapaUltimaActividad(){
   const dev={}, nom={};
   todosLosRegistros().forEach(r=>{
     if(!r.t) return;
+    if(regVacio(r)) return;
     // receiving: lo hizo quien metió el pallet al sistema (hora real = tr)
-    const dR=r.dr||r.d, nR=actorRecv(r), trr=tRecv(r);
-    if(dR) dev[dR]=Math.max(dev[dR]||0, trr);
-    if(nR) nom[nR]=Math.max(nom[nR]||0, trr);
+    if(huboRecv(r)){
+      const dR=r.dr||r.d, nR=actorDeRecv(r), trr=tRecv(r);
+      if(dR) dev[dR]=Math.max(dev[dR]||0, trr);
+      if(nR) nom[nR]=Math.max(nom[nR]||0, trr);
+    }
     // put-away: solo si el pallet ya tiene ubicación (hora real = tp)
     if(tieneUbic(r)){
-      const dP=r.dp||r.d, nP=actorPut(r), tpp=tPut(r);
+      const dP=r.dp||r.d, nP=actorDePut(r), tpp=tPut(r);
       if(dP) dev[dP]=Math.max(dev[dP]||0, tpp);
       if(nP) nom[nP]=Math.max(nom[nP]||0, tpp);
     }
@@ -1558,8 +1576,9 @@ function renderContDetalle(){
   }
   // 2) Personas históricas (aparecen en los registros)
   rawRegs.forEach(r=>{
-    const ar=actorRecv(r); if(ar) todasPersonas[ar]=true;
-    const ap=actorPut(r); if(ap) todasPersonas[ap]=true;
+    if(regVacio(r)) return;
+    if(huboRecv(r)){ const ar=actorDeRecv(r); if(ar) todasPersonas[ar]=true; }
+    if(r.u && r.u.trim()){ const ap=actorDePut(r); if(ap) todasPersonas[ap]=true; }
   });
   const listaPersonas = Object.keys(todasPersonas).sort();
 
@@ -1568,9 +1587,10 @@ function renderContDetalle(){
   let regsParaProcesar = rawRegs;
   if(filtroActual && filtroActual !== 'Todos'){
     regsParaProcesar = rawRegs.filter(r=>{
+      if(regVacio(r)) return false;
       const actores = [];
-      const ar=actorRecv(r); if(ar) actores.push(ar);
-      const ap=actorPut(r); if(ap) actores.push(ap);
+      if(huboRecv(r)){ const ar=actorDeRecv(r); if(ar) actores.push(ar); }
+      if(r.u && r.u.trim()){ const ap=actorDePut(r); if(ap) actores.push(ap); }
       return actores.includes(filtroActual);
     });
   }
@@ -1661,9 +1681,9 @@ function renderContDetalle(){
   const soloPers = (filtroActual && filtroActual!=='Todos') ? filtroActual : null;
   const marcar = ms=>{ if(!ms||ms<=0) return; if(ini===null||ms<ini) ini=ms; if(fin===null||ms>fin) fin=ms; };
   regsParaProcesar.forEach(r=>{
-    const ar=actorRecv(r), ap=actorPut(r);
-    if(ar && (!soloPers || ar===soloPers)) marcar(tRecv(r));
-    if(tieneUbic(r) && ap && (!soloPers || ap===soloPers)) marcar(tPut(r));
+    if(regVacio(r)) return;
+    if(huboRecv(r)){ const ar=actorDeRecv(r); if(ar && (!soloPers || ar===soloPers)) marcar(tRecv(r)); }
+    if(tieneUbic(r)){ const ap=actorDePut(r); if(ap && (!soloPers || ap===soloPers)) marcar(tPut(r)); }
   });
   // Override manual de horas (si el admin las corrigió). Se guarda en el container.
   const ovI = (c.ovIni>0) ? c.ovIni : null;
@@ -1752,9 +1772,9 @@ function editarHoraCont(clave, cual){
   const rawRegs = c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : [];
   let ini=null, fin=null;
   rawRegs.forEach(r=>{
-    const ar=actorRecv(r), ap=actorPut(r);
-    if(ar){ const x=tRecv(r); if(x>0){ if(ini===null||x<ini)ini=x; if(fin===null||x>fin)fin=x; } }
-    if(tieneUbic(r) && ap){ const x=tPut(r); if(x>0){ if(ini===null||x<ini)ini=x; if(fin===null||x>fin)fin=x; } }
+    if(regVacio(r)) return;
+    if(huboRecv(r)){ const x=tRecv(r); if(x>0){ if(ini===null||x<ini)ini=x; if(fin===null||x>fin)fin=x; } }
+    if(tieneUbic(r)){ const x=tPut(r); if(x>0){ if(ini===null||x<ini)ini=x; if(fin===null||x>fin)fin=x; } }
   });
   const actual = cual==='ini' ? (c.ovIni>0?c.ovIni:ini) : (c.ovFin>0?c.ovFin:fin);
   const base = actual || Date.now();
@@ -1851,18 +1871,17 @@ function renderProductividad(){
   const Cdia={};  // container -> { dia -> {put,recv,palSet,palAprox} }
   function iniCDia(c,d){ if(!Cdia[c])Cdia[c]={}; if(!Cdia[c][d])Cdia[c][d]={put:0,recv:0,palSet:new Set(),palAprox:0}; return Cdia[c][d]; }
 
-  // marcas de tiempo (cada escaneo cuenta como actividad de quien lo hizo)
+  // marcas de tiempo (cada escaneo cuenta como actividad de quien lo hizo).
+  // Reutilizamos eventosDeRegistro para que el reloj use EXACTAMENTE los mismos movimientos
+  // reales que la pantalla de actividad: sin receiving fantasma y sin registros vacíos.
   regs.forEach(r=>{
     const cont=r.contNom||r.clave;
-    // La hora de inicio/fin de cada persona y del container se basa en la hora REAL de
-    // cada acción: receiving usa 'tr', put-away usa 'tp'. Así el reloj arranca en el
-    // primer escaneo (sea recv o put) y no se contamina con la última actualización.
-    const ra=actorRecv(r), trr=tRecv(r), diaR=claveDia(trr);
-    if(ra && trr>0){ const p=iniP(ra); iniPDia(p,diaR).marks.push(trr); iniPCont(p,cont).marks.push(trr); iniPDiaCont(p,diaR,cont).marks.push(trr);
-            const c=iniC(cont); c.marks.push(trr); iniCP(c,ra).marks.push(trr); }
-    if(tieneUbic(r)){ const pa=actorPut(r), tpp=tPut(r), diaP=claveDia(tpp);
-      if(pa && tpp>0){ const p=iniP(pa); iniPDia(p,diaP).marks.push(tpp); iniPCont(p,cont).marks.push(tpp); iniPDiaCont(p,diaP,cont).marks.push(tpp);
-              const c=iniC(cont); c.marks.push(tpp); iniCP(c,pa).marks.push(tpp); } }
+    eventosDeRegistro(r).forEach(ev=>{
+      const ts=ev.ts; if(!ev.actor || !(ts>0)) return;
+      const dia=claveDia(ts);
+      const p=iniP(ev.actor); iniPDia(p,dia).marks.push(ts); iniPCont(p,cont).marks.push(ts); iniPDiaCont(p,dia,cont).marks.push(ts);
+      const c=iniC(cont); c.marks.push(ts); iniCP(c,ev.actor).marks.push(ts);
+    });
   });
 
   // conteos consolidados por container (no duplicar pallets)
@@ -1871,18 +1890,24 @@ function renderProductividad(){
   for(const cont in regsPorCont){
     const c=iniC(cont);
     consolidarRegs(regsPorCont[cont]).forEach(m=>{
+      // Fantasma vacío (sin SKU ni cajas): no cuenta como pallet ni actividad.
+      if(regVacio(m)) return;
       const code=(m.c||'').trim(); const dia=claveDia(m.t||Date.now());
       if((m.t||0)>(c.ultMs||0)) c.ultMs=m.t||0;
-      const ra=actorRecv(m)||'—';
-      const p=iniP(ra); p.recv++; if(code)p.palSet.add(cont+'|'+code);
-      const pd=iniPDia(p,dia); pd.recv++; if(code)pd.palSet.add(cont+'|'+code);
-      const pc=iniPCont(p,cont); pc.recv++; if(code)pc.palSet.add(code);
-      const pdc=iniPDiaCont(p,dia,cont); pdc.recv++; if(code)pdc.palSet.add(code);
-      c.recv++; c.recvLive++; if(code)c.palSet.add(code);
-      const cd=iniCDia(cont,dia); cd.recv++; if(code)cd.palSet.add(code);
-      const cp=iniCP(c,ra); cp.recv++; if(code)cp.palSet.add(code);
+      // RECEIVING: solo si de verdad hubo receiving (SKU capturado). Antes se contaba
+      // siempre, atribuyéndolo al dispositivo genérico → recv fantasma en put-away ajeno.
+      if(huboRecv(m)){
+        const ra=actorDeRecv(m)||'—';
+        const p=iniP(ra); p.recv++; if(code)p.palSet.add(cont+'|'+code);
+        const pd=iniPDia(p,dia); pd.recv++; if(code)pd.palSet.add(cont+'|'+code);
+        const pc=iniPCont(p,cont); pc.recv++; if(code)pc.palSet.add(code);
+        const pdc=iniPDiaCont(p,dia,cont); pdc.recv++; if(code)pdc.palSet.add(code);
+        c.recv++; c.recvLive++; if(code)c.palSet.add(code);
+        const cd=iniCDia(cont,dia); cd.recv++; if(code)cd.palSet.add(code);
+        const cp=iniCP(c,ra); cp.recv++; if(code)cp.palSet.add(code);
+      }
       if(tieneUbic(m)){
-        const pa=actorPut(m)||'—';
+        const pa=actorDePut(m)||'—';
         const p2=iniP(pa); p2.put++; if(code)p2.palSet.add(cont+'|'+code);
         const pd2=iniPDia(p2,dia); pd2.put++; if(code)pd2.palSet.add(cont+'|'+code);
         const pc2=iniPCont(p2,cont); pc2.put++; if(code)pc2.palSet.add(code);
@@ -2367,17 +2392,19 @@ function coincideFiltro(r){
 // cada una ve su propia actividad por separado (no solo la última acción compartida).
 function eventosDeRegistro(r){
   const out=[];
-  const recvActor=actorRecv(r);
-  const putActor=actorPut(r);
-  const esPut=tieneUbic(r);
-  // Evento de RECEIVING (siempre que haya alguien que recibió). Hora real = tr.
-  if(recvActor){
-    out.push({tipo:'recv', actor:recvActor, dev:(r.dr||r.d||''), ts:tRecv(r), r});
+  // Un registro vacío (sin SKU y sin cajas) es un fantasma: NO genera ningún movimiento.
+  if(regVacio(r)) return out;
+  const leg=regLegacy(r);
+  // Evento de RECEIVING: SOLO si de verdad hubo receiving (se capturó el SKU, o legacy sin
+  // ubicación). Ya NO se infiere del dispositivo genérico 'd' → adiós "receiving fantasma".
+  if(huboRecv(r)){
+    const actor=actorDeRecv(r);
+    if(actor) out.push({tipo:'recv', actor, dev:(r.dr||(leg?r.d:''))||'', ts:tRecv(r), r});
   }
-  // Evento de PUT-AWAY (solo si el pallet ya tiene ubicación). Hora real = tp.
-  if(esPut && putActor){
-    // Evitar duplicar: si el mismo actor recibió y ubicó, mostramos ambos eventos igual (son 2 acciones distintas).
-    out.push({tipo:'put', actor:putActor, dev:(r.dp||r.d||''), ts:tPut(r), r});
+  // Evento de PUT-AWAY: solo si el pallet ya tiene ubicación. Hora real = tp.
+  if(tieneUbic(r)){
+    const actor=actorDePut(r);
+    if(actor) out.push({tipo:'put', actor, dev:(r.dp||(leg?r.d:''))||'', ts:tPut(r), r});
   }
   return out;
 }
