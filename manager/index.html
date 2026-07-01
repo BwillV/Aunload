@@ -284,6 +284,8 @@
   .semana-opt{text-align:left; padding:10px 12px; font-size:13px; font-weight:600; color:var(--texto); background:var(--gris-claro); border:1px solid var(--borde); border-radius:10px; cursor:pointer;}
   .semana-opt.sel{background:var(--azul); color:#fff; border-color:var(--azul);}
   .semana-leyenda{font-size:11px; color:var(--texto2); text-align:center; margin-top:10px;}
+  .dia-sep{font-size:13px; font-weight:800; color:var(--azul); margin:16px 4px 8px; padding-bottom:5px; border-bottom:2px solid #cfe0ff; text-transform:capitalize;}
+  .dia-sep-row td{background:#eef4ff !important; color:var(--azul); font-weight:800; font-size:12px; border-top:2px solid #cfe0ff; text-transform:capitalize; padding:7px 10px !important;}
   .cont-check{display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600;}
   .cont-check input{width:auto; margin:0; flex:none; cursor:pointer;}
   .prod-borrar-bar{margin:0 0 8px 0;}
@@ -566,6 +568,8 @@ const I18N = {
   ayudaTiempoBloq:['Esta opción solo aplica a "Nuestro método". El Método de la bodega usa el reloj del container.','This option only applies to "Our method". The Warehouse method uses the container clock.','此选项仅适用于"我们的方法"。仓库方法使用集装箱时钟。'],
   gridProm:      ['Prom.','Avg.','平均'],
   hoyDia:        ['Hoy','Today','今天'],
+  ayerDia:       ['Ayer','Yesterday','昨天'],
+  sinFechaDia:   ['Sin fecha','No date','无日期'],
   porPersonaHoy: ['Por persona · ','By person · ','按人员 · '],
   prodTiempo:    ['Tiempo a usar:','Time to use:','使用时间:'],
   optTiempoTot:  ['⏱ Total del día','⏱ Whole day','⏱ 全天'],
@@ -966,8 +970,8 @@ function render(){
     contEl.innerHTML = '<div class="sin-cont"><span class="emoji">📭</span>'+t('sinContainers')+'</div>';
   } else {
     const q = filtroGlobal.trim().toLowerCase();
-    const ordenadas = claves.slice().sort((a,b)=>(datosContainers[b].cr||0)-(datosContainers[a].cr||0));
-    let html='';
+    const ordenadas = claves.slice().sort((a,b)=>contDiaMs(datosContainers[b])-contDiaMs(datosContainers[a]));
+    let html='', diaActual=null;
     ordenadas.forEach(clave=>{
       const c = datosContainers[clave];
       // Unimos receiving + put-away en un solo pallet lógico (arregla duplicados y ×2).
@@ -984,6 +988,9 @@ function render(){
         );
         if(regs.length===0) return;
       }
+      // Encabezado del día (Hoy / Ayer / fecha) cuando cambia el grupo.
+      const dkCont = claveDia(contDiaMs(c));
+      if(dkCont!==diaActual){ diaActual=dkCont; html += `<div class="dia-sep">${esc(etiquetaDiaAgrup(contDiaMs(c)))}</div>`; }
       const nomContChip = c.num||c.n||clave;
       const vivos = (trabajandoPorCont[nomContChip]||[]).map(it=>({dev:it.id, u:it.nombre}));
       const abierto = todoExpandido || abiertos[clave] || !!q;
@@ -1110,6 +1117,28 @@ function enSemana(diaKey){
 }
 // Etiqueta corta de fecha dd/mm.
 function ddmm(ms){ const d=new Date(ms); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); }
+// Nombre corto del día de la semana (Dom..Sáb) según idioma.
+function nombreDiaCorto(ms){
+  const d=new Date(ms);
+  const dias = idioma==='en' ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+             : idioma==='zh' ? ['周日','周一','周二','周三','周四','周五','周六']
+             : ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  return dias[d.getDay()];
+}
+// Etiqueta de agrupación por día: "Hoy", "Ayer" o "Mié 30/06".
+function etiquetaDiaAgrup(ms){
+  if(!ms) return t('sinFechaDia');
+  const k=claveDia(ms), hoyK=claveDia(Date.now()), ayerK=claveDia(Date.now()-86400000);
+  if(k===hoyK) return t('hoyDia');
+  if(k===ayerK) return t('ayerDia');
+  return nombreDiaCorto(ms)+' '+ddmm(ms);
+}
+// Día representativo (ms) de un container: fecha de creación 'cr', o el escaneo más reciente.
+function contDiaMs(c){
+  if(c && c.cr) return c.cr;
+  let mx=0; if(c && c.r){ for(const rid in c.r){ const tt=c.r[rid].t||0; if(tt>mx) mx=tt; } }
+  return mx;
+}
 // Texto de la semana seleccionada: "Semana lun 23/06 › dom 29/06".
 function textoSemanaSel(){
   const lun = semanaSelLun(); const dom = new Date(lun); dom.setDate(dom.getDate()+6);
@@ -1326,7 +1355,7 @@ function renderProductividad(){
   function iniPCont(p,c){ if(!p.conts[c]) p.conts[c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.conts[c]; }
   // por día y por container (para el detalle de "Por persona" del día en curso)
   function iniPDiaCont(p,d,c){ if(!p.diaConts[d]) p.diaConts[d]={}; if(!p.diaConts[d][c]) p.diaConts[d][c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.diaConts[d][c]; }
-  function iniC(c){ if(!C[c]) C[c]={nom:c,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[],personas:{}}; return C[c]; }
+  function iniC(c){ if(!C[c]) C[c]={nom:c,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[],ultMs:0,personas:{}}; return C[c]; }
   function iniCP(c,n){ if(!c.personas[n]) c.personas[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return c.personas[n]; }
 
   // marcas de tiempo (cada escaneo cuenta como actividad de quien lo hizo)
@@ -1347,6 +1376,7 @@ function renderProductividad(){
     const c=iniC(cont);
     consolidarRegs(regsPorCont[cont]).forEach(m=>{
       const code=(m.c||'').trim(); const dia=claveDia(m.t||Date.now());
+      if((m.t||0)>(c.ultMs||0)) c.ultMs=m.t||0;
       const ra=actorRecv(m)||'—';
       const p=iniP(ra); p.recv++; if(code)p.palSet.add(cont+'|'+code);
       const pd=iniPDia(p,dia); pd.recv++; if(code)pd.palSet.add(cont+'|'+code);
@@ -1378,6 +1408,7 @@ function renderProductividad(){
     const gc=h.containers||{};
     for(const key in gc){ const e=gc[key]||{}; const nom=e.nom||key;
       const c=iniC(nom); c.put+=(e.put||0); c.recv+=(e.recv||0); c.palAprox+=Math.max(e.put||0,e.recv||0);
+      if(!c.diaArch || dia>c.diaArch) c.diaArch=dia;
     }
   }
 
@@ -1550,11 +1581,26 @@ function renderProductividad(){
   }).join('');
 
   // ---- (punto 5) Por container: seleccionar y eliminar ----
-  const nombresC = Object.keys(C).sort((a,b)=>cuentaDe(C[b])-cuentaDe(C[a]));
+  function contDiaMsProd(c){
+    if(c && c.ultMs) return c.ultMs;
+    if(c && c.marks && c.marks.length){ let mx=0; c.marks.forEach(m=>{ if(m>mx)mx=m; }); if(mx)return mx; }
+    if(c && c.diaArch){ const p=c.diaArch.split('-'); if(p.length===3){ return new Date(+p[0], +p[1]-1, +p[2], 12,0,0).getTime(); } }
+    return 0;
+  }
+  const nombresC = Object.keys(C).sort((a,b)=>{
+    const da=contDiaMsProd(C[a]), db=contDiaMsProd(C[b]);
+    if(db!==da) return db-da;
+    return cuentaDe(C[b])-cuentaDe(C[a]);
+  });
   const algunSel = nombresC.some(cn=>prodContSel[cn]);
+  let diaActualC=null;
   const filasC = nombresC.map(cn=>{
     const c=C[cn];
-    return `<tr>
+    const msC=contDiaMsProd(c);
+    const dkC=msC?claveDia(msC):'';
+    let sep='';
+    if(dkC!==diaActualC){ diaActualC=dkC; sep=`<tr class="dia-sep-row"><td colspan="4">${esc(etiquetaDiaAgrup(msC))}</td></tr>`; }
+    return sep+`<tr>
       <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onchange="toggleProdContSel('${esc(cn)}')"> 📦 ${esc(cn)}</label></td>
       <td class="n">${c.put}</td><td class="n">${c.recv}</td>
       <td class="n"><b>${tasaTxt(cuentaDe(c), horasDeMarks(c.marks, cn))}</b></td>
