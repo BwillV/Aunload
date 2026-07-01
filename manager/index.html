@@ -1612,6 +1612,9 @@ function renderProductividad(){
   function iniPDiaCont(p,d,c){ if(!p.diaConts[d]) p.diaConts[d]={}; if(!p.diaConts[d][c]) p.diaConts[d][c]={put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return p.diaConts[d][c]; }
   function iniC(c){ if(!C[c]) C[c]={nom:c,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[],ultMs:0,personas:{}}; return C[c]; }
   function iniCP(c,n){ if(!c.personas[n]) c.personas[n]={nom:n,put:0,recv:0,palSet:new Set(),palAprox:0,marks:[]}; return c.personas[n]; }
+  // Conteo del container por DÍA (para repartir el reloj del container entre las personas que lo trabajaron).
+  const Cdia={};  // container -> { dia -> {put,recv,palSet,palAprox} }
+  function iniCDia(c,d){ if(!Cdia[c])Cdia[c]={}; if(!Cdia[c][d])Cdia[c][d]={put:0,recv:0,palSet:new Set(),palAprox:0}; return Cdia[c][d]; }
 
   // marcas de tiempo (cada escaneo cuenta como actividad de quien lo hizo)
   regs.forEach(r=>{
@@ -1638,6 +1641,7 @@ function renderProductividad(){
       const pc=iniPCont(p,cont); pc.recv++; if(code)pc.palSet.add(code);
       const pdc=iniPDiaCont(p,dia,cont); pdc.recv++; if(code)pdc.palSet.add(code);
       c.recv++; if(code)c.palSet.add(code);
+      const cd=iniCDia(cont,dia); cd.recv++; if(code)cd.palSet.add(code);
       const cp=iniCP(c,ra); cp.recv++; if(code)cp.palSet.add(code);
       if(tieneUbic(m)){
         const pa=actorPut(m)||'—';
@@ -1646,6 +1650,7 @@ function renderProductividad(){
         const pc2=iniPCont(p2,cont); pc2.put++; if(code)pc2.palSet.add(code);
         const pdc2=iniPDiaCont(p2,dia,cont); pdc2.put++; if(code)pdc2.palSet.add(code);
         c.put++; if(code)c.palSet.add(code);
+        const cd2=iniCDia(cont,dia); cd2.put++; if(code)cd2.palSet.add(code);
         const cp2=iniCP(c,pa); cp2.put++; if(code)cp2.palSet.add(code);
       }
     });
@@ -1707,10 +1712,34 @@ function renderProductividad(){
     }
     return s/3600000;
   }
+  // Reloj (ms) de UN container en UN día, respetando el modo de descanso elegido.
+  function clockContDiaMs(cn, dk){
+    const c=C[cn]; if(!c||!c.marks) return 0;
+    if(esCont) return msContDiaCont(cn, c.marks, dk);   // descanso manual por container
+    const mk = c.marks.filter(x=>claveDia(x)===dk);
+    return msDia(mk);                                   // auto / 1h / 1.5h
+  }
+  // Modo EMPRESA: el reloj del container se REPARTE entre las personas que lo trabajaron,
+  // proporcional a lo que hizo cada una. Así, en un container compartido, TODAS salen a la
+  // velocidad del equipo (ej: tú y Luis, los dos a 41 p/h) y los conteos siguen siendo reales.
+  function msPersonaContDiaEmpresa(p, cn, dk){
+    const pdc = (p.diaConts[dk]||{})[cn]; if(!pdc) return 0;
+    const cd = (Cdia[cn]||{})[dk];
+    const cCount = cd ? cuentaDe(cd) : 0;
+    const pCount = cuentaDe(pdc);
+    if(cCount<=0 || pCount<=0) return 0;
+    const share = Math.min(1, pCount/cCount);
+    return share * clockContDiaMs(cn, dk);
+  }
   // Horas de una persona en UN día (para la cuadrícula lun–vie y para "Por persona").
   function horasPersonaDiaK(p, dk){
+    if(prodMetodo==='empresa'){                         // reloj del container repartido (velocidad de equipo)
+      let ms=0; const dc=p.diaConts[dk]||{};
+      for(const cn in dc) ms += msPersonaContDiaEmpresa(p, cn, dk);
+      return ms/3600000;
+    }
     if(esCont) return horasContPersonaDiaCont(p, dk);   // descanso manual por container
-    if(prodMetodo==='empresa' || prodModoTiempo==='neto') return msDiaConts(marksContsPersonaDia(p,dk))/3600000;
+    if(prodModoTiempo==='neto') return msDiaConts(marksContsPersonaDia(p,dk))/3600000;
     const d=p.dias[dk]; return d?msDia(d.marks)/3600000:0;   // 'actividad' total = span del día, descanso una vez
   }
   // Horas totales de una persona en la semana = suma de sus días (descanso ya contado una vez por día).
@@ -1721,8 +1750,14 @@ function renderProductividad(){
   function horasPersonaCont(p, cn, pc){ return prodMetodo==='empresa' ? horasContainer(cn) : horasDeMarks(pc.marks, cn); }
   // Horas de un container en UN día (para el detalle de "Por persona" del día en curso).
   function horasPersonaContDia(cn, pdc, dk){
-    if(esCont){ const marks=(prodMetodo==='empresa')?(C[cn]?C[cn].marks:[]):pdc.marks; return msContDiaCont(cn, marks, dk)/3600000; }
-    if(prodMetodo==='empresa'){ const c=C[cn]; const mk=c?c.marks.filter(x=>claveDia(x)===dk):[]; return msDia(mk)/3600000; }
+    if(prodMetodo==='empresa'){                          // reloj del container repartido (velocidad de equipo)
+      const cd=(Cdia[cn]||{})[dk];
+      const cCount = cd ? cuentaDe(cd) : 0;
+      const pCount = cuentaDe(pdc);
+      if(cCount<=0 || pCount<=0) return 0;
+      return Math.min(1, pCount/cCount) * clockContDiaMs(cn, dk) / 3600000;
+    }
+    if(esCont) return msContDiaCont(cn, pdc.marks, dk)/3600000;
     return msDia(pdc.marks)/3600000;
   }
   function tasaTxt(count, horas){ if(horas<0.25) return '—'; return Math.round(count/horas)+' '+t('ph'); }
