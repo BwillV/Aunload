@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUnload Rescue - Descarga v4.0</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        .version {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+        .download-btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+        }
+        .debug-btn {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            font-size: 16px;
+            padding: 14px;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+        }
+        .debug-btn:hover {
+            box-shadow: 0 6px 20px rgba(33, 150, 243, 0.6);
+        }
+        .features {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        .feature-item {
+            margin: 12px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        .feature-item:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .info-box p {
+            color: #1565c0;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .github-link {
+            display: block;
+            text-align: center;
+            color: #667eea;
+            text-decoration: none;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+        .github-link:hover {
+            text-decoration: underline;
+        }
+        .badge {
+            display: inline-block;
+            background: #ff9800;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📦</div>
+        <h1>AUnload Rescue <span class="badge">NUEVO</span></h1>
+        <p class="version">Versión 4.0 - ¡NUEVA VERSIÓN MAYOR!</p>
+        
+        <a href="AUnloadRescue-4.0.apk" class="download-btn" download>
+            📥 Descargar APK v4.0 (5.4 MB)
+        </a>
+        
+        <a href="AUnloadRescue-4.0-debug.apk" class="download-btn debug-btn" download>
+            🔧 Versión Debug (Desarrolladores)
+        </a>
+        
+        <div class="features">
+            <h3 style="margin-bottom: 15px; color: #2c3e50;">🎉 Novedades v4.0</h3>
+            <div class="feature-item">⏱️ Bloque horario por container: muestra HORA DE INICIO y FIN en letra grande con opción de excluir personas</div>
+            <div class="feature-item">📊 Desglose de pallets por cantidad: activa "Mostrar pallets × cantidad" en el menú de cada SKU</div>
+            <div class="feature-item">✅ La cantidad de put away ahora SIEMPRE corrige la de receiving (vale la última ingresada)</div>
+            <div class="feature-item">🔄 Botón directo para reactivar el botón flotante desde el recuadro de novedades</div>
+            <div class="feature-item">🌐 Soporte multiidioma mejorado (Español, English, 中文)</div>
+        </div>
+        
+        <div class="info-box">
+            <p><strong>📱 Requisitos:</strong></p>
+            <p>• Android 7.0 o superior</p>
+            <p>• Urovo DT50X u otro escáner compatible</p>
+            <p>• Conexión a internet para sincronización</p>
+        </div>
+        
+        <div class="info-box">
+            <p><strong>⚙️ Después de instalar:</strong></p>
+            <p>1. Activa el Servicio de Accesibilidad en Ajustes del sistema</p>
+            <p>2. Ingresa el código de equipo en Ajustes de la app</p>
+            <p>3. ¡Listo para usar!</p>
+        </div>
+
+        <div class="info-box" style="background: #fff3e0; border-left-color: #ff9800;">
+            <p style="color: #e65100;"><strong>💡 Auto-actualización:</strong></p>
+            <p style="color: #e65100;">Las futuras actualizaciones se descargarán automáticamente dentro de la app. Solo tendrás que tocar "Actualizar" cuando aparezca el aviso.</p>
+            <p style="color: #e65100; margin-top: 8px;"><strong>⚠️ Importante v4.0:</strong> Después de actualizar, toca el botón verde "🔄 Reactivar botón flotante" en el recuadro de novedades.</p>
+        </div>
+        
+        <a href="https://github.com/BwillV/Aunload" class="github-link" target="_blank">
+            📂 Ver proyecto en GitHub
+        </a>
+        
+        <div class="footer">
+            💙 Desarrollado para el equipo de warehouse
+        </div>
+    </div>
+</body>
+</html>
