@@ -1054,6 +1054,7 @@ function todosLosRegistros(){
       const r = c.r[rid];
       out.push({clave, rid, contNom:nom,
         c:r.c||'', u:r.u||'', s:r.s||'', q:parseInt(r.q)||0, t:r.t||0,
+        tr:r.tr||0, tp:r.tp||0,
         ur:r.ur||'', up:r.up||'', dr:r.dr||'', dp:r.dp||'', d:r.d||''});
     }
   }
@@ -1080,6 +1081,11 @@ function nombreDisp(devId){
 function tieneUbic(r){ return !!(r && r.u && String(r.u).trim()); }
 function actorRecv(r){ return (r.ur||'').trim() || nombreDisp(r.dr||r.d) || ''; }
 function actorPut(r){ return (r.up||'').trim() || nombreDisp(r.dp||r.d) || ''; }
+// Hora REAL de cada acción. La app guarda 'tr' (receiving) y 'tp' (put-away) por separado.
+// 't' es solo la última actualización del registro, así que NO sirve para saber cuándo
+// se recibió si luego alguien más lo ubicó. Usamos tr/tp y caemos a 't' solo si faltan.
+function tRecv(r){ return (r && r.tr>0) ? r.tr : (r && r.t>0 ? r.t : 0); }
+function tPut(r){ return (r && r.tp>0) ? r.tp : (r && r.t>0 ? r.t : 0); }
 
 // Última actividad REAL (último escaneo de receiving o put-away) por dispositivo y por persona.
 // Sirve para marcar offline/inactivo: el "latido" de tener la app abierta NO cuenta como actividad.
@@ -1087,15 +1093,15 @@ function mapaUltimaActividad(){
   const dev={}, nom={};
   todosLosRegistros().forEach(r=>{
     if(!r.t) return;
-    // receiving: lo hizo quien metió el pallet al sistema
-    const dR=r.dr||r.d, nR=actorRecv(r);
-    if(dR) dev[dR]=Math.max(dev[dR]||0, r.t);
-    if(nR) nom[nR]=Math.max(nom[nR]||0, r.t);
-    // put-away: solo si el pallet ya tiene ubicación
+    // receiving: lo hizo quien metió el pallet al sistema (hora real = tr)
+    const dR=r.dr||r.d, nR=actorRecv(r), trr=tRecv(r);
+    if(dR) dev[dR]=Math.max(dev[dR]||0, trr);
+    if(nR) nom[nR]=Math.max(nom[nR]||0, trr);
+    // put-away: solo si el pallet ya tiene ubicación (hora real = tp)
     if(tieneUbic(r)){
-      const dP=r.dp||r.d, nP=actorPut(r);
-      if(dP) dev[dP]=Math.max(dev[dP]||0, r.t);
-      if(nP) nom[nP]=Math.max(nom[nP]||0, r.t);
+      const dP=r.dp||r.d, nP=actorPut(r), tpp=tPut(r);
+      if(dP) dev[dP]=Math.max(dev[dP]||0, tpp);
+      if(nP) nom[nP]=Math.max(nom[nP]||0, tpp);
     }
   });
   return {dev, nom};
@@ -1633,11 +1639,15 @@ function renderContDetalle(){
   }
 
   // ---- Horario del container (inicio/fin) — filtrado por persona seleccionada ----
+  // Usamos la hora REAL de cada acción: receiving = tr, put-away = tp. Si hay filtro por
+  // persona, solo contamos las acciones que hizo ESA persona (recv y/o put).
   let ini=null, fin=null;
+  const soloPers = (filtroActual && filtroActual!=='Todos') ? filtroActual : null;
+  const marcar = ms=>{ if(!ms||ms<=0) return; if(ini===null||ms<ini) ini=ms; if(fin===null||ms>fin) fin=ms; };
   regsParaProcesar.forEach(r=>{
-    if(!r.t||r.t<=0) return;
-    if(ini===null||r.t<ini) ini=r.t;
-    if(fin===null||r.t>fin) fin=r.t;
+    const ar=actorRecv(r), ap=actorPut(r);
+    if(ar && (!soloPers || ar===soloPers)) marcar(tRecv(r));
+    if(tieneUbic(r) && ap && (!soloPers || ap===soloPers)) marcar(tPut(r));
   });
   const horarioHtml=`<div class="cont-horario">
     <div class="ch-tiempos">
@@ -1726,13 +1736,16 @@ function renderProductividad(){
 
   // marcas de tiempo (cada escaneo cuenta como actividad de quien lo hizo)
   regs.forEach(r=>{
-    const cont=r.contNom||r.clave, dia=claveDia(r.t);
-    const ra=actorRecv(r);
-    if(ra){ const p=iniP(ra); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t); iniPDiaCont(p,dia,cont).marks.push(r.t);
-            const c=iniC(cont); c.marks.push(r.t); iniCP(c,ra).marks.push(r.t); }
-    if(tieneUbic(r)){ const pa=actorPut(r);
-      if(pa){ const p=iniP(pa); iniPDia(p,dia).marks.push(r.t); iniPCont(p,cont).marks.push(r.t); iniPDiaCont(p,dia,cont).marks.push(r.t);
-              const c=iniC(cont); c.marks.push(r.t); iniCP(c,pa).marks.push(r.t); } }
+    const cont=r.contNom||r.clave;
+    // La hora de inicio/fin de cada persona y del container se basa en la hora REAL de
+    // cada acción: receiving usa 'tr', put-away usa 'tp'. Así el reloj arranca en el
+    // primer escaneo (sea recv o put) y no se contamina con la última actualización.
+    const ra=actorRecv(r), trr=tRecv(r), diaR=claveDia(trr);
+    if(ra && trr>0){ const p=iniP(ra); iniPDia(p,diaR).marks.push(trr); iniPCont(p,cont).marks.push(trr); iniPDiaCont(p,diaR,cont).marks.push(trr);
+            const c=iniC(cont); c.marks.push(trr); iniCP(c,ra).marks.push(trr); }
+    if(tieneUbic(r)){ const pa=actorPut(r), tpp=tPut(r), diaP=claveDia(tpp);
+      if(pa && tpp>0){ const p=iniP(pa); iniPDia(p,diaP).marks.push(tpp); iniPCont(p,cont).marks.push(tpp); iniPDiaCont(p,diaP,cont).marks.push(tpp);
+              const c=iniC(cont); c.marks.push(tpp); iniCP(c,pa).marks.push(tpp); } }
   });
 
   // conteos consolidados por container (no duplicar pallets)
@@ -2204,14 +2217,14 @@ function eventosDeRegistro(r){
   const recvActor=actorRecv(r);
   const putActor=actorPut(r);
   const esPut=tieneUbic(r);
-  // Evento de RECEIVING (siempre que haya alguien que recibió).
+  // Evento de RECEIVING (siempre que haya alguien que recibió). Hora real = tr.
   if(recvActor){
-    out.push({tipo:'recv', actor:recvActor, dev:(r.dr||r.d||''), r});
+    out.push({tipo:'recv', actor:recvActor, dev:(r.dr||r.d||''), ts:tRecv(r), r});
   }
-  // Evento de PUT-AWAY (solo si el pallet ya tiene ubicación).
+  // Evento de PUT-AWAY (solo si el pallet ya tiene ubicación). Hora real = tp.
   if(esPut && putActor){
     // Evitar duplicar: si el mismo actor recibió y ubicó, mostramos ambos eventos igual (son 2 acciones distintas).
-    out.push({tipo:'put', actor:putActor, dev:(r.dp||r.d||''), r});
+    out.push({tipo:'put', actor:putActor, dev:(r.dp||r.d||''), ts:tPut(r), r});
   }
   return out;
 }
@@ -2229,10 +2242,13 @@ function renderActividad(){
       eventos=eventos.filter(ev=>ev.actor===v);
     } else if(filtroActividad.tipo==='disp'){
       const v=filtroActividad.valor;
-      eventos=eventos.filter(ev=>ev.dev===v || ev.r.d===v || ev.r.dp===v || ev.r.dr===v);
+      // Solo el evento hecho POR ese dispositivo (recv->dr/d, put->dp/d). Antes se
+      // comparaba contra todos los campos del registro, así aparecía la acción del
+      // compañero (p.ej. el put-away de Wilson sobre un pallet que recibió Luis).
+      eventos=eventos.filter(ev=>ev.dev===v);
     }
   }
-  eventos = eventos.sort((a,b)=>b.r.t-a.r.t).slice(0,80);
+  eventos = eventos.sort((a,b)=>(b.ts||b.r.t)-(a.ts||a.r.t)).slice(0,80);
   // Cabecera (con botón "Ver todo" cuando hay filtro)
   let head;
   if(filtroActividad){
@@ -2260,14 +2276,15 @@ function renderActividad(){
     const det = esPut
       ? `${skuTxt?skuTxt+' · ':''}${r.q} CTNs → ${esc(r.u)}`
       : `${skuTxt?(skuTxt+' · '+r.q+' CTNs'):t('recibido')}`;
-    const hora = new Date(r.t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+    const evT = ev.ts || r.t;
+    const hora = new Date(evT).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
     return `<div class="act-fila">
       <div class="act-ico ${esPut?'put':'recv'}">${icono}</div>
       <div class="act-cuerpo">
         <div class="act-l1"><b>${esc(actor)}</b> · ${tipo} <span class="act-au">${esc(r.c||'')}</span></div>
         <div class="act-l2">${det} · <span class="act-cont">${esc(r.contNom||'')}</span></div>
       </div>
-      <div class="act-time">${tiempoRelativo(r.t)}<br><span class="act-clock">${hora}</span></div>
+      <div class="act-time">${tiempoRelativo(evT)}<br><span class="act-clock">${hora}</span></div>
       <button class="act-borrar" title="${t('actBorrarTit')}" onclick="borrarActividad('${esc(r.clave)}','${esc(r.rid)}')">🗑</button>
     </div>`;
   }).join('');
