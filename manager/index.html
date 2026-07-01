@@ -285,7 +285,7 @@
   /* pantalla de detalle de container */
   .cont-detalle{position:fixed; inset:0; background:var(--fondo); z-index:150; overflow-y:auto; display:none;}
   .cont-detalle.show{display:block;}
-  .cd-top{position:sticky; top:0; background:var(--tarjeta); border-bottom:1px solid var(--borde); padding:12px 16px; display:flex; align-items:center; gap:10px; z-index:2; box-shadow:0 1px 6px rgba(0,0,0,.05);}
+  .cd-top{position:sticky; top:0; background:var(--tarjeta); border-bottom:1px solid var(--borde); padding:12px 16px; padding-top:calc(12px + env(safe-area-inset-top)); display:flex; align-items:center; gap:10px; z-index:2; box-shadow:0 1px 6px rgba(0,0,0,.05);}
   .cd-volver{border:none; background:var(--gris-claro); color:var(--azul); font-weight:700; font-size:13.5px; padding:8px 14px; border-radius:20px; cursor:pointer; flex-shrink:0;}
   .cd-titulo{font-size:16px; font-weight:800; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .cd-cuerpo{padding:16px; max-width:760px; margin:0 auto;}
@@ -819,6 +819,19 @@ function mapaUltimaActividad(){
   return {dev, nom};
 }
 
+// Última actividad de cada DISPOSITIVO usando EXACTAMENTE el mismo criterio que el
+// feed de actividad (cualquier registro donde el equipo aparezca como d / dp / dr).
+// Así el "última actividad" de la pantalla En vivo/Dispositivos coincide siempre con
+// la hora del último movimiento que se ve al entrar a la actividad de esa persona.
+function ultActDispositivo(){
+  const dev={};
+  todosLosRegistros().forEach(r=>{
+    if(!r.t) return;
+    [r.d, r.dr, r.dp].forEach(dv=>{ if(dv) dev[dv]=Math.max(dev[dv]||0, r.t); });
+  });
+  return dev;
+}
+
 // Une los registros de un container por código AUnload en UN solo pallet lógico.
 // La app guarda el escaneo de RECEIVING (entrada al sistema: SKU + CTNs) y el de
 // PUT-AWAY (asignación de ubicación) como registros SEPARADOS con rids distintos.
@@ -862,7 +875,7 @@ function render(){
   // El "latido" de tener la app abierta NO cuenta. Así desaparece la contradicción de que alguien
   // saliera "en vivo" aquí pero "offline" en Dispositivos.
   const ahoraV = Date.now();
-  const ultActVivo = mapaUltimaActividad();
+  const ultActVivo = ultActDispositivo();
   // Container actual de cada dispositivo = el del registro más reciente que tocó.
   const contDeDev = {}, contDeDevT = {};
   todosLosRegistros().forEach(r=>{
@@ -873,7 +886,7 @@ function render(){
   const trabajando = [], fueraServicio = [];
   idsDisp.forEach(id=>{
     const d = datosDevices[id]||{};
-    const ult = ultActVivo.dev[id]||0;
+    const ult = ultActVivo[id]||0;
     const activo = ult>0 && (ahoraV-ult)<=DEV_ACT_MS;
     const item = {id, nombre:(d.name||d.u||t('sinNombre')), cont:contDeDev[id]||'', ult};
     if(activo) trabajando.push(item); else fueraServicio.push(item);
@@ -1000,7 +1013,7 @@ function renderDispositivos(){
   // así que si otra persona tocaba un pallet compartido, el que solo lo había
   // recibido hace rato volvía a aparecer "online" sin haber hecho nada.
   // receiving => dr (siempre); put-away => dp (solo si el pallet ya tiene ubicación).
-  const act = mapaUltimaActividad().dev;
+  const act = ultActDispositivo();
   // Online = escaneó algo en los últimos 30 min. El "seen" (latido de la app
   // abierta) NO cuenta: si lleva 30 min sin mover nada, está offline aunque
   // tenga la app abierta.
