@@ -301,6 +301,17 @@
   .cd-cuerpo{padding:16px; max-width:760px; margin:0 auto;}
   .container-card.compacto{cursor:pointer;}
   .container-card.compacto .flecha{margin-left:auto; font-size:22px; color:var(--texto2); font-weight:700;}
+  /* selección de containers */
+  .container-card.sel{border:2px solid var(--azul); box-shadow:0 2px 8px rgba(33,118,174,.25);}
+  .cont-sel-chk{display:flex; align-items:center; flex-shrink:0; cursor:pointer; padding:2px;}
+  .cont-sel-chk input{width:22px; height:22px; margin:0; cursor:pointer; accent-color:var(--azul);}
+  .cont-sel-bar{display:none; align-items:center; flex-wrap:wrap; gap:8px; background:var(--tarjeta); border:1px solid var(--borde); border-radius:14px; padding:10px 12px; margin-bottom:12px; position:sticky; top:6px; z-index:20; box-shadow:0 2px 10px rgba(0,0,0,.1);}
+  .cont-sel-bar .csb-count{font-weight:700; font-size:14px; margin-right:4px;}
+  .cont-sel-bar .csb-btn{border:none; border-radius:9px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; color:#fff; background:var(--texto2);}
+  .cont-sel-bar .csb-btn.warn{background:#e08c00;}
+  .cont-sel-bar .csb-btn.azul{background:var(--azul);}
+  .cont-sel-bar .csb-btn.peli{background:#c62828;}
+  .cont-sel-bar .csb-btn.gris{background:#90a4ae;}
   .cd-sku-grupo{border:1px solid var(--borde); border-radius:12px; margin-bottom:10px; overflow:hidden; background:var(--tarjeta);}
   .cd-sku-cab{display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; font-weight:700; font-size:14px;}
   .cd-sku-cab .cd-sku-meta{margin-left:auto; font-size:12px; color:var(--texto2); font-weight:600;}
@@ -385,6 +396,7 @@
         <span class="opc-others-txt" data-i18n="ocultarTxt">Ocultar «OTHERS» (sin SKU) en todos los teléfonos</span>
         <button class="opc-others-btn" id="btnOcultarOthers" title="Aplica a todos los escáneres del equipo">…</button>
       </div>
+      <div id="contSelBar" class="cont-sel-bar"></div>
       <div id="containers"></div>
     </section>
 
@@ -468,6 +480,7 @@ let filtroActividad = null;      // {tipo:'persona'|'disp', valor, label} para v
 let prodContAbierto = null;      // container expandido en Productividad (drill-down por persona)
 let prodPersonaAbierta = null;   // persona expandida en Productividad (drill-down por container)
 let prodContSel = {};            // containers marcados para eliminar en Productividad (nombre -> true)
+let contSel = {};                // containers seleccionados en la pestaña Containers (clave -> true)
 let contDetalleAbierto = null;   // clave del container abierto en su pantalla de detalle
 let skusAbiertos = {};           // sku -> true (expandidos dentro de la pantalla de detalle)
 let excluirInicio = {};          // clave de container -> persona a excluir del cálculo de inicio/fin
@@ -797,6 +810,9 @@ function limpiarLapidasObsoletas(){
     var tombs = snaps[0].val() || {};
     var respaldos = snaps[1].val() || {};
     var updates = {};
+    var ahora = Date.now();
+    var vivosSet = {};
+    vivos.forEach(function(k){ vivosSet[k] = true; });
     
     vivos.forEach(function(clave){
       // 1. Si tiene lápida, borrarla.
@@ -823,10 +839,138 @@ function limpiarLapidasObsoletas(){
       }
     });
     
+    // 3. LIMPIEZA 24h: borrar permanentemente los respaldos que NO se volvieron a
+    //    escanear (no tienen container vivo) y ya pasaron 24 horas.
+    for(var ck in respaldos){
+      if(vivosSet[ck]) continue;                    // ese ya se restaura/borra arriba
+      var r = respaldos[ck] || {};
+      var ts = r._bkTs || 0;
+      if(ts && (ahora - ts) > RESP_VIDA_MS){
+        updates['respaldos/containers/'+ck] = null;  // se borra para siempre
+      }
+    }
+    
     if(Object.keys(updates).length){
       equipoRef.update(updates);
     }
   }).catch(function(){});
+}
+
+// Vida del respaldo de un container borrado: 24 horas. Si en ese tiempo NO se
+// vuelve a escanear el container, el respaldo se borra permanentemente.
+var RESP_VIDA_MS = 24 * 60 * 60 * 1000;
+
+// ---------- selección de containers (pestaña Containers) ----------
+function toggleContSel(clave){
+  if(contSel[clave]) delete contSel[clave]; else contSel[clave] = true;
+  render();
+}
+function limpiarContSel(){ contSel = {}; render(); }
+
+function contsSeleccionados(){
+  return Object.keys(contSel).filter(function(k){ return contSel[k] && datosContainers[k]; });
+}
+
+// Dibuja la barra de acciones cuando hay containers seleccionados.
+function renderContSelBar(){
+  var bar = document.getElementById('contSelBar');
+  if(!bar) return;
+  var sel = contsSeleccionados();
+  if(sel.length === 0){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML =
+    '<span class="csb-count">'+sel.length+' seleccionado'+(sel.length!=1?'s':'')+'</span>'+
+    '<button class="csb-btn warn" onclick="fusionarSeleccionados()">🔀 Fusionar SKUs</button>'+
+    '<button class="csb-btn azul" onclick="moverSeleccionados()">➡️ Mover a equipo</button>'+
+    '<button class="csb-btn peli" onclick="borrarSeleccionadosCont()">🗑 Borrar</button>'+
+    '<button class="csb-btn gris" onclick="limpiarContSel()">✖ Cancelar</button>';
+}
+
+// FUSIONAR: mueve todos los pallets/SKUs de los containers seleccionados a UN
+// container destino (el correcto) y elimina los de origen (con respaldo 24h).
+function fusionarSeleccionados(){
+  var sel = contsSeleccionados();
+  if(sel.length === 0){ toast('Selecciona containers primero'); return; }
+  var dests = Object.keys(datosContainers)
+    .filter(function(k){ return !contSel[k]; })
+    .map(function(k){ var c=datosContainers[k]; return {v:k, txt:(c.num||c.n||k)}; })
+    .sort(function(a,b){ return a.txt.localeCompare(b.txt); });
+  if(dests.length === 0){
+    toast('Deja al menos un container SIN seleccionar para usarlo como destino');
+    return;
+  }
+  var nombresSel = sel.map(function(k){ var c=datosContainers[k]; return (c.num||c.n||k); }).join(', ');
+  modal({tit:'🔀 Fusionar SKUs', msg:'Se moverán todos los pallets de: '+nombresSel+' al container que elijas, y esos containers se eliminarán (con respaldo de 24 h).', input:'select', opciones:dests, valor:dests[0].v, okTxt:'Fusionar', rojo:true, onOk:function(dest){
+    if(!dest) return;
+    conPin(function(){
+      var up = {};
+      sel.forEach(function(clave){
+        var c = datosContainers[clave]; if(!c) return;
+        var regs = c.r || {};
+        Object.keys(regs).forEach(function(rid){ up['containers/'+dest+'/r/'+rid] = regs[rid]; });
+        var bk = JSON.parse(JSON.stringify(c)); bk._bkTs = Date.now();
+        up['respaldos/containers/'+clave] = bk;
+        up['containers/'+clave] = null;
+        up['tombstones/containers/'+clave] = Date.now();
+      });
+      equipoRef.update(up).then(function(){ contSel = {}; toast('Containers fusionados'); render(); })
+        .catch(function(e){ toast('Error: '+(e.message||e)); });
+    });
+  }});
+}
+
+// MOVER: manda los containers seleccionados a otro equipo (otro código).
+function moverSeleccionados(){
+  var sel = contsSeleccionados();
+  if(sel.length === 0){ toast('Selecciona containers primero'); return; }
+  modal({tit:'➡️ Mover a otro equipo', msg:'Escribe el CÓDIGO del equipo destino. Se moverán '+sel.length+' container(s) con todos sus pallets.', input:'text', okTxt:'Continuar', onOk:function(v){
+    var destPin = (v||'').trim().toUpperCase().replace(/[.#$\[\]\/\s]/g,'_');
+    if(!destPin){ toast('Escribe un código de equipo'); return; }
+    if(destPin === pinActual){ toast('Ya están en este equipo'); return; }
+    conPin(function(){
+      var destRef = db.ref('equipos/'+destPin);
+      var proms = sel.map(function(clave){
+        var src = datosContainers[clave]; if(!src) return Promise.resolve();
+        return destRef.child('containers/'+clave).once('value').then(function(snap){
+          var d = snap.val(); var payload;
+          if(d){ payload = d; payload.r = Object.assign({}, d.r||{}, src.r||{}); } else { payload = src; }
+          var du = {}; du['containers/'+clave] = payload; du['tombstones/containers/'+clave] = null;
+          return destRef.update(du);
+        });
+      });
+      Promise.all(proms).then(function(){
+        var up = {};
+        sel.forEach(function(clave){ up['tombstones/containers/'+clave] = Date.now(); up['containers/'+clave] = null; });
+        return equipoRef.update(up);
+      }).then(function(){ contSel = {}; toast('Movidos al equipo '+destPin); render(); })
+        .catch(function(e){ toast('Error al mover: '+(e&&e.message?e.message:e)); });
+    });
+  }});
+}
+
+// BORRAR: elimina los containers seleccionados (con respaldo de 24 h).
+function borrarSeleccionadosCont(){
+  var sel = contsSeleccionados();
+  if(sel.length === 0){ toast('Selecciona containers primero'); return; }
+  var lista = sel.map(function(k){ var c=datosContainers[k]; return '• '+esc(c.num||c.n||k); }).join('<br>');
+  var html = '<div style="font-size:14px;line-height:1.5">Se borrarán para todo el equipo (con respaldo de 24 h):<br><br>'+lista+'</div>';
+  modal({tit:'🗑 Borrar containers', input:'html', html:html, okTxt:'Borrar', rojo:true, onOk:function(){
+    conPin(function(){
+      var up = {};
+      sel.forEach(function(clave){
+        var c = datosContainers[clave]; if(!c) return;
+        var nom = c.num||c.n||clave;
+        var regsRaw = Object.keys(c.r||{}).map(function(rid){ return Object.assign({}, c.r[rid], {contNom:nom}); });
+        archivarRegs(regsRaw, up);
+        var bk = JSON.parse(JSON.stringify(c)); bk._bkTs = Date.now();
+        up['respaldos/containers/'+clave] = bk;
+        up['tombstones/containers/'+clave] = Date.now();
+        up['containers/'+clave] = null;
+      });
+      equipoRef.update(up).then(function(){ contSel = {}; toast('Containers borrados'); render(); })
+        .catch(function(e){ toast('Error: '+(e.message||e)); });
+    });
+  }});
 }
 
 // ---------- presencia ----------
@@ -1060,8 +1204,10 @@ function render(){
           return `<span class="trab-chip"><span class="trab-ava" style="background:${colorAvatar(nm)}">${esc(iniciales(nm))}</span>${esc(nm)}</span>`; }).join('')}
       </div>` : '';
       // Tarjeta COMPACTA: al tocarla se abre la pantalla de detalle con los SKUs agrupados.
-      html += `<div class="container-card compacto" data-clave="${esc(clave)}" onclick="abrirContDetalle('${esc(clave)}')">
+      const selCard = contSel[clave] ? ' sel' : '';
+      html += `<div class="container-card compacto${selCard}" data-clave="${esc(clave)}" onclick="abrirContDetalle('${esc(clave)}')">
         <div class="container-head">
+          <label class="cont-sel-chk" onclick="event.stopPropagation()"><input type="checkbox" ${contSel[clave]?'checked':''} onclick="event.stopPropagation()" onchange="toggleContSel('${esc(clave)}')"></label>
           <div class="cont-icono">📦</div>
           <div class="cont-info">
             <div class="cont-num">${esc(c.num||c.n||clave)}</div>
@@ -1076,6 +1222,7 @@ function render(){
     });
     contEl.innerHTML = html || '<div class="sin-cont"><span class="emoji">🔎</span>'+t('nadaCoincide')+'</div>';
   }
+  renderContSelBar();
 
   // ----- PERSONAS -----
   // ----- PRODUCTIVIDAD / ACTIVIDAD -----
@@ -1734,8 +1881,8 @@ function ejecutarEliminarConts(nombres, borrarStats){
         const regsRaw=Object.keys(c.r||{}).map(rid=>Object.assign({}, c.r[rid], {contNom:cn}));
         archivarRegs(regsRaw, up);
       }
-      // NUEVO: Guardar respaldo completo del container para recuperarlo si se vuelve a escanear.
-      up['respaldos/containers/'+clave]=JSON.parse(JSON.stringify(c));
+      // NUEVO: Guardar respaldo completo (con sello de tiempo) para recuperarlo si se vuelve a escanear dentro de 24 h.
+      { const bk=JSON.parse(JSON.stringify(c)); bk._bkTs=Date.now(); up['respaldos/containers/'+clave]=bk; }
       up['tombstones/containers/'+clave]=Date.now();
       up['containers/'+clave]=null;
     }
@@ -1929,8 +2076,8 @@ function borrarContainer(clave, nom){
       const cont = datosContainers[clave]||{};
       const regsRaw = Object.keys(cont.r||{}).map(rid=>Object.assign({}, cont.r[rid], {contNom:nom}));
       archivarRegs(regsRaw, up);
-      // NUEVO: Guardar respaldo completo del container para recuperarlo si se vuelve a escanear.
-      up['respaldos/containers/'+clave]=JSON.parse(JSON.stringify(cont));
+      // NUEVO: Guardar respaldo completo (con sello de tiempo) para recuperarlo si se vuelve a escanear dentro de 24 h.
+      { const bk=JSON.parse(JSON.stringify(cont)); bk._bkTs=Date.now(); up['respaldos/containers/'+clave]=bk; }
       up['tombstones/containers/'+clave]=Date.now(); up['containers/'+clave]=null;
       equipoRef.update(up).then(()=>toast('Container borrado'));
     });
@@ -2115,8 +2262,8 @@ function fusionarContainer(clave, nom){
       const up={};
       const regs = c.r||{};
       Object.keys(regs).forEach(rid=>{ up['containers/'+dest+'/r/'+rid]=regs[rid]; });
-      // NUEVO: Guardar respaldo completo por si se vuelve a escanear el container origen.
-      up['respaldos/containers/'+clave]=JSON.parse(JSON.stringify(c));
+      // NUEVO: Guardar respaldo completo (con sello de tiempo) por si se vuelve a escanear el container origen dentro de 24 h.
+      { const bk=JSON.parse(JSON.stringify(c)); bk._bkTs=Date.now(); up['respaldos/containers/'+clave]=bk; }
       up['containers/'+clave]=null;
       up['tombstones/containers/'+clave]=Date.now();
       equipoRef.update(up).then(()=>toast('Container fusionado')).catch(e=>toast('Error: '+(e.message||e)));
