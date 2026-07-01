@@ -1,7 +1,7 @@
 {
-  "versionCode": 29,
-  "versionName": "4.1",
-  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.1.apk",
+  "versionCode": 30,
+  "versionName": "4.2",
+  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.2.apk",
   "updateRequired": false,
-  "message": "🎉 Actualización 4.1\n\n• 📍 Ahora el escáner reconoce «Dock» + número como UBICACIÓN (por ejemplo Dock18, Dock-5, DOCK23, dock 7). No hace falta configurar nada.\n\n• 🆕 Formatos de ubicación configurables desde AU Manager: el encargado puede agregar nuevas palabras (Bay, Puerta, Rampa…) desde la página del Manager y TODOS los teléfonos las reconocen en segundos, SIN tener que actualizar la app otra vez.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Primero DESACTÍVALO y luego ACTÍVALO."
+  "message": "🎉 Actualización 4.2\n\n• ⏱️ Arreglado el tiempo «fantasma» en put-away: si vuelves a leer la misma tarima en el mismo sitio, ya NO se cambia la hora final. Así la estadística no se infla por re-lecturas.\n\n• 🗑️ AU Manager: ahora puedes borrar un movimiento suelto (lectura repetida/fantasma) desde la pestaña Actividad para que la estadística quede bien.\n\n• 🔘 El botón para REACTIVAR el botón flotante ahora aparece ARRIBA del todo en este recuadro de novedades.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Toca el botón verde de arriba, o primero DESACTÍVALO y luego ACTÍVALO."
 }
