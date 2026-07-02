@@ -286,10 +286,11 @@
   .prod-semana-head{margin-bottom:12px;}
   .prod-semana-tit{font-size:16px; font-weight:800; color:var(--texto);}
   .prod-semana-sub{font-size:11.5px; color:#2e7d32; font-weight:700; margin-top:2px;}
-  .grid-scroll{overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch;}
+  .grid-scroll{overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; position:relative;}
   .tabla-grid{min-width:560px;}
   .tabla-grid th, .tabla-grid td{padding:7px 5px; font-size:12px; text-align:center;}
-  .tabla-grid th:first-child, .tabla-grid td:first-child{text-align:left;}
+  .tabla-grid th:first-child, .tabla-grid td:first-child{text-align:left; position:sticky; left:0; z-index:10; background:var(--tarjeta); box-shadow:2px 0 4px rgba(0,0,0,.05);}
+  .tabla-grid th:first-child{z-index:11; font-weight:700;}
   .tabla-grid .grid-fecha{font-size:9.5px; color:var(--texto2); font-weight:400;}
   .tabla-grid .grid-nom{font-weight:600; white-space:nowrap;}
   .tabla-grid .grid-vacia{color:#c5ccd4;}
@@ -1818,6 +1819,10 @@ function renderProductividad(){
   const el = document.getElementById('productividad');
   if(!el) return;
 
+  // Preservar la posición de scroll horizontal de la tabla semanal antes de re-renderizar
+  const gridScrollEl = el.querySelector('.grid-scroll');
+  const scrollPos = gridScrollEl ? gridScrollEl.scrollLeft : 0;
+
   // Descuento de descanso: 'auto' = huecos de 1h+ ; '1h'/'1.5h' = resta fija al span del día ; 'cont' = descanso manual marcado por container.
   const esCont = prodBreak==='cont';
   const BR = prodBreak==='1.5h' ? 5400000 : prodBreak==='1h' ? 3600000 : 0;
@@ -2276,6 +2281,12 @@ function renderProductividad(){
       ${filasC||`<tr><td colspan="4" class="cont-sub-nota">${t('prodNingPersona')}</td></tr>`}
     </table>
     <div class="prod-nota">${t('prodNota')}</div>`;
+
+  // Restaurar la posición de scroll horizontal de la tabla semanal después de re-renderizar
+  setTimeout(()=>{
+    const newGridScrollEl = el.querySelector('.grid-scroll');
+    if(newGridScrollEl && scrollPos>0) newGridScrollEl.scrollLeft = scrollPos;
+  }, 0);
 }
 // (punto 4) Abre/cierra el detalle por container de una persona.
 function toggleProdPersona(nom){ prodPersonaAbierta = (prodPersonaAbierta===nom)?null:nom; renderProductividad(); }
