@@ -289,11 +289,11 @@
   .prod-semana-head{margin-bottom:12px;}
   .prod-semana-tit{font-size:16px; font-weight:800; color:var(--texto);}
   .prod-semana-sub{font-size:11.5px; color:#2e7d32; font-weight:700; margin-top:2px;}
-  .grid-scroll{overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch;}
+  .grid-scroll{overflow-x:auto; overflow-y:hidden; margin-bottom:14px; -webkit-overflow-scrolling:touch; transform:translateZ(0);}
   .tabla-grid{min-width:560px; border-collapse:separate; border-spacing:0;}
   .tabla-grid th, .tabla-grid td{padding:7px 5px; font-size:12px; text-align:center;}
-  .tabla-grid td:first-child{text-align:left; position:-webkit-sticky; position:sticky; left:0; z-index:3; background-color:#fff; background-clip:padding-box;}
-  .tabla-grid th:first-child{text-align:left; position:-webkit-sticky; position:sticky; left:0; z-index:4; background-color:#fafbfc; background-clip:padding-box;}
+  .tabla-grid td:first-child{text-align:left; position:-webkit-sticky; position:sticky; left:0; z-index:3; background-color:#fff; background-clip:padding-box; box-shadow:1px 0 0 0 var(--borde); will-change:transform; -webkit-backface-visibility:hidden; backface-visibility:hidden;}
+  .tabla-grid th:first-child{text-align:left; position:-webkit-sticky; position:sticky; left:0; z-index:4; background-color:#fafbfc; background-clip:padding-box; box-shadow:1px 0 0 0 var(--borde); will-change:transform; -webkit-backface-visibility:hidden; backface-visibility:hidden;}
   .tabla-grid .grid-fecha{font-size:9.5px; color:var(--texto2); font-weight:400;}
   .tabla-grid .grid-nom{font-weight:600; white-space:nowrap;}
   .tabla-grid .grid-vacia{color:#c5ccd4;}
@@ -1822,9 +1822,18 @@ function resetHoraCont(clave){
 
 
 // ----- PRODUCTIVIDAD: cuánto hace cada persona/equipo por hora (por SEMANA) -----
+// Anti-parpadeo: mientras el usuario desliza la tabla semanal en horizontal,
+// las actualizaciones de Firebase (presence, etc.) NO deben reconstruir la
+// tabla (eso causaba el parpadeo y que la columna fija saltara). Diferimos el
+// re-render hasta ~0.45s después de que el usuario suelte el scroll.
+let prodScrollActivo=false, prodRenderPend=false, prodScrollTimer=null;
 function renderProductividad(){
   const el = document.getElementById('productividad');
   if(!el) return;
+
+  // Si el usuario está deslizando la tabla ahora mismo, no reconstruimos:
+  // marcamos que quedó pendiente y salimos. Al soltar el scroll se re-renderiza.
+  if(prodScrollActivo){ prodRenderPend = true; return; }
 
   // Preservar la posición de scroll horizontal de la tabla semanal antes de re-renderizar
   const gridScrollEl = el.querySelector('.grid-scroll');
@@ -2127,9 +2136,18 @@ function renderProductividad(){
       ${ocultosPresentes.map(nom=>`<button class="prod-oculto-chip" onclick="mostrarPersona('${esc(nom)}')" title="${t('prodMostrarTit')}"><span class="avatar-xs" style="background:${colorAvatar(nom)}">${esc(iniciales(nom))}</span>${esc(nom)} ↩️</button>`).join('')}
     </div>` : '';
 
-  // ---- (punto 6) Cuadrícula semanal: filas=personas, columnas=Lun..Vie ----
-  const diasSemana=[]; for(let i=0;i<5;i++){ const d=new Date(lun); d.setDate(d.getDate()+i); diasSemana.push(d.getTime()); }
-  const nombresDias = idioma==='en'?['Mon','Tue','Wed','Thu','Fri'] : idioma==='zh'?['周一','周二','周三','周四','周五'] : ['Lun','Mar','Mié','Jue','Vie'];
+  // ---- (punto 6) Cuadrícula semanal: filas=personas, columnas = SOLO días con datos ----
+  // Recorremos la semana completa (Lun..Dom) y nos quedamos ÚNICAMENTE con los
+  // días en los que alguien trabajó. Si un día no tiene datos (p.ej. domingo sin
+  // trabajo), esa columna NO se muestra. Si se trabaja el sábado, sí aparece.
+  const nombresDiasFull = idioma==='en'?['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+        : idioma==='zh'?['周一','周二','周三','周四','周五','周六','周日']
+        : ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  const diasSemanaAll=[]; for(let i=0;i<7;i++){ const d=new Date(lun); d.setDate(d.getDate()+i); diasSemanaAll.push(d.getTime()); }
+  const idxConDatos=[];
+  diasSemanaAll.forEach((dms,i)=>{ const dk=claveDia(dms); if(nombresP.some(n=>P[n].dias[dk])) idxConDatos.push(i); });
+  const diasSemana = idxConDatos.map(i=>diasSemanaAll[i]);
+  const nombresDias = idxConDatos.map(i=>nombresDiasFull[i]);
   const gridHead = `<tr><th>${t('thPersona')}</th>${nombresDias.map((n,i)=>`<th class="n">${n}<br><span class="grid-fecha">${ddmm(diasSemana[i])}</span></th>`).join('')}<th class="n grid-prom-th">${t('gridProm')}</th></tr>`;
   const gridRows = nombresP.map(nom=>{
     const p=P[nom];
@@ -2290,9 +2308,22 @@ function renderProductividad(){
     <div class="prod-nota">${t('prodNota')}</div>`;
 
   // Restaurar la posición de scroll horizontal de la tabla semanal después de re-renderizar
+  // y enganchar el detector de scroll (para diferir re-renders mientras se desliza).
   setTimeout(()=>{
     const newGridScrollEl = el.querySelector('.grid-scroll');
-    if(newGridScrollEl && scrollPos>0) newGridScrollEl.scrollLeft = scrollPos;
+    if(!newGridScrollEl) return;
+    if(scrollPos>0) newGridScrollEl.scrollLeft = scrollPos;
+    if(!newGridScrollEl._flkBound){
+      newGridScrollEl._flkBound = true;
+      newGridScrollEl.addEventListener('scroll', ()=>{
+        prodScrollActivo = true;
+        clearTimeout(prodScrollTimer);
+        prodScrollTimer = setTimeout(()=>{
+          prodScrollActivo = false;
+          if(prodRenderPend){ prodRenderPend=false; renderProductividad(); }
+        }, 450);
+      }, {passive:true});
+    }
   }, 0);
 }
 // (punto 4) Abre/cierra el detalle por container de una persona.
