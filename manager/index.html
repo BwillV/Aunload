@@ -162,6 +162,9 @@
   .persona-tarjeta{display:inline-block; padding:10px 20px; font-size:14px; font-weight:700; border-radius:10px; cursor:pointer; transition:all .15s; background:#e3f2fd; color:#1565c0; border:2px solid transparent;}
   .persona-tarjeta:hover{background:#bbdefb; transform:translateY(-1px);}
   .persona-tarjeta.seleccionada{background:var(--verde); color:#fff; border-color:var(--verde);}
+  .pt-verde{display:inline-block; width:9px; height:9px; border-radius:50%; background:#2e7d32; margin-right:7px; vertical-align:middle; box-shadow:0 0 0 0 rgba(46,125,50,.6); animation:ptPulso 1.6s infinite;}
+  .persona-tarjeta.seleccionada .pt-verde{background:#fff; box-shadow:0 0 0 0 rgba(255,255,255,.6);}
+  @keyframes ptPulso{0%{box-shadow:0 0 0 0 rgba(46,125,50,.55);}70%{box-shadow:0 0 0 6px rgba(46,125,50,0);}100%{box-shadow:0 0 0 0 rgba(46,125,50,0);}}
   .sku-grupo{border-bottom:1px solid var(--gris-claro);}
   .sku-grupo:last-child{border-bottom:none;}
   /* SKU: nombre arriba (línea completa) y la info de pallets debajo, como en la app */
@@ -1570,11 +1573,14 @@ function renderContDetalle(){
   // ---- Recolectar todas las personas que trabajaron/trabajan en este container ----
   const rawRegs = c.r ? Object.entries(c.r).map(([rid,r])=>Object.assign({rid},r)) : [];
   const todasPersonas = {}; // nombre -> true
-  // 1) Personas activas (trabajando AHORA según presencia)
+  const activasAhora = {};  // nombre -> true (trabajando AHORA según presencia en vivo)
+  // 1) Personas activas (trabajando AHORA según presencia). presenciaDeContainer
+  //    devuelve un array [{dev,t,u}]. El nombre sale de u (username) o del device.
   const presenciaCont = presenciaDeContainer(clave);
-  if(presenciaCont && presenciaCont.activos){
-    presenciaCont.activos.forEach(p=>{ if(p.n) todasPersonas[p.n]=true; });
-  }
+  (presenciaCont||[]).forEach(p=>{
+    const nm = (p.u && p.u.trim()) ? p.u.trim() : (nombreDisp(p.dev)||'');
+    if(nm){ todasPersonas[nm]=true; activasAhora[nm]=true; }
+  });
   // 2) Personas históricas (aparecen en los registros)
   rawRegs.forEach(r=>{
     if(regVacio(r)) return;
@@ -1667,7 +1673,8 @@ function renderContDetalle(){
     let tarjetas = `<div class="persona-tarjeta ${esTodos?'seleccionada':''}" onclick="seleccionarPersonaCont('${esc(clave)}','Todos')">👥 ${t('todosLabel')||'Todos'}</div>`;
     listaPersonas.forEach(p=>{
       const sel = filtroActual === p;
-      tarjetas += `<div class="persona-tarjeta ${sel?'seleccionada':''}" onclick="seleccionarPersonaCont('${esc(clave)}','${esc(p)}')">👤 ${esc(p)}</div>`;
+      const activo = activasAhora[p] ? '<span class="pt-verde" title="'+(t('trabajandoAhora'))+'"></span>' : '';
+      tarjetas += `<div class="persona-tarjeta ${sel?'seleccionada':''}" onclick="seleccionarPersonaCont('${esc(clave)}','${esc(p)}')">${activo}👤 ${esc(p)}</div>`;
     });
     selectorPersonasHtml = `<div class="selector-personas">
       <div class="sp-titulo">👷 ${t('quienTrabajoAqui')||'¿Quién trabajó aquí?'} · ${t('tocaParaFiltrar')||'Toca a alguien para ver solo su trabajo'}</div>
