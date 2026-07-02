@@ -2053,21 +2053,21 @@ function renderProductividad(){
     const mk = c.marks.filter(x=>claveDia(x)===dk);
     return msDia(mk);                                   // auto / 1h / 1.5h
   }
-  // Modo EMPRESA: el reloj del container se REPARTE entre las personas que lo trabajaron,
-  // proporcional a lo que hizo cada una. Así, en un container compartido, TODAS salen a la
-  // velocidad del equipo (ej: tú y Luis, los dos a 41 p/h) y los conteos siguen siendo reales.
+  // Modo EMPRESA (regla de la bodega / regla Wilson): en un container trabajado en pareja
+  // se cuenta el RITMO DEL CONTAINER, igual para todos los que lo trabajaron. Como los pallets
+  // se atribuyen COMPLETOS del container a cada persona, el tiempo también debe ser el RELOJ
+  // COMPLETO del container (NO repartido). Así, p/h de la persona en ese container = pallets del
+  // container ÷ reloj del container = ritmo del container (ej: tú y Luis, los dos a 31 p/h).
+  // Repartir el reloj (como antes) inflaba al doble el ritmo cuando se trabajaba en pareja.
   function msPersonaContDiaEmpresa(p, cn, dk){
     const pdc = (p.diaConts[dk]||{})[cn]; if(!pdc) return 0;
-    const cd = (Cdia[cn]||{})[dk];
-    const cCount = cd ? cuentaDe(cd) : 0;
     const pCount = cuentaDe(pdc);
-    if(cCount<=0 || pCount<=0) return 0;
-    const share = Math.min(1, pCount/cCount);
-    return share * clockContDiaMs(cn, dk);
+    if(pCount<=0) return 0;                 // la persona no completó nada de este container ese día
+    return clockContDiaMs(cn, dk);          // reloj COMPLETO del container (ritmo del container)
   }
   // Horas de una persona en UN día (para la cuadrícula lun–vie y para "Por persona").
   function horasPersonaDiaK(p, dk){
-    if(prodMetodo==='empresa'){                         // reloj del container repartido (velocidad de equipo)
+    if(prodMetodo==='empresa'){                         // suma del reloj COMPLETO de cada container (ritmo del container)
       let ms=0; const dc=p.diaConts[dk]||{};
       for(const cn in dc) ms += msPersonaContDiaEmpresa(p, cn, dk);
       return ms/3600000;
@@ -2084,12 +2084,10 @@ function renderProductividad(){
   function horasPersonaCont(p, cn, pc){ return prodMetodo==='empresa' ? horasContainer(cn) : horasDeMarks(pc.marks, cn); }
   // Horas de un container en UN día (para el detalle de "Por persona" del día en curso).
   function horasPersonaContDia(cn, pdc, dk){
-    if(prodMetodo==='empresa'){                          // reloj del container repartido (velocidad de equipo)
-      const cd=(Cdia[cn]||{})[dk];
-      const cCount = cd ? cuentaDe(cd) : 0;
+    if(prodMetodo==='empresa'){                          // reloj COMPLETO del container (ritmo del container)
       const pCount = cuentaDe(pdc);
-      if(cCount<=0 || pCount<=0) return 0;
-      return Math.min(1, pCount/cCount) * clockContDiaMs(cn, dk) / 3600000;
+      if(pCount<=0) return 0;
+      return clockContDiaMs(cn, dk) / 3600000;
     }
     if(esCont) return msContDiaCont(cn, pdc.marks, dk)/3600000;
     return msDia(pdc.marks)/3600000;
