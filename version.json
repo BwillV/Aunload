@@ -1,7 +1,7 @@
 {
-  "versionCode": 33,
-  "versionName": "4.5",
-  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.5.apk",
+  "versionCode": 34,
+  "versionName": "4.6",
+  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.6.apk",
   "updateRequired": false,
-  "message": "🎉 Actualización 4.5\n\n• 📦 TOTAL DE BOXES: al abrir un SKU (tocar para desplegar) ahora sale una línea con el TOTAL de boxes sumado de todos los pallets de ese SKU. Así ves de un vistazo cuántas cajas hay en total.\n\n• 🔤 SIMETRÍA: los bloques «1 pallet x 4 box» ya no se parten a mitad de renglón; si no cabe, el bloque completo pasa entero a la línea siguiente. Se ve más limpio y ordenado.\n\n• 🟢 PUNTO VERDE: en las tarjetas de personas, quien está trabajando AHORA en ese container lleva un puntito verde 🟢 al lado del nombre. Así sabes al instante quién está activo."
+  "message": "🎉 Actualización 4.6\n\n🔧 ARREGLO IMPORTANTE: Pallets abandonados ya NO se guardan\n\nAntes: si escaneabas un pallet, escribías los CTNs pero NO tocabas «Save and Continue» ni «Close Pallet» (lo abandonabas y empezabas otro), ese pallet SE GUARDABA igual.\n\nAhora: la app SOLO registra pallets que de verdad guardaste en el WMS (cuando «Received» tiene un número > 0). Si abandonas un pallet sin confirmar, NO se captura. ✅\n\n---\n\nRecuerda que la versión 4.5 también incluye:\n• 📦 Total de boxes al abrir un SKU\n• 🔤 Simetría: «1 pallet x 4 box» ya no se parte\n• 🟢 Punto verde en quien está trabajando ahora"
 }
