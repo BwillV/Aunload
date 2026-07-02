@@ -286,11 +286,10 @@
   .prod-semana-head{margin-bottom:12px;}
   .prod-semana-tit{font-size:16px; font-weight:800; color:var(--texto);}
   .prod-semana-sub{font-size:11.5px; color:#2e7d32; font-weight:700; margin-top:2px;}
-  .grid-scroll{overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; position:relative; overflow-y:visible;}
-  .tabla-grid{min-width:560px; border-collapse:separate; border-spacing:0;}
+  .grid-scroll{overflow-x:auto; margin-bottom:14px; -webkit-overflow-scrolling:touch; position:relative;}
+  .tabla-grid{min-width:560px; border-collapse:collapse;}
   .tabla-grid th, .tabla-grid td{padding:7px 5px; font-size:12px; text-align:center;}
-  .tabla-grid th:first-child{text-align:left; position:sticky !important; left:0 !important; z-index:11 !important; background:#fff !important; box-shadow:2px 0 4px rgba(0,0,0,.1) !important; font-weight:700;}
-  .tabla-grid td:first-child{text-align:left; position:sticky !important; left:0 !important; z-index:10 !important; background:#fff !important; box-shadow:2px 0 4px rgba(0,0,0,.05) !important;}
+  .tabla-grid th:first-child, .tabla-grid td:first-child{text-align:left; position:relative; z-index:2; background:#fff;}
   .tabla-grid .grid-fecha{font-size:9.5px; color:var(--texto2); font-weight:400;}
   .tabla-grid .grid-nom{font-weight:600; white-space:nowrap;}
   .tabla-grid .grid-vacia{color:#c5ccd4;}
@@ -2286,6 +2285,21 @@ function renderProductividad(){
   setTimeout(()=>{
     const newGridScrollEl = el.querySelector('.grid-scroll');
     if(newGridScrollEl && scrollPos>0) newGridScrollEl.scrollLeft = scrollPos;
+    
+    // Columna fija: mover la primera columna con transform cuando se hace scroll horizontal
+    const hacerColumnaFija = ()=>{
+      const scroll = newGridScrollEl.scrollLeft;
+      const primerasCeldas = newGridScrollEl.querySelectorAll('.tabla-grid th:first-child, .tabla-grid td:first-child');
+      primerasCeldas.forEach(celda=>{
+        celda.style.transform = `translateX(${scroll}px)`;
+        celda.style.boxShadow = scroll>0 ? '2px 0 4px rgba(0,0,0,.1)' : 'none';
+      });
+    };
+    if(newGridScrollEl){
+      newGridScrollEl.removeEventListener('scroll', hacerColumnaFija);
+      newGridScrollEl.addEventListener('scroll', hacerColumnaFija, {passive:true});
+      hacerColumnaFija(); // aplicar inmediatamente
+    }
   }, 0);
 }
 // (punto 4) Abre/cierra el detalle por container de una persona.
