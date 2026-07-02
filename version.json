@@ -1,7 +1,7 @@
 {
-  "versionCode": 32,
-  "versionName": "4.4",
-  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.4.apk",
+  "versionCode": 33,
+  "versionName": "4.5",
+  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.5.apk",
   "updateRequired": false,
-  "message": "🎉 Actualización 4.4\n\n• 👤 TARJETAS DE PERSONAS: dentro de cada container ahora sale una tarjetita por cada quien trabajó o está trabajando ahí. Toca a alguien y solo verás SU trabajo (sus SKUs y su reloj de inicio/fin). La tarjeta «👥 Todos» viene seleccionada por defecto y muestra todo.\n\n• 🗑️ Se quitó el botón «Excluir»: ya no hace falta, ahora seleccionas directamente a la persona que quieres ver.\n\n⚠️ IMPORTANTE: después de actualizar tienes que volver a activar el botón flotante. Toca el botón verde de arriba, o primero DESACTÍVALO y luego ACTÍVALO."
+  "message": "🎉 Actualización 4.5\n\n• 📦 TOTAL DE BOXES: al abrir un SKU (tocar para desplegar) ahora sale una línea con el TOTAL de boxes sumado de todos los pallets de ese SKU. Así ves de un vistazo cuántas cajas hay en total.\n\n• 🔤 SIMETRÍA: los bloques «1 pallet x 4 box» ya no se parten a mitad de renglón; si no cabe, el bloque completo pasa entero a la línea siguiente. Se ve más limpio y ordenado.\n\n• 🟢 PUNTO VERDE: en las tarjetas de personas, quien está trabajando AHORA en ese container lleva un puntito verde 🟢 al lado del nombre. Así sabes al instante quién está activo."
 }
