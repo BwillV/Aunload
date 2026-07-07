@@ -2284,9 +2284,18 @@ function renderProductividad(){
     const nomC = clave
       ? `<span class="cont-link" style="cursor:pointer;color:#1565c0" onclick="event.stopPropagation();abrirContDetalle('${esc(clave)}')">📦 ${esc(cn)} ›</span>`
       : `📦 ${esc(cn)}`;
+    // Break manual (modo 'cont'): igual que en "Por persona", permite aplicar descanso manual al container.
+    let brkUIC='';
+    if(esCont && dkC){
+      const b=prodBreaksCont[dkC+'|'+cn]||{on:false,h:0,m:0};
+      const dkE=esc(dkC), cnE=esc(cn);
+      brkUIC=`<div class="brk-cont"><label class="brk-chk"><input type="checkbox" ${b.on?'checked':''} onchange="toggleBreakCont('${dkE}','${cnE}',this.checked)"> ${t('brkAplicar')}</label>`
+        + (b.on?`<span class="brk-inputs"><input type="number" min="0" max="23" value="${b.h||0}" onchange="setBreakCont('${dkE}','${cnE}','h',this.value)" onclick="event.stopPropagation()" class="brk-num"> ${t('brkH')} <input type="number" min="0" max="59" value="${b.m||0}" onchange="setBreakCont('${dkE}','${cnE}','m',this.value)" onclick="event.stopPropagation()" class="brk-num"> ${t('brkM')}</span>`:'')
+        + `</div>`;
+    }
     // (punto 5) Regla de pareja: la p/h del container (general) es la que aplica a AMBAS personas.
     return sep+`<tr>
-      <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onclick="event.stopPropagation()" onchange="toggleProdContSel('${esc(cn)}')"></label> ${nomC}${horarioC}</td>
+      <td><label class="cont-check"><input type="checkbox" ${prodContSel[cn]?'checked':''} onclick="event.stopPropagation()" onchange="toggleProdContSel('${esc(cn)}')"></label> ${nomC}${horarioC}${brkUIC}</td>
       <td class="n">${c.put}</td><td class="n">${c.recv}</td>
       <td class="n"><b>${tasaTxt(cuentaContainer(c), horasDeMarks(c.marks, cn))}</b></td>
     </tr>`;
