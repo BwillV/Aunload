@@ -1,7 +1,7 @@
 {
-  "versionCode": 34,
-  "versionName": "4.6",
-  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.6.apk",
+  "versionCode": 35,
+  "versionName": "4.7",
+  "downloadUrl": "https://bwillv.github.io/Aunload/AUnloadRescue-4.7.apk",
   "updateRequired": false,
-  "message": "🎉 Actualización 4.6\n\n🔧 ARREGLO IMPORTANTE: Pallets abandonados ya NO se guardan\n\nAntes: si escaneabas un pallet, escribías los CTNs pero NO tocabas «Save and Continue» ni «Close Pallet» (lo abandonabas y empezabas otro), ese pallet SE GUARDABA igual.\n\nAhora: la app SOLO registra pallets que de verdad guardaste en el WMS (cuando «Received» tiene un número > 0). Si abandonas un pallet sin confirmar, NO se captura. ✅\n\n---\n\nRecuerda que la versión 4.5 también incluye:\n• 📦 Total de boxes al abrir un SKU\n• 🔤 Simetría: «1 pallet x 4 box» ya no se parte\n• 🟢 Punto verde en quien está trabajando ahora"
+  "message": "🎉 Actualización 4.7\n\n🔧 ARREGLO IMPORTANTE: cantidades de receiving\n\nEn la 4.6 los pallets de receiving salían con números grandes y equivocados (94, 63, 56...). El problema: la app tomaba el «Received» que es el TOTAL ACUMULADO del PO (va sumando), no la cantidad de ESE pallet.\n\nAhora la app toma la cantidad correcta de cada pallet (los CTNs que escribes) y usa el «Received» solo para saber que el pallet SÍ se guardó (Save and Continue). Así:\n\n• ✅ Cada pallet muestra su cantidad real (ej: 7).\n• ✅ Solo se guardan pallets confirmados (los abandonados no se capturan).\n\n⚠️ Los pallets viejos con números equivocados (94, 63...) puedes borrarlos a mano con el botón de la papelera; los nuevos ya saldrán bien."
 }
