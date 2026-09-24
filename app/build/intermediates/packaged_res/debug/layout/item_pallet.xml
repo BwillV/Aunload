@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardBackgroundColor="#1a2744"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <!-- Número -->
+        <TextView
+            android:id="@+id/txt_pallet_number"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:text="1"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="#2196F3" />
+
+        <!-- Datos del pallet -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:paddingStart="12dp">
+
+            <!-- Pallet Code -->
+            <TextView
+                android:id="@+id/txt_pallet_code"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ILP-00000"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <!-- SKU -->
+            <TextView
+                android:id="@+id/txt_pallet_sku"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SKU-XXXXX"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp"
+                android:paddingTop="2dp" />
+
+            <!-- Ubicación -->
+            <TextView
+                android:id="@+id/txt_pallet_location"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📍 B02-133-3"
+                android:textColor="#4CAF50"
+                android:textSize="13sp"
+                android:paddingTop="2dp" />
+        </LinearLayout>
+
+        <!-- Cantidad y hora -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="end">
+
+            <TextView
+                android:id="@+id/txt_pallet_qty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="15"
+                android:textColor="#FF9800"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txt_pallet_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="12:30:45"
+                android:textColor="#666666"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

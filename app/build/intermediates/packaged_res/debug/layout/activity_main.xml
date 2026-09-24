@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e">
+
+    <!-- ═══════ CONTENIDO PRINCIPAL ═══════ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Toolbar -->
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="#0f3460"
+            app:titleTextColor="#FFFFFF"
+            app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
+
+        <!-- Frame para todo el contenido -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <!-- Home: Lista de Tasks -->
+            <LinearLayout
+                android:id="@+id/home_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <!-- ═══ HEADER DEL CONTAINER (v2.3) ═══ -->
+                <LinearLayout
+                    android:id="@+id/container_header"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:background="#0d2137"
+                    android:padding="10dp"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+
+                    <!-- Icono container -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📦"
+                        android:textSize="20sp"
+                        android:paddingEnd="8dp" />
+
+                    <!-- Info del container -->
+                    <LinearLayout
+                        android:orientation="vertical"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:id="@+id/txt_container_code"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Container: ---"
+                            android:textColor="#FFFFFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txt_container_tasks"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textColor="#AAAAAA"
+                            android:textSize="12sp"
+                            android:visibility="gone" />
+                    </LinearLayout>
+
+                    <!-- Dispositivos activos -->
+                    <LinearLayout
+                        android:id="@+id/devices_indicator"
+                        android:orientation="horizontal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:paddingStart="8dp">
+
+                        <TextView
+                            android:id="@+id/txt_device_indicator"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📱 1"
+                            android:textColor="#4CAF50"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- ═══ INDICADOR OVERLAY (v2.5) ═══ -->
+                <TextView
+                    android:id="@+id/text_overlay_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="✓ Botón flotante activo"
+                    android:textColor="#4CAF50"
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:background="#0A4CAF50"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:visibility="gone" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_tasks"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="8dp"
+                    android:clipToPadding="false" />
+
+                <TextView
+                    android:id="@+id/txt_empty"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="📦\n\nNo hay pallets registrados.\n\nActiva el servicio de accesibilidad\ny trabaja en el WMS.\nLos pallets se registrarán automáticamente."
+                    android:textColor="#888888"
+                    android:textSize="16sp"
+                    android:textAlignment="center"
+                    android:padding="32dp"
+                    android:visibility="visible" />
+
+            </LinearLayout>
+
+            <!-- Contenedor de Fragments (Ajustes, Acerca, Diagnóstico) -->
+            <FrameLayout
+                android:id="@+id/fragment_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone" />
+
+            <!-- FAB con badge -->
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_marginBottom="24dp"
+                android:layout_marginEnd="24dp">
+
+                <com.google.android.material.floatingactionbutton.FloatingActionButton
+                    android:id="@+id/fab_counter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:backgroundTint="#2196F3"
+                    app:fabSize="normal"
+                    app:elevation="6dp"
+                    app:tint="@android:color/transparent" />
+
+                <TextView
+                    android:id="@+id/fab_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="0"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:clickable="false"
+                    android:focusable="false" />
+
+            </FrameLayout>
+
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- ═══════ NAVIGATION DRAWER ═══════ -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/nav_view"
+        android:layout_width="280dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="#16213e"
+        app:headerLayout="@layout/nav_header"
+        app:menu="@menu/drawer_menu"
+        app:itemTextColor="#DDDDDD"
+        app:itemIconTint="#DDDDDD" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

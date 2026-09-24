@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PalletTracker</string>
+    <string name="acc_desc">Permite a PalletTracker leer los textos del WMS en pantalla para registrar pallets automáticamente.</string>
+    <string name="nav_open">Abrir menú</string>
+    <string name="nav_close">Cerrar menú</string>
+</resources>

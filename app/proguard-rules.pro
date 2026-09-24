@@ -1,0 +1,1 @@
+# DiagnosticoDemo ProGuard rules

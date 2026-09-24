@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "963708693750",
+    "project_id": "aunload-rescue",
+    "storage_bucket": "aunload-rescue.firebasestorage.app",
+    "firebase_url": "https://aunload-rescue-default-rtdb.firebaseio.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:963708693750:android:a4967bd15b6385184310d7",
+        "android_client_info": {
+          "package_name": "com.aunload.rescue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnAHU2lBl9TaWUb8LKbVx_gxepiE80ut8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:963708693750:android:pallettracker4310d7",
+        "android_client_info": {
+          "package_name": "com.demoaccesibilidad.capture"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnAHU2lBl9TaWUb8LKbVx_gxepiE80ut8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

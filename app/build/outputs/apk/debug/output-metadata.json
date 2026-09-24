@@ -1,0 +1,20 @@
+{
+  "version": 3,
+  "artifactType": {
+    "type": "APK",
+    "kind": "Directory"
+  },
+  "applicationId": "com.demoaccesibilidad.capture",
+  "variantName": "debug",
+  "elements": [
+    {
+      "type": "SINGLE",
+      "filters": [],
+      "attributes": [],
+      "versionCode": 11,
+      "versionName": "2.6",
+      "outputFile": "PalletTracker-2.6-debug.apk"
+    }
+  ],
+  "elementType": "File"
+}

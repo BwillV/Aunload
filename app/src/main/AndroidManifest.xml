@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <application
+        android:name=".PalletTrackerApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.DiagnosticoDemo">
+
+        <!-- Activity principal -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.DiagnosticoDemo">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Detalle de Task -->
+        <activity
+            android:name=".TaskDetailActivity"
+            android:exported="false"
+            android:label="Detalle Task"
+            android:theme="@style/Theme.PalletTracker.Detail" />
+
+        <!-- Servicio de accesibilidad para captura de pantalla -->
+        <service
+            android:name=".ScreenCaptureService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+
+        <!-- Servicio de overlay flotante (FAB sobre todas las apps) -->
+        <service
+            android:name=".FloatingButtonService"
+            android:exported="false" />
+
+        <!--
+            Desactivar la auto-inicialización de Firebase.
+            En escáner sin Google Play Services, FirebaseInitProvider corre
+            ANTES de nuestra Application y puede tumbar la app en el arranque
+            (antes de que instalemos el logger de crashes).
+            Firebase ahora se inicializa de forma perezosa y protegida en
+            FirebaseManager, solo cuando el usuario activa la sincronización.
+        -->
+        <provider
+            android:name="com.google.firebase.provider.FirebaseInitProvider"
+            android:authorities="${applicationId}.firebaseinitprovider"
+            android:exported="false"
+            tools:node="remove" />
+
+    </application>
+
+</manifest>

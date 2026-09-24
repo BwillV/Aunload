@@ -1,0 +1,500 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- ═══════ SECCIÓN: DIAGNÓSTICO ═══════ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔍  Diagnóstico"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/btn_ver_diagnostico"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:text="📋  Ver capturas del servicio"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:background="#2196F3"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Separador -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ═══════ SECCIÓN: CONTAINER / EQUIPO (NUEVA v2.3) ═══════ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📦  Container / Equipo"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Código compartido para trabajo en equipo"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Campo de código de container -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Código de Container/Equipo"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/edit_container_code"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="Ej: CNT-001, CONT-A, etc."
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="#2a2a4a"
+            android:padding="12dp"
+            android:textSize="16sp"
+            android:singleLine="true"
+            android:inputType="textCapCharacters"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Botón guardar + indicador -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/btn_guardar_container"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="💾  Guardar Código"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:background="#4CAF50"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/btn_limpiar_container"
+                android:layout_width="60dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:text="🗑"
+                android:textSize="18sp"
+                android:background="#F44336"
+                android:layout_marginStart="8dp"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
+
+        <!-- Indicador del container actual -->
+        <TextView
+            android:id="@+id/txt_container_actual"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Container actual: Sin configurar"
+            android:textColor="#FF9800"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Separador -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ═══════ SECCIÓN: BOTÓN FLOTANTE (v2.4) ═══════ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📱  Botón Flotante"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Muestra el contador sobre el WMS y otras apps"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Switch ON/OFF -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Mostrar botón flotante"
+                android:textColor="#DDDDDD"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_overlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true" />
+        </LinearLayout>
+
+        <!-- Estado del overlay -->
+        <TextView
+            android:id="@+id/txt_estado_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Verificando..."
+            android:textColor="#AAAAAA"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Botón permiso -->
+        <TextView
+            android:id="@+id/btn_permiso_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="⚙  Activar permiso de overlay"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:background="#607D8B"
+            android:layout_marginBottom="8dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Botón forzar inicio (v2.5) -->
+        <TextView
+            android:id="@+id/btn_forzar_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="🚀  Forzar inicio del botón"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:background="#FF9800"
+            android:layout_marginBottom="10dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone" />
+
+        <!-- Opacidad -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Opacidad:"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp"
+                android:paddingEnd="8dp" />
+
+            <SeekBar
+                android:id="@+id/seek_opacidad"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="50"
+                android:progress="42" />
+
+            <TextView
+                android:id="@+id/txt_opacidad_val"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:text="92%"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:gravity="end" />
+        </LinearLayout>
+
+        <!-- Separador -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ═══════ SECCIÓN: IDIOMA ═══════ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🌐  Idioma"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/txt_idioma_actual"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Español 🇪🇸"
+            android:textColor="#AAAAAA"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Separador -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ═══════ SECCIÓN: ACCESIBILIDAD ═══════ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="♿  Servicio de Accesibilidad"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/txt_estado_accesibilidad"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Verificando..."
+            android:textColor="#AAAAAA"
+            android:textSize="15sp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/btn_activar_accesibilidad"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:text="⚙  Activar Servicio"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:background="#F44336"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Separador -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ═══════ SECCIÓN: SINCRONIZACIÓN MULTI-DISPOSITIVO ═══════ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔗  Sincronización Multi-Dispositivo"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Switch ON/OFF -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Modo Multi-dispositivo"
+                android:textColor="#DDDDDD"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_sync"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="false" />
+        </LinearLayout>
+
+        <!-- Nombre del dispositivo -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Nombre del dispositivo"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/edit_device_name"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:hint="Ej: Honeywell-01"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="#2a2a4a"
+            android:padding="10dp"
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Firebase URL (info) -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Firebase Realtime DB URL"
+            android:textColor="#AAAAAA"
+            android:textSize="12sp"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/edit_firebase_url"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:hint="https://tu-proyecto.firebaseio.com"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="#2a2a4a"
+            android:padding="10dp"
+            android:textSize="13sp"
+            android:singleLine="true"
+            android:inputType="textUri"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Probar conexión -->
+        <TextView
+            android:id="@+id/btn_test_connection"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="🔌  Probar conexión"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:background="#607D8B"
+            android:layout_marginBottom="8dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Estado de conexión -->
+        <TextView
+            android:id="@+id/txt_sync_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sin configurar"
+            android:textColor="#888888"
+            android:textSize="13sp"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Dispositivos conectados -->
+        <TextView
+            android:id="@+id/txt_device_count"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📱 Dispositivos conectados: 0"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Separador -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333355"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ═══════ SECCIÓN: NOTIFICACIONES ═══════ -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔔  Notificaciones"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Sonido -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Sonido de notificaciones"
+                android:textColor="#DDDDDD"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_sonido"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true" />
+        </LinearLayout>
+
+        <!-- Vibración -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Vibración"
+                android:textColor="#DDDDDD"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_vibracion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

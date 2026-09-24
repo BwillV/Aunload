@@ -1,0 +1,63 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.demoaccesibilidad.capture'
+    compileSdk 28
+
+    defaultConfig {
+        applicationId "com.demoaccesibilidad.capture"
+        minSdk 26
+        targetSdk 28
+        versionCode 11
+        versionName "2.6"
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ""
+            debuggable true
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    // Renombrar APK de salida.
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def name = "PalletTracker-${variant.versionName}"
+            if (variant.buildType.name == "debug") {
+                outputFileName = "${name}-debug.apk"
+            } else {
+                outputFileName = "${name}.apk"
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'com.google.android.material:material:1.1.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
+    implementation 'androidx.fragment:fragment:1.1.0'
+    implementation 'androidx.recyclerview:recyclerview:1.1.0'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.drawerlayout:drawerlayout:1.0.0'
+    implementation 'org.json:json:20230618'
+
+    // ═══ Firebase para sincronización multi-dispositivo ═══
+    // Solo Realtime Database (no requiere Google Play Services para operar).
+    // Se quitó firebase-analytics y firebase-auth porque dependen de GMS,
+    // ausente en los escáner Honeywell, y provocaban crash en el arranque.
+    implementation 'com.google.firebase:firebase-database:20.0.5'
+}
+
+apply plugin: 'com.google.gms.google-services'
