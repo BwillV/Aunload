@@ -14,12 +14,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.SeekBar;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
 /**
@@ -37,17 +37,17 @@ import androidx.fragment.app.Fragment;
 public class AjustesFragment extends Fragment {
 
     private TextView txtEstadoAcc, btnActivarAcc;
-    private Switch switchSync;
+    private SwitchCompat switchSync;
     private EditText editDeviceName;
     private TextView btnTestConnection, txtSyncStatus, txtDeviceCount;
-    private Switch switchSonido, switchVibracion;
+    private SwitchCompat switchSonido, switchVibracion;
 
     // Container/Equipo (v2.3).
     private EditText editContainerCode;
     private TextView btnGuardarContainer, btnLimpiarContainer, txtContainerActual;
 
     // Botón Flotante / Overlay (v2.4 → v2.5).
-    private Switch switchOverlay;
+    private SwitchCompat switchOverlay;
     private TextView btnPermisoOverlay, txtEstadoOverlay, btnForzarOverlay;
     private SeekBar seekOpacidad;
     private TextView txtOpacidadVal;
@@ -63,7 +63,7 @@ public class AjustesFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
-
+        try {
         // ═══════ DIAGNÓSTICO ═══════
         TextView btnDiag = v.findViewById(R.id.btn_ver_diagnostico);
         btnDiag.setOnClickListener(b -> {
@@ -303,11 +303,23 @@ public class AjustesFragment extends Fragment {
         switchVibracion.setOnCheckedChangeListener((btn, checked) -> nh.setVibrationEnabled(checked));
 
         actualizarEstadoAccesibilidad();
+        } catch (Throwable t) {
+            // Captura defensiva: si algo falla al construir la pantalla de
+            // Ajustes, registramos la traza real en crash_log.txt y evitamos
+            // que la app se cierre por completo.
+            PalletTrackerApp.logException(getContext(), "AjustesFragment.onViewCreated", t);
+            if (getContext() != null) {
+                Toast.makeText(getContext(),
+                        "⚠\u00A0Hubo\u00A0un\u00A0problema\u00A0al\u00A0abrir\u00A0Ajustes.\u00A0Se\u00A0guardó\u00A0el\u00A0detalle.",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        try {
         actualizarEstadoAccesibilidad();
         actualizarEstadoOverlay();
 
@@ -346,6 +358,9 @@ public class AjustesFragment extends Fragment {
                 txtContainerActual.setText("Container\u00A0actual:\u00A0Sin\u00A0configurar");
                 txtContainerActual.setTextColor(0xFFFF9800);
             }
+        }
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(getContext(), "AjustesFragment.onResume", t);
         }
     }
 

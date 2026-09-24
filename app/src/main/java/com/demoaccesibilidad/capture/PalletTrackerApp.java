@@ -67,6 +67,18 @@ public class PalletTrackerApp extends Application {
     }
 
     /**
+     * Registra un error NO fatal (atrapado en un try/catch) en el mismo
+     * archivo de log, sin cerrar la app. Útil para diagnosticar fallos
+     * en pantallas concretas (p.ej. Ajustes) en dispositivos sin cable.
+     */
+    public static void logException(Context ctx, String origen, Throwable throwable) {
+        try {
+            Thread t = Thread.currentThread();
+            guardarCrash(ctx, t, new RuntimeException("[NO-FATAL] " + origen, throwable));
+        } catch (Throwable ignored) { }
+    }
+
+    /**
      * Escribe el stack trace completo a crash_log.txt (external files dir,
      * accesible por el administrador de archivos, sin permisos extra).
      */

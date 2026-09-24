@@ -168,7 +168,7 @@
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_overlay"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -347,7 +347,7 @@
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_sync"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -466,7 +466,7 @@
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_sonido"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -489,7 +489,7 @@
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_vibracion"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
