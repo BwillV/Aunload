@@ -294,21 +294,30 @@ public class ScreenCaptureService extends AccessibilityService {
         if (cachedPalletCode == null) return;
         if (savedPalletCodes.contains(cachedPalletCode)) return;
 
+        PalletRepository repo = new PalletRepository(this);
+
+        // v3.2: La pantalla de Put away del WMS NO muestra un Task ID. Si no
+        // logramos extraer uno real, usamos un código de container secuencial
+        // simple ("Container 1", "Container 2", ...) como identificador de
+        // agrupación. Así el detalle y el conteo por container funcionan.
+        String taskParaGuardar = (cachedTaskId != null && !cachedTaskId.isEmpty())
+                ? cachedTaskId
+                : repo.getCurrentContainerCode();
+
         Pallet p = new Pallet(
-                cachedTaskId != null ? cachedTaskId : "",
+                taskParaGuardar,
                 cachedPalletCode,
                 cachedSku != null ? cachedSku : "",
                 cachedQuantity,
                 cachedLocation != null ? cachedLocation : ""
         );
 
-        PalletRepository repo = new PalletRepository(this);
         boolean inserted = repo.insertPallet(p);
 
         if (inserted) {
             savedPalletCodes.add(cachedPalletCode);
             Log.d(TAG, "✅\u00A0Pallet\u00A0guardado:\u00A0" + cachedPalletCode
-                    + "\u00A0task=" + cachedTaskId
+                    + "\u00A0task=" + taskParaGuardar
                     + "\u00A0qty=" + cachedQuantity);
 
             // Notificar a la UI (MainActivity).

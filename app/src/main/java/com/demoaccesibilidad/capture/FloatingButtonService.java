@@ -111,9 +111,16 @@ public class FloatingButtonService extends Service {
     private final BroadcastReceiver updateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (ACTION_UPDATE_FAB.equals(intent.getAction())) {
+            String action = intent != null ? intent.getAction() : null;
+            if (ACTION_UPDATE_FAB.equals(action)
+                    || ScreenCaptureService.ACTION_PALLET_SAVED.equals(action)) {
+                // v3.2: log de depuración para verificar que el broadcast llega
+                // y que el contador se actualiza en tiempo real.
+                int count = palletRepo != null ? palletRepo.getPalletCount() : -1;
+                Log.d(TAG, "🔄\u00A0Broadcast\u00A0recibido\u00A0(" + action
+                        + ")\u00A0→\u00A0refrescando\u00A0contador,\u00A0total=" + count);
                 refrescarContador();
-            } else if (ACTION_STOP_OVERLAY.equals(intent.getAction())) {
+            } else if (ACTION_STOP_OVERLAY.equals(action)) {
                 stopSelf();
             }
         }

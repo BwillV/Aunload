@@ -34,6 +34,8 @@ public class PalletRepository {
     private static final String PREFS_NAME = "pallet_tracker_prefs";
     private static final String KEY_PALLETS = "pallets_json";
     private static final String KEY_COUNTER = "pallet_counter";
+    // v3.2: número de container secuencial (Container 1, Container 2, ...).
+    private static final String KEY_CONTAINER_NUM = "container_number";
     private static final int MAX_PALLETS = 2000;
 
     private final SharedPreferences prefs;
@@ -108,8 +110,13 @@ public class PalletRepository {
     public List<Pallet> getPalletsForTask(String taskId) {
         List<Pallet> out = new ArrayList<>();
         if (taskId == null) return out;
+        // v3.2: coincidencia robusta. Los pallets guardados sin Task ID real
+        // llevan taskId="" y en los resúmenes se etiquetan como "SIN\u00A0TASK".
+        // Comparamos contra ambos para que el detalle nunca salga vacío.
+        final String SIN = "SIN\u00A0TASK";
         for (Pallet p : getAllPallets()) {
-            if (taskId.equals(p.taskId)) {
+            String pid = (p.taskId != null && !p.taskId.isEmpty()) ? p.taskId : SIN;
+            if (taskId.equals(pid) || taskId.equals(p.taskId)) {
                 out.add(p);
             }
         }
@@ -194,12 +201,27 @@ public class PalletRepository {
         return getAllPallets().size();
     }
 
+    // ====================== CONTAINER ======================
+
+    /**
+     * v3.2: Código de container secuencial actual (ej. "Container 1").
+     * La pantalla de Put away del WMS no muestra Task ID, así que usamos
+     * este código simple como identificador de agrupación de los pallets.
+     */
+    public String getCurrentContainerCode() {
+        return "Container\u00A0" + prefs.getInt(KEY_CONTAINER_NUM, 1);
+    }
+
     // ====================== RESET ======================
 
     public void clearAll() {
+        // v3.2: al cerrar el turno/container, avanzamos al siguiente número
+        // para que los nuevos pallets se agrupen en "Container N+1".
+        int nextContainer = prefs.getInt(KEY_CONTAINER_NUM, 1) + 1;
         prefs.edit()
                 .remove(KEY_PALLETS)
                 .putInt(KEY_COUNTER, 0)
+                .putInt(KEY_CONTAINER_NUM, nextContainer)
                 .apply();
     }
 
