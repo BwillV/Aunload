@@ -257,6 +257,17 @@ public class FloatingButtonService extends Service {
         fab = floatingView.findViewById(R.id.fab_floating);
         fabBadge = floatingView.findViewById(R.id.fab_floating_badge);
 
+        // v3.3: garantizar que el número quede SIEMPRE por encima del FAB azul.
+        // El FAB Material tiene elevation propia; si el badge no la supera, el
+        // número queda oculto. Reforzamos por código además del XML.
+        if (fabBadge != null) {
+            fabBadge.setVisibility(View.VISIBLE);
+            fabBadge.setElevation(24f);
+            fabBadge.setTranslationZ(24f);
+            fabBadge.bringToFront();
+            fabBadge.setText(String.valueOf(palletRepo != null ? palletRepo.getPalletCount() : 0));
+        }
+
         // Configurar layout params para overlay.
         int overlayType;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

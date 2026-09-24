@@ -15,7 +15,12 @@
         app:borderWidth="0dp"
         android:contentDescription="Contador de pallets" />
 
-    <!-- Badge de texto sobre el FAB -->
+    <!-- Badge de texto sobre el FAB.
+         IMPORTANTE: el FAB tiene elevation=8dp. En un FrameLayout la elevation
+         manda sobre el orden del XML, así que si el TextView no tiene una
+         elevation MAYOR, el FAB lo dibuja ENCIMA y el número queda oculto.
+         Por eso forzamos elevation y translationZ altos para que el número
+         blanco quede siempre visible en el centro del botón azul. -->
     <TextView
         android:id="@+id/fab_floating_badge"
         android:layout_width="56dp"
@@ -25,6 +30,9 @@
         android:textColor="#FFFFFF"
         android:textSize="20sp"
         android:textStyle="bold"
+        android:visibility="visible"
+        android:elevation="24dp"
+        android:translationZ="24dp"
         android:layout_gravity="center" />
 
 </FrameLayout>
