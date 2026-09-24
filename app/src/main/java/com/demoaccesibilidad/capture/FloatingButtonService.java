@@ -263,6 +263,7 @@ public class FloatingButtonService extends Service {
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 overlayType,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
         );
@@ -288,7 +289,10 @@ public class FloatingButtonService extends Service {
     // =============================================================
 
     private void configurarGestos() {
-        floatingView.setOnTouchListener(new View.OnTouchListener() {
+        // IMPORTANTE: poner el listener directamente en el FAB para que capture
+        // todos los toques, incluyendo el drag. Si está en floatingView, el
+        // FAB puede interceptar los eventos y el drag no funciona.
+        fab.setOnTouchListener(new View.OnTouchListener() {
             private long touchStartTime;
             private boolean longPressHandled = false;
             private Handler longPressHandler = new Handler(Looper.getMainLooper());
@@ -320,11 +324,15 @@ public class FloatingButtonService extends Service {
                         float dx = event.getRawX() - initialTouchX;
                         float dy = event.getRawY() - initialTouchY;
 
+                        // Si se mueve más de 10px, es un drag (no tap).
                         if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-                            isDragging = true;
-                            longPressHandler.removeCallbacks(longPressRunnable);
+                            if (!isDragging) {
+                                isDragging = true;
+                                longPressHandler.removeCallbacks(longPressRunnable);
+                            }
                         }
 
+                        // Siempre actualizar posición mientras se mueve el dedo.
                         if (isDragging) {
                             layoutParams.x = initialX + (int) dx;
                             layoutParams.y = initialY + (int) dy;
