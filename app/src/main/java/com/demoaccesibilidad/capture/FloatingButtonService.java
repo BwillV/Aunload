@@ -18,6 +18,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -237,7 +238,13 @@ public class FloatingButtonService extends Service {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         // Inflar layout.
-        floatingView = LayoutInflater.from(this)
+        // IMPORTANTE: el layout usa un FloatingActionButton de Material
+        // Components, que EXIGE un tema Theme.MaterialComponents. El contexto
+        // de un Service no lo trae, así que envolvemos con ContextThemeWrapper.
+        // Sin esto, la inflación lanza excepción, el servicio muere en silencio
+        // (por el try/catch de onCreate) y el botón NUNCA aparece.
+        Context themedContext = new ContextThemeWrapper(this, R.style.Theme_DiagnosticoDemo);
+        floatingView = LayoutInflater.from(themedContext)
                 .inflate(R.layout.layout_floating_fab, null);
 
         fab = floatingView.findViewById(R.id.fab_floating);

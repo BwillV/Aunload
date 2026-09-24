@@ -349,9 +349,22 @@ public class AjustesFragment extends Fragment {
                 .getSharedPreferences("overlay_prefs", 0);
         boolean overlayEnabled = overlayPrefs.getBoolean("overlay_enabled", true);
 
-        // Sync switch visual con estado real (sin arrancar nada).
+        // Sync switch visual con estado real.
         if (switchOverlay != null) {
             switchOverlay.setChecked(overlayEnabled);
+        }
+
+        // ═══ v2.9: auto-arranque SEGURO del overlay ═══
+        // El switch viene ON por defecto, pero como el listener no dispara con
+        // setChecked(), el servicio no arrancaba solo y el botón no aparecía.
+        // Ahora que FloatingButtonService.onCreate está blindado con
+        // try/catch(Throwable) y el layout se infla con tema Material, es
+        // seguro arrancarlo aquí: si el switch está ON, hay permiso y el
+        // servicio no corre, lo iniciamos.
+        if (overlayEnabled
+                && OverlayPermissionHelper.hasOverlayPermission(requireContext())
+                && !FloatingButtonService.isRunning()) {
+            iniciarOverlay();
         }
 
         FirebaseManager fm = FirebaseManager.getInstance(requireContext());
