@@ -191,6 +191,54 @@ public class PalletRepository {
         return tasks;
     }
 
+    // ====================== CONTAINERS (v3.4) ======================
+
+    /**
+     * v3.4: Devuelve la lista de containers/tasks únicos que tienen pallets
+     * guardados. Usa la misma clave de agrupación que getAllTaskSummaries():
+     * el taskId real o la etiqueta "SIN\u00A0TASK" para los que no tienen.
+     * Sirve para el diálogo de borrado de containers.
+     */
+    public List<String> getUniqueContainers() {
+        List<String> out = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (Pallet p : getAllPallets()) {
+            String key = (p.taskId != null && !p.taskId.isEmpty()) ? p.taskId : "SIN\u00A0TASK";
+            if (seen.add(key)) {
+                out.add(key);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * v3.4: Borra todos los pallets que pertenecen al container indicado.
+     * La coincidencia es robusta: compara contra el taskId real y contra la
+     * etiqueta "SIN\u00A0TASK" (pallets guardados sin Task ID).
+     * @return número de pallets eliminados.
+     */
+    public synchronized int deletePalletsByContainer(String containerCode) {
+        if (containerCode == null) return 0;
+        final String SIN = "SIN\u00A0TASK";
+        List<Pallet> all = getAllPallets();
+        List<Pallet> keep = new ArrayList<>();
+        int removed = 0;
+        for (Pallet p : all) {
+            String key = (p.taskId != null && !p.taskId.isEmpty()) ? p.taskId : SIN;
+            if (containerCode.equals(key) || containerCode.equals(p.taskId)) {
+                removed++;
+            } else {
+                keep.add(p);
+            }
+        }
+        if (removed > 0) {
+            savePallets(keep);
+            // Mantener el contador acumulado coherente con lo que queda.
+            prefs.edit().putInt(KEY_COUNTER, keep.size()).apply();
+        }
+        return removed;
+    }
+
     // ====================== CONTADOR ======================
 
     public int getCounter() {

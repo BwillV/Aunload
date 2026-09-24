@@ -176,10 +176,16 @@ public class MainActivity extends AppCompatActivity
         recyclerTasks.setLayoutManager(new LinearLayoutManager(this));
         recyclerTasks.setAdapter(taskAdapter);
 
-        // ═══════════ FAB — TRIPLE FUNCIONALIDAD ═══════════
-        fab.setOnClickListener(v -> manejarTapFab());
+        // ═══════════ FAB — BOTÓN DE BASURA (v3.4) ═══════════
+        // El FAB dentro de la app deja de cambiar el modo del contador y pasa
+        // a ser un botón de "papelera" para borrar containers completos.
+        fabBadge.setVisibility(View.GONE);            // ya no mostramos el contador aquí
+        fab.setImageResource(android.R.drawable.ic_menu_delete);
+        fab.setBackgroundTintList(ColorStateList.valueOf(0xFFF44336)); // rojo destructivo
+        fab.setContentDescription("Borrar\u00A0containers");
+        fab.setOnClickListener(v -> mostrarDialogoBorrarContainers());
         fab.setOnLongClickListener(v -> {
-            mostrarDialogoReset();
+            mostrarDialogoBorrarContainers();
             return true;
         });
 
@@ -623,9 +629,12 @@ public class MainActivity extends AppCompatActivity
     // ═══════════════════════════════════════════════════════════
 
     private void refrescarContador() {
+        // v3.4: el FAB ahora es un botón de basura (borrar containers), ya no
+        // muestra el contador ni cambia de color. El conteo se ve en el header
+        // del container y en la lista de tasks. Aquí solo mantenemos la
+        // detección de "container completo" para disparar la notificación.
         int scanned = palletRepo.getPalletCount();
 
-        // Si hay sesión de Firebase con más pallets, usar esa cuenta.
         FirebaseManager fm = FirebaseManager.getInstance(this);
         ContainerSession session = fm.getCurrentSession();
         if (session != null && session.scannedPallets > scanned) {
@@ -636,55 +645,13 @@ public class MainActivity extends AppCompatActivity
             fabPrefs.edit().putInt(KEY_EXPECTED_PALLETS, expectedPallets).apply();
         }
 
-        String displayText;
-        switch (fabDisplayMode) {
-            case MODE_REMAINING:
-                int remaining = Math.max(0, expectedPallets - scanned);
-                displayText = String.valueOf(remaining);
-                break;
-            case MODE_RATIO:
-                if (expectedPallets > 0) {
-                    displayText = scanned + "/" + expectedPallets;
-                } else {
-                    displayText = String.valueOf(scanned);
-                }
-                break;
-            case MODE_SCANNED:
-            default:
-                displayText = String.valueOf(scanned);
-                break;
-        }
-
-        fabBadge.setText(displayText);
-
-        if (displayText.length() > 5) {
-            fabBadge.setTextSize(14);
-        } else if (displayText.length() > 3) {
-            fabBadge.setTextSize(16);
-        } else {
-            fabBadge.setTextSize(20);
-        }
-
-        int targetColor;
         if (expectedPallets > 0 && scanned >= expectedPallets) {
-            targetColor = COLOR_COMPLETE;
             if (!containerWasComplete) {
                 containerWasComplete = true;
                 onContainerCompleto(scanned);
             }
         } else {
-            targetColor = COLOR_NORMAL;
             containerWasComplete = false;
-        }
-
-        if (targetColor != currentFabColor) {
-            animarCambioColor(currentFabColor, targetColor);
-            currentFabColor = targetColor;
-        }
-
-        if (targetColor == COLOR_COMPLETE && fabDisplayMode == MODE_REMAINING) {
-            fabBadge.setText("✓");
-            fabBadge.setTextSize(24);
         }
     }
 
@@ -785,7 +752,7 @@ public class MainActivity extends AppCompatActivity
         homeContainer.setVisibility(View.VISIBLE);
         fragmentContainer.setVisibility(View.GONE);
         fab.setVisibility(View.VISIBLE);
-        fabBadge.setVisibility(View.VISIBLE);
+        fabBadge.setVisibility(View.GONE);   // v3.4: el FAB es papelera, sin badge
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle("PalletTracker");
         }
@@ -900,6 +867,93 @@ public class MainActivity extends AppCompatActivity
                     refrescarDatos();
                     Toast.makeText(this,
                             "🔄\u00A0Reseteado\u00A0a\u00A00",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //           BORRAR CONTAINERS (v3.4) — FAB PAPELERA
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Muestra un diálogo con la lista de containers guardados y checkboxes
+     * para seleccionar cuáles borrar (selección múltiple).
+     */
+    private void mostrarDialogoBorrarContainers() {
+        notifHelper.vibrarCorto();
+
+        final List<String> containers = palletRepo.getUniqueContainers();
+        if (containers.isEmpty()) {
+            Toast.makeText(this,
+                    "🗑\u00A0No\u00A0hay\u00A0containers\u00A0para\u00A0borrar",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final String[] labels = new String[containers.size()];
+        final boolean[] checked = new boolean[containers.size()];
+        for (int i = 0; i < containers.size(); i++) {
+            int count = palletRepo.getPalletsForTask(containers.get(i)).size();
+            labels[i] = containers.get(i) + "\u00A0(" + count + "\u00A0pallets)";
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("🗑\u00A0Borrar\u00A0containers")
+                .setMultiChoiceItems(labels, checked,
+                        (d, which, isChecked) -> checked[which] = isChecked)
+                .setPositiveButton("Borrar\u00A0seleccionados", (d, w) -> {
+                    List<String> aBorrar = new ArrayList<>();
+                    for (int i = 0; i < containers.size(); i++) {
+                        if (checked[i]) aBorrar.add(containers.get(i));
+                    }
+                    if (aBorrar.isEmpty()) {
+                        Toast.makeText(this,
+                                "No\u00A0seleccionaste\u00A0ningún\u00A0container",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    confirmarBorradoContainers(aBorrar);
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    /**
+     * Diálogo de confirmación final antes de borrar los containers elegidos.
+     */
+    private void confirmarBorradoContainers(final List<String> containers) {
+        StringBuilder sb = new StringBuilder();
+        for (String c : containers) {
+            if (sb.length() > 0) sb.append(",\u00A0");
+            sb.append(c);
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("⚠\u00A0Confirmar\u00A0borrado")
+                .setMessage("¿Seguro que quieres borrar " + containers.size()
+                        + "\u00A0container(s)?\n\n" + sb
+                        + "\n\nEsta\u00A0acción\u00A0no\u00A0se\u00A0puede\u00A0deshacer.")
+                .setPositiveButton("Sí,\u00A0borrar", (d, w) -> {
+                    int total = 0;
+                    for (String c : containers) {
+                        total += palletRepo.deletePalletsByContainer(c);
+                    }
+                    notifHelper.vibrarCorto();
+
+                    // Refrescar la lista de tasks en Home.
+                    refrescarDatos();
+
+                    // Avisar al overlay flotante para que actualice su contador.
+                    try {
+                        Intent fabUpdate = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
+                        fabUpdate.setPackage(getPackageName());
+                        sendBroadcast(fabUpdate);
+                    } catch (Exception ignored) { }
+
+                    Toast.makeText(this,
+                            "🗑\u00A0" + total + "\u00A0pallets\u00A0borrados",
                             Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Cancelar", null)
