@@ -79,6 +79,70 @@ public class PalletTrackerApp extends Application {
     }
 
     /**
+     * Lee el contenido completo del registro de errores para mostrarlo
+     * dentro de la app (pestaña "Errores"). Devuelve cadena vacía si no
+     * hay errores registrados.
+     */
+    public static String readCrashLog(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        // Preferir external files dir; si no, internal.
+        File f = null;
+        try {
+            File dir = ctx.getExternalFilesDir(null);
+            if (dir != null) {
+                File ext = new File(dir, CRASH_FILE);
+                if (ext.exists()) f = ext;
+            }
+        } catch (Throwable ignored) { }
+        if (f == null) {
+            File intf = new File(ctx.getFilesDir(), CRASH_FILE);
+            if (intf.exists()) f = intf;
+        }
+        if (f == null || !f.exists()) return "";
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f));
+            String line;
+            while ((line = br.readLine()) != null) {
+                sb.append(line).append('\n');
+            }
+            br.close();
+        } catch (Throwable t) {
+            sb.append("No se pudo leer el registro: ").append(t.getMessage());
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Ruta legible del archivo de errores, para mostrar al usuario.
+     */
+    public static String getCrashLogPath(Context ctx) {
+        try {
+            File dir = ctx.getExternalFilesDir(null);
+            if (dir != null) {
+                return new File(dir, CRASH_FILE).getAbsolutePath();
+            }
+        } catch (Throwable ignored) { }
+        return new File(ctx.getFilesDir(), CRASH_FILE).getAbsolutePath();
+    }
+
+    /**
+     * Borra el registro de errores (external e internal).
+     */
+    public static void clearCrashLog(Context ctx) {
+        try {
+            File dir = ctx.getExternalFilesDir(null);
+            if (dir != null) {
+                File ext = new File(dir, CRASH_FILE);
+                if (ext.exists()) ext.delete();
+            }
+        } catch (Throwable ignored) { }
+        try {
+            File intf = new File(ctx.getFilesDir(), CRASH_FILE);
+            if (intf.exists()) intf.delete();
+        } catch (Throwable ignored) { }
+    }
+
+    /**
      * Escribe el stack trace completo a crash_log.txt (external files dir,
      * accesible por el administrador de archivos, sin permisos extra).
      */

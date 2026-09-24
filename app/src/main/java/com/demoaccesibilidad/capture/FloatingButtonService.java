@@ -133,39 +133,51 @@ public class FloatingButtonService extends Service {
     public void onCreate() {
         super.onCreate();
         isRunning = true;
+        try {
+            palletRepo = new PalletRepository(this);
+            fabPrefs = getSharedPreferences(PREFS_FAB, MODE_PRIVATE);
+            overlayPrefs = getSharedPreferences(PREFS_OVERLAY, MODE_PRIVATE);
 
-        palletRepo = new PalletRepository(this);
-        fabPrefs = getSharedPreferences(PREFS_FAB, MODE_PRIVATE);
-        overlayPrefs = getSharedPreferences(PREFS_OVERLAY, MODE_PRIVATE);
+            fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SCANNED);
+            expectedPallets = fabPrefs.getInt(KEY_EXPECTED_PALLETS, 0);
 
-        fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SCANNED);
-        expectedPallets = fabPrefs.getInt(KEY_EXPECTED_PALLETS, 0);
+            // Crear canal de notificación y lanzar foreground.
+            crearCanalNotificacion();
+            startForeground(NOTIF_ID, crearNotificacion());
 
-        // Crear canal de notificación y lanzar foreground.
-        crearCanalNotificacion();
-        startForeground(NOTIF_ID, crearNotificacion());
+            // Crear vista flotante.
+            crearOverlay();
 
-        // Crear vista flotante.
-        crearOverlay();
+            // Registrar receivers.
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(ACTION_UPDATE_FAB);
+            filter.addAction(ACTION_STOP_OVERLAY);
+            filter.addAction(ScreenCaptureService.ACTION_PALLET_SAVED);
+            registerReceiver(updateReceiver, filter);
 
-        // Registrar receivers.
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ACTION_UPDATE_FAB);
-        filter.addAction(ACTION_STOP_OVERLAY);
-        filter.addAction(ScreenCaptureService.ACTION_PALLET_SAVED);
-        registerReceiver(updateReceiver, filter);
-
-        // Refresh periódico (cada 2s para mantenerse sincronizado).
-        refreshRunnable = () -> {
-            refrescarContador();
+            // Refresh periódico (cada 2s para mantenerse sincronizado).
+            refreshRunnable = () -> {
+                refrescarContador();
+                refreshHandler.postDelayed(refreshRunnable, 2000);
+            };
             refreshHandler.postDelayed(refreshRunnable, 2000);
-        };
-        refreshHandler.postDelayed(refreshRunnable, 2000);
 
-        // Actualizar inmediatamente.
-        refrescarContador();
+            // Actualizar inmediatamente.
+            refrescarContador();
 
-        Log.d(TAG, "✅\u00A0Overlay\u00A0flotante\u00A0iniciado");
+            Log.d(TAG, "✅\u00A0Overlay\u00A0flotante\u00A0iniciado");
+        } catch (Throwable t) {
+            // Nunca dejar que el servicio tumbe la app entera. Registramos la
+            // traza real y nos detenemos de forma limpia.
+            PalletTrackerApp.logException(getApplicationContext(),
+                    "FloatingButtonService.onCreate", t);
+            try {
+                // Salir de foreground y quitar la notificación si se llegó a crear.
+                stopForeground(true);
+            } catch (Throwable ignored) { }
+            isRunning = false;
+            stopSelf();
+        }
     }
 
     @Override

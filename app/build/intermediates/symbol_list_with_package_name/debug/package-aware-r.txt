@@ -1636,6 +1636,8 @@ id blocking
 id bottom
 id bounce
 id btn_activar_accesibilidad
+id btn_actualizar_log
+id btn_compartir_log
 id btn_diag_borrar
 id btn_diag_copiar
 id btn_diag_grabar
@@ -1643,6 +1645,7 @@ id btn_diag_refrescar
 id btn_forzar_overlay
 id btn_guardar_container
 id btn_limpiar_container
+id btn_limpiar_log
 id btn_permiso_overlay
 id btn_test_connection
 id btn_ver_diagnostico
@@ -1799,6 +1802,7 @@ id mtrl_picker_title_text
 id multiply
 id nav_acerca
 id nav_ajustes
+id nav_errores
 id nav_home
 id nav_view
 id navigation_header_container
@@ -1944,12 +1948,14 @@ id txt_container_actual
 id txt_container_code
 id txt_container_info
 id txt_container_tasks
+id txt_contenido_log
 id txt_device_count
 id txt_device_indicator
 id txt_diag
 id txt_diag_estado
 id txt_empty
 id txt_estado_accesibilidad
+id txt_estado_log
 id txt_estado_overlay
 id txt_idioma_actual
 id txt_last_time
@@ -1962,6 +1968,7 @@ id txt_pallet_qty
 id txt_pallet_sku
 id txt_pallet_time
 id txt_pallet_total
+id txt_ruta_log
 id txt_sync_status
 id txt_task_id
 id txt_task_title
@@ -2060,6 +2067,7 @@ layout dialog_container_options
 layout fragment_acerca_de
 layout fragment_ajustes
 layout fragment_diagnostico
+layout fragment_errores
 layout item_pallet
 layout item_task
 layout layout_floating_fab

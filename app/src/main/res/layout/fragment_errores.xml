@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e"
+    android:padding="16dp">
+
+    <!-- Título -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🐞  Registro de Errores"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Aquí queda el detalle técnico de cualquier fallo. Compártelo para poder darte el arreglo exacto."
+        android:textColor="#AAAAAA"
+        android:textSize="13sp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Ruta del archivo -->
+    <TextView
+        android:id="@+id/txt_ruta_log"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#607D8B"
+        android:textSize="11sp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Botones de acción -->
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:id="@+id/btn_actualizar_log"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="🔄  Actualizar"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:background="#2196F3"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btn_compartir_log"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="📤  Compartir"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:background="#4CAF50"
+            android:layout_marginStart="8dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btn_limpiar_log"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="🗑  Limpiar"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:background="#F44336"
+            android:layout_marginStart="8dp"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <!-- Estado / resumen -->
+    <TextView
+        android:id="@+id/txt_estado_log"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#FF9800"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Contenido del log -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#0f0f1e"
+        android:padding="10dp">
+
+        <TextView
+            android:id="@+id/txt_contenido_log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sin errores registrados. 🎉"
+            android:textColor="#DDDDDD"
+            android:textSize="12sp"
+            android:typeface="monospace"
+            android:textIsSelectable="true" />
+    </ScrollView>
+
+</LinearLayout>

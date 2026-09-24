@@ -760,6 +760,8 @@ public class MainActivity extends AppCompatActivity
             mostrarHome();
         } else if (id == R.id.nav_ajustes) {
             mostrarFragment(new AjustesFragment(), "Ajustes");
+        } else if (id == R.id.nav_errores) {
+            mostrarFragment(new ErroresFragment(), "Errores");
         } else if (id == R.id.nav_acerca) {
             mostrarFragment(new AcercaDeFragment(), "Acerca\u00A0de");
         }

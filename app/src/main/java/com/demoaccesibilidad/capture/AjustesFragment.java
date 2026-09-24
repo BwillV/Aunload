@@ -57,7 +57,22 @@ public class AjustesFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_ajustes, container, false);
+        try {
+            return inflater.inflate(R.layout.fragment_ajustes, container, false);
+        } catch (Throwable t) {
+            // Si la propia inflación del layout falla (recurso/tema/vista),
+            // registramos la traza real y mostramos una vista mínima en lugar
+            // de tumbar la app.
+            PalletTrackerApp.logException(getContext(), "AjustesFragment.onCreateView", t);
+            android.widget.TextView tv = new android.widget.TextView(inflater.getContext());
+            tv.setText("⚠\u00A0No\u00A0se\u00A0pudo\u00A0cargar\u00A0Ajustes.\n"
+                    + "Revisa\u00A0la\u00A0pestaña\u00A0\"Errores\"\u00A0para\u00A0ver\u00A0el\u00A0detalle.");
+            tv.setTextColor(0xFFFFFFFF);
+            tv.setBackgroundColor(0xFF1a1a2e);
+            tv.setPadding(48, 48, 48, 48);
+            tv.setTextSize(16);
+            return tv;
+        }
     }
 
     @Override
@@ -323,21 +338,18 @@ public class AjustesFragment extends Fragment {
         actualizarEstadoAccesibilidad();
         actualizarEstadoOverlay();
 
-        // ═══ AUTO-RESTART: Si switch está ON pero servicio murió, reiniciarlo ═══
+        // ═══ NOTA v2.8: se ELIMINÓ el auto-arranque del servicio overlay ═══
+        // Antes, al abrir Ajustes con el permiso concedido se iniciaba el
+        // FloatingButtonService automáticamente. Ese arranque corre en el
+        // ciclo de vida del propio servicio (fuera de este try/catch) y, si
+        // fallaba, tumbaba toda la app justo al entrar a Ajustes. Ahora el
+        // botón flotante SOLO se inicia por acción explícita del usuario
+        // (el switch o el botón "Forzar inicio").
         SharedPreferences overlayPrefs = requireContext()
                 .getSharedPreferences("overlay_prefs", 0);
         boolean overlayEnabled = overlayPrefs.getBoolean("overlay_enabled", true);
 
-        if (overlayEnabled
-                && OverlayPermissionHelper.hasOverlayPermission(requireContext())
-                && !FloatingButtonService.isRunning()) {
-            // El switch dice ON pero el servicio no está corriendo → reiniciar.
-            iniciarOverlay();
-            // Pequeño delay para actualizar UI después del arranque.
-            new Handler(Looper.getMainLooper()).postDelayed(this::actualizarEstadoOverlay, 500);
-        }
-
-        // Sync switch visual con estado real.
+        // Sync switch visual con estado real (sin arrancar nada).
         if (switchOverlay != null) {
             switchOverlay.setChecked(overlayEnabled);
         }
