@@ -289,50 +289,52 @@ public class FloatingButtonService extends Service {
     // =============================================================
 
     private void configurarGestos() {
-        // IMPORTANTE: poner el listener directamente en el FAB para que capture
-        // todos los toques, incluyendo el drag. Si está en floatingView, el
-        // FAB puede interceptar los eventos y el drag no funciona.
+        // Máquina de estados para que TODOS los gestos coexistan:
+        //   - Drag: movimiento > DRAG_THRESHOLD (10 px)
+        //   - Long press: dedo quieto > 600 ms
+        //   - Single tap: toque corto, sin segundo tap en 300 ms
+        //   - Double tap: dos toques cortos con < 300 ms entre ellos
         fab.setOnTouchListener(new View.OnTouchListener() {
-            private long touchStartTime;
-            private boolean longPressHandled = false;
-            private Handler longPressHandler = new Handler(Looper.getMainLooper());
-            private Runnable longPressRunnable;
+            private long touchDownTime;
+            private boolean longPressFired = false;
+            private final Handler lpHandler = new Handler(Looper.getMainLooper());
+            private Runnable lpRunnable;
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
+                        // Guardar estado inicial.
                         initialX = layoutParams.x;
                         initialY = layoutParams.y;
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
-                        touchStartTime = System.currentTimeMillis();
+                        touchDownTime = System.currentTimeMillis();
                         isDragging = false;
-                        longPressHandled = false;
+                        longPressFired = false;
 
-                        // Programar long press.
-                        longPressRunnable = () -> {
+                        // Programar detección de long press (600 ms).
+                        lpRunnable = () -> {
                             if (!isDragging) {
-                                longPressHandled = true;
+                                longPressFired = true;
+                                v.performHapticFeedback(
+                                        android.view.HapticFeedbackConstants.LONG_PRESS);
                                 onLongPressFab();
                             }
                         };
-                        longPressHandler.postDelayed(longPressRunnable, 600);
-                        return true;
+                        lpHandler.postDelayed(lpRunnable, 600);
+                        return true;   // consumir DOWN
 
                     case MotionEvent.ACTION_MOVE:
                         float dx = event.getRawX() - initialTouchX;
                         float dy = event.getRawY() - initialTouchY;
 
-                        // Si se mueve más de 10px, es un drag (no tap).
-                        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-                            if (!isDragging) {
-                                isDragging = true;
-                                longPressHandler.removeCallbacks(longPressRunnable);
-                            }
+                        if (!isDragging &&
+                                (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+                            isDragging = true;
+                            lpHandler.removeCallbacks(lpRunnable);  // cancelar long press
                         }
 
-                        // Siempre actualizar posición mientras se mueve el dedo.
                         if (isDragging) {
                             layoutParams.x = initialX + (int) dx;
                             layoutParams.y = initialY + (int) dy;
@@ -343,27 +345,30 @@ public class FloatingButtonService extends Service {
                         return true;
 
                     case MotionEvent.ACTION_UP:
-                        longPressHandler.removeCallbacks(longPressRunnable);
+                    case MotionEvent.ACTION_CANCEL:
+                        lpHandler.removeCallbacks(lpRunnable);
 
+                        // ── Drag terminó: guardar posición ──
                         if (isDragging) {
-                            // Guardar posición después de drag.
                             overlayPrefs.edit()
                                     .putInt(KEY_OVERLAY_X, layoutParams.x)
                                     .putInt(KEY_OVERLAY_Y, layoutParams.y)
                                     .apply();
+                            isDragging = false;
                             return true;
                         }
 
-                        if (longPressHandled) return true;
+                        // ── Long press ya se disparó: nada más que hacer ──
+                        if (longPressFired) return true;
 
-                        // Click normal → detectar tap / doble tap.
-                        long pressDuration = System.currentTimeMillis() - touchStartTime;
-                        if (pressDuration < 500) {
+                        // ── Toque corto → delegar a manejarTap() ──
+                        long elapsed = System.currentTimeMillis() - touchDownTime;
+                        if (elapsed < 500) {
                             manejarTap();
                         }
                         return true;
                 }
-                return false;
+                return true;  // consumir cualquier otro evento
             }
         });
     }
