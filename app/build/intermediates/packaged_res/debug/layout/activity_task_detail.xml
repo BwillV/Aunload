@@ -15,7 +15,7 @@
         app:titleTextColor="#FFFFFF"
         app:navigationIcon="?attr/homeAsUpIndicator" />
 
-    <!-- Header del Task -->
+    <!-- Header del Container -->
     <LinearLayout
         android:orientation="vertical"
         android:layout_width="match_parent"
@@ -27,7 +27,7 @@
             android:id="@+id/txt_task_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="TASK-0000"
+            android:text="Container"
             android:textColor="#FFFFFF"
             android:textSize="22sp"
             android:textStyle="bold"

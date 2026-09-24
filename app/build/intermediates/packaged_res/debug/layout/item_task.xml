@@ -16,21 +16,21 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- Icono de task -->
+        <!-- Icono de container -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📋"
+            android:text="📦"
             android:textSize="24sp"
             android:paddingEnd="12dp" />
 
-        <!-- Task ID -->
+        <!-- Container -->
         <TextView
             android:id="@+id/txt_task_id"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="TASK-0000"
+            android:text="Container 1"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />

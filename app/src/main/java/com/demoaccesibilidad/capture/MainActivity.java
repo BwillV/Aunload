@@ -133,6 +133,8 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
 
         palletRepo = new PalletRepository(this);
+        // v4.0 — Migrar datos heredados (TASK-xxxx / SIN TASK / vacío) a "Container 1".
+        palletRepo.migrateLegacyToContainers();
         notifHelper = new NotificationHelper(this);
         fabPrefs = getSharedPreferences(PREFS_FAB, MODE_PRIVATE);
 
@@ -270,52 +272,31 @@ public class MainActivity extends AppCompatActivity
      * Actualiza el header del container con la info actual.
      */
     private void refrescarContainerHeader() {
-        FirebaseManager fm = FirebaseManager.getInstance(this);
-        String containerCode = fm.getContainerCode();
-        ContainerSession session = fm.getCurrentSession();
+        // v4.0 — Header simple, solo containers. Sin tasks.
+        int totalPallets = palletRepo.getPalletCount();
 
-        if (containerCode != null && !containerCode.isEmpty()) {
-            containerHeader.setVisibility(View.VISIBLE);
-            txtContainerCode.setText("Container:\u00A0" + containerCode);
-
-            // Mostrar tasks del container.
-            if (session != null && session.taskIds != null && !session.taskIds.isEmpty()) {
-                String tasksDisplay = session.getTasksDisplay();
-                if (!tasksDisplay.isEmpty()) {
-                    txtContainerTasks.setVisibility(View.VISIBLE);
-                    txtContainerTasks.setText("Tasks:\u00A0" + tasksDisplay);
-                } else {
-                    txtContainerTasks.setVisibility(View.GONE);
-                }
-            } else {
-                // Inferir tasks de los pallets locales.
-                Set<String> localTasks = palletRepo.getUniqueTaskIds();
-                if (!localTasks.isEmpty()) {
-                    StringBuilder sb = new StringBuilder("Tasks:\u00A0");
-                    boolean first = true;
-                    for (String tid : localTasks) {
-                        if (!first) sb.append("\u00A0/\u00A0");
-                        sb.append(tid);
-                        first = false;
-                    }
-                    txtContainerTasks.setVisibility(View.VISIBLE);
-                    txtContainerTasks.setText(sb.toString());
-                } else {
-                    txtContainerTasks.setVisibility(View.GONE);
-                }
-            }
-
-            // Dispositivos activos.
-            int deviceCount = fm.getActiveDeviceCount();
-            if (deviceCount > 1) {
-                txtDeviceIndicator.setText("📱\u00A0" + deviceCount);
-                txtDeviceIndicator.setTextColor(0xFF4CAF50);
-            } else {
-                txtDeviceIndicator.setText("📱\u00A01");
-                txtDeviceIndicator.setTextColor(0xFF888888);
-            }
-        } else {
+        if (totalPallets <= 0) {
             containerHeader.setVisibility(View.GONE);
+            return;
+        }
+
+        containerHeader.setVisibility(View.VISIBLE);
+        txtContainerCode.setText("Actual:\u00A0" + palletRepo.getCurrentContainerCode());
+
+        int numContainers = palletRepo.getContainerList().size();
+        txtContainerTasks.setVisibility(View.VISIBLE);
+        txtContainerTasks.setText(totalPallets + "\u00A0pallets\u00A0•\u00A0"
+                + numContainers + (numContainers == 1 ? "\u00A0container" : "\u00A0containers"));
+
+        // Dispositivos activos.
+        FirebaseManager fm = FirebaseManager.getInstance(this);
+        int deviceCount = fm.getActiveDeviceCount();
+        if (deviceCount > 1) {
+            txtDeviceIndicator.setText("📱\u00A0" + deviceCount);
+            txtDeviceIndicator.setTextColor(0xFF4CAF50);
+        } else {
+            txtDeviceIndicator.setText("📱\u00A01");
+            txtDeviceIndicator.setTextColor(0xFF888888);
         }
     }
 
@@ -775,17 +756,9 @@ public class MainActivity extends AppCompatActivity
     // ====================== DATOS ======================
 
     private void refrescarDatos() {
-        FirebaseManager fm = FirebaseManager.getInstance(this);
-        String containerCode = fm.getContainerCode();
-
-        List<TaskSummary> tasks;
-
-        if (containerCode != null && !containerCode.isEmpty()) {
-            // Modo container: agrupar todos los tasks en uno solo con el containerCode.
-            tasks = palletRepo.getContainerTaskSummaries();
-        } else {
-            tasks = palletRepo.getAllTaskSummaries();
-        }
+        // v4.0 — Solo containers. Ya no hay tasks: la lista siempre se agrupa
+        // por container (Container 1, Container 2, ...).
+        List<TaskSummary> tasks = palletRepo.getContainerList();
 
         taskAdapter.setTasks(tasks);
 
@@ -829,17 +802,9 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onTaskClick(TaskSummary task) {
+        // v4.0 — Al tocar un container abrimos el detalle con sus pallets.
         Intent intent = new Intent(this, TaskDetailActivity.class);
-        intent.putExtra("taskId", task.taskId);
-
-        // Si es un container agrupado, pasar flag.
-        FirebaseManager fm = FirebaseManager.getInstance(this);
-        String containerCode = fm.getContainerCode();
-        if (containerCode != null && !containerCode.isEmpty()) {
-            intent.putExtra("containerMode", true);
-            intent.putExtra("containerCode", containerCode);
-        }
-
+        intent.putExtra("containerCode", task.taskId);
         startActivity(intent);
     }
 

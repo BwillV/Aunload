@@ -1,6 +1,7 @@
 package com.demoaccesibilidad.capture;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.os.Build;
@@ -57,24 +58,12 @@ public class FloatingDialogHelper {
         titulo.setPadding(0, 0, 0, dp(context, 12));
         root.addView(titulo);
 
-        // Info actual.
+        // Info actual (v4.0 — solo containers).
         PalletRepository repo = new PalletRepository(context);
-        SharedPreferences fabPrefs = context.getSharedPreferences(PREFS_FAB, Context.MODE_PRIVATE);
         int scanned = repo.getPalletCount();
-        int expected = fabPrefs.getInt(KEY_EXPECTED_PALLETS, 0);
+        String containerActual = repo.getCurrentContainerCode();
 
-        FirebaseManager fm = FirebaseManager.getInstance(context);
-        String containerCode = fm.getContainerCode();
-
-        String infoText;
-        if (containerCode != null && !containerCode.isEmpty()) {
-            infoText = containerCode + "\u00A0•\u00A0" + scanned;
-            if (expected > 0) infoText += "/" + expected;
-        } else if (expected > 0) {
-            infoText = scanned + "/" + expected + "\u00A0pallets";
-        } else {
-            infoText = scanned + "\u00A0pallets\u00A0escaneadas";
-        }
+        String infoText = containerActual + "\u00A0•\u00A0" + scanned + "\u00A0pallets";
         TextView txtInfo = crearTexto(context, infoText, 14, false);
         txtInfo.setTextColor(COLOR_HINT);
         txtInfo.setPadding(0, 0, 0, dp(context, 16));
@@ -83,23 +72,24 @@ public class FloatingDialogHelper {
         // Overlay params.
         final WindowManager.LayoutParams params = crearOverlayParams();
 
-        // Botón: Nuevo Container.
+        // Botón: Nuevo Container (v4.0 — NO borra pallets, solo abre uno nuevo).
         Button btnNuevo = crearBoton(context, "🆕\u00A0Nuevo\u00A0Container", COLOR_BLUE);
         btnNuevo.setOnClickListener(v -> {
             removerOverlay(wm, root);
-            showNuevoContainerDialog(context, wm, onDismiss);
+            PalletRepository r = new PalletRepository(context);
+            String nuevo = r.startNewContainer();
+            try {
+                FirebaseManager.getInstance(context).setContainerCode(nuevo);
+            } catch (Exception ignored) { }
+            Toast.makeText(context,
+                    "🆕\u00A0Empezamos\u00A0" + nuevo + "\u00A0—\u00A0¡a\u00A0escanear!",
+                    Toast.LENGTH_LONG).show();
+            Intent up = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
+            up.setPackage(context.getPackageName());
+            context.sendBroadcast(up);
+            if (onDismiss != null) onDismiss.run();
         });
         root.addView(btnNuevo);
-
-        addSpacer(context, root, 8);
-
-        // Botón: Actualizar meta.
-        Button btnActualizar = crearBoton(context, "✏️\u00A0Actualizar\u00A0Meta", COLOR_GREEN);
-        btnActualizar.setOnClickListener(v -> {
-            removerOverlay(wm, root);
-            showActualizarMetaDialog(context, wm, onDismiss);
-        });
-        root.addView(btnActualizar);
 
         addSpacer(context, root, 8);
 

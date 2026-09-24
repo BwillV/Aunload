@@ -50,7 +50,7 @@ public class ScreenCaptureService extends AccessibilityService {
     private static final int MAX_TEXTOS = 600;
 
     // ====================== CACHE DE DATOS ACTUALES ======================
-    private String cachedTaskId = null;
+    // v4.0: cachedTaskId eliminado — ya no se maneja Task ID.
     private String cachedPalletCode = null;
     private String cachedSku = null;
     private double cachedQuantity = 0.0;
@@ -60,8 +60,7 @@ public class ScreenCaptureService extends AccessibilityService {
     private final Set<String> savedPalletCodes = new HashSet<>();
 
     // ====================== PATRONES REGEX ======================
-    private static final Pattern PAT_TASK =
-            Pattern.compile("TASK[-\\s]?(\\d{3,6})");
+    // v4.0: PAT_TASK eliminado — ya no se extrae Task ID.
     private static final Pattern PAT_PALLET =
             Pattern.compile("ILP[-\\s]?(\\d{4,8})");
     private static final Pattern PAT_LOCATION =
@@ -185,7 +184,8 @@ public class ScreenCaptureService extends AccessibilityService {
 
     protected void procesarTextos(List<String> textos) {
         // ── Paso 1: Extraer datos de la pantalla actual ──
-        String taskId = null;
+        // v4.0: YA NO se extrae Task ID. Todo pallet se agrupa por container
+        // secuencial simple (Container 1, Container 2, ...).
         String palletCode = null;
         String sku = null;
         double quantity = 0.0;
@@ -211,11 +211,7 @@ public class ScreenCaptureService extends AccessibilityService {
                 putAwayButton = true;
             }
 
-            // Task ID.
-            Matcher mt = PAT_TASK.matcher(s);
-            if (mt.find()) {
-                taskId = "TASK-" + mt.group(1);
-            }
+            // v4.0: Task ID eliminado — no se extrae ni se usa.
 
             // Pallet Code.
             Matcher mp = PAT_PALLET.matcher(s);
@@ -248,7 +244,6 @@ public class ScreenCaptureService extends AccessibilityService {
         }
 
         // ── Paso 2: Actualizar caché (los datos que aparecen) ──
-        if (taskId != null) cachedTaskId = taskId;
         if (palletCode != null) cachedPalletCode = palletCode;
         if (sku != null) cachedSku = sku;
         if (quantity > 0) cachedQuantity = quantity;
@@ -296,16 +291,12 @@ public class ScreenCaptureService extends AccessibilityService {
 
         PalletRepository repo = new PalletRepository(this);
 
-        // v3.2: La pantalla de Put away del WMS NO muestra un Task ID. Si no
-        // logramos extraer uno real, usamos un código de container secuencial
-        // simple ("Container 1", "Container 2", ...) como identificador de
-        // agrupación. Así el detalle y el conteo por container funcionan.
-        String taskParaGuardar = (cachedTaskId != null && !cachedTaskId.isEmpty())
-                ? cachedTaskId
-                : repo.getCurrentContainerCode();
+        // v4.0: SIEMPRE se agrupa por container secuencial simple
+        // ("Container 1", "Container 2", ...). No hay Task ID.
+        String containerParaGuardar = repo.getCurrentContainerCode();
 
         Pallet p = new Pallet(
-                taskParaGuardar,
+                containerParaGuardar,
                 cachedPalletCode,
                 cachedSku != null ? cachedSku : "",
                 cachedQuantity,
@@ -317,7 +308,7 @@ public class ScreenCaptureService extends AccessibilityService {
         if (inserted) {
             savedPalletCodes.add(cachedPalletCode);
             Log.d(TAG, "✅\u00A0Pallet\u00A0guardado:\u00A0" + cachedPalletCode
-                    + "\u00A0task=" + taskParaGuardar
+                    + "\u00A0container=" + containerParaGuardar
                     + "\u00A0qty=" + cachedQuantity);
 
             // Notificar a la UI (MainActivity).
@@ -339,7 +330,7 @@ public class ScreenCaptureService extends AccessibilityService {
             cachedSku = null;
             cachedQuantity = 0.0;
             cachedLocation = null;
-            // cachedTaskId se mantiene (el task suele ser el mismo).
+            // v4.0: el container actual se mantiene hasta que el usuario inicie uno nuevo.
         }
     }
 
@@ -362,7 +353,7 @@ public class ScreenCaptureService extends AccessibilityService {
 
         // Agregar datos cacheados para debug.
         sb.append("--- Cache ---\n");
-        sb.append("Task:\u00A0").append(cachedTaskId).append('\n');
+        sb.append("Container:\u00A0").append(new PalletRepository(this).getCurrentContainerCode()).append('\n');
         sb.append("Pallet:\u00A0").append(cachedPalletCode).append('\n');
         sb.append("SKU:\u00A0").append(cachedSku).append('\n');
         sb.append("Qty:\u00A0").append(cachedQuantity).append('\n');

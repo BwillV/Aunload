@@ -191,6 +191,92 @@ public class PalletRepository {
         return tasks;
     }
 
+    // ====================== CONTAINERS (v4.0) ======================
+
+    /**
+     * v4.0: Lista de containers con su conteo de pallets, agrupados por el
+     * código de container (campo taskId, que ahora SIEMPRE es "Container N").
+     * Es el reemplazo simple de la antigua lista de tasks.
+     */
+    public List<TaskSummary> getContainerList() {
+        List<Pallet> all = getAllPallets();
+        Map<String, TaskSummary> map = new LinkedHashMap<>();
+        for (Pallet p : all) {
+            String cid = (p.taskId != null && !p.taskId.isEmpty())
+                    ? p.taskId : "Container\u00A01";
+            TaskSummary ts = map.get(cid);
+            if (ts == null) {
+                ts = new TaskSummary(cid, 0, 0L);
+                map.put(cid, ts);
+            }
+            ts.palletCount++;
+            if (p.timestamp > ts.lastTimestamp) {
+                ts.lastTimestamp = p.timestamp;
+            }
+        }
+        return new ArrayList<>(map.values());
+    }
+
+    /**
+     * v4.0: Inicia un NUEVO container (Container N+1) SIN borrar los pallets
+     * existentes. Los nuevos pallets escaneados se agruparán en el nuevo código.
+     * @return el nuevo código de container actual.
+     */
+    public synchronized String startNewContainer() {
+        int next = prefs.getInt(KEY_CONTAINER_NUM, 1) + 1;
+        prefs.edit().putInt(KEY_CONTAINER_NUM, next).apply();
+        return getCurrentContainerCode();
+    }
+
+    /**
+     * v4.0: Migración única. Convierte cualquier pallet heredado que NO tenga
+     * un código "Container N" (vacío, "SIN TASK", "TASK-xxxx", etc.) a
+     * "Container 1", para que tras la actualización la app SOLO muestre
+     * containers y desaparezcan las etiquetas de Task. Es idempotente:
+     * si no hay datos heredados, no hace nada.
+     */
+    public synchronized void migrateLegacyToContainers() {
+        List<Pallet> all = getAllPallets();
+        if (all.isEmpty()) return;
+
+        boolean changed = false;
+        int maxNum = 0;
+        for (Pallet p : all) {
+            Integer n = parseContainerNumber(p.taskId);
+            if (n != null) {
+                if (n > maxNum) maxNum = n;
+            } else {
+                // Pallet heredado sin código de container válido.
+                p.taskId = "Container\u00A01";
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            savePallets(all);
+            // Asegurar que el puntero de container actual sea coherente.
+            int pointer = Math.max(prefs.getInt(KEY_CONTAINER_NUM, 1), Math.max(maxNum, 1));
+            prefs.edit().putInt(KEY_CONTAINER_NUM, pointer).apply();
+        }
+    }
+
+    /**
+     * Extrae el número N de un código "Container N". Devuelve null si el texto
+     * no tiene ese formato.
+     */
+    private Integer parseContainerNumber(String code) {
+        if (code == null) return null;
+        String c = code.replace('\u00A0', ' ').trim();
+        if (!c.toLowerCase(java.util.Locale.ROOT).startsWith("container")) return null;
+        String num = c.substring("container".length()).trim();
+        if (num.isEmpty()) return null;
+        try {
+            return Integer.parseInt(num);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     // ====================== CONTAINERS (v3.4) ======================
 
     /**

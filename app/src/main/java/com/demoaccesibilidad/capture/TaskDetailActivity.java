@@ -9,18 +9,12 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
- * Pantalla de detalle de un Task / Container.
+ * Pantalla de detalle de un Container.
  *
- * v2.3: Si viene en modo container, muestra TODOS los pallets
- *       del container agrupados visualmente por taskId.
+ * v4.0: Muestra los pallets escaneados dentro de un container.
  */
 public class TaskDetailActivity extends AppCompatActivity {
 
@@ -29,72 +23,31 @@ public class TaskDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_task_detail);
 
-        String taskId = getIntent().getStringExtra("taskId");
-        boolean containerMode = getIntent().getBooleanExtra("containerMode", false);
         String containerCode = getIntent().getStringExtra("containerCode");
-
-        if (taskId == null) taskId = "";
+        if (containerCode == null || containerCode.isEmpty()) {
+            // Compatibilidad con el extra antiguo.
+            containerCode = getIntent().getStringExtra("taskId");
+        }
+        if (containerCode == null || containerCode.isEmpty()) {
+            containerCode = "Container";
+        }
 
         // Toolbar.
         Toolbar toolbar = findViewById(R.id.toolbar_detail);
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setTitle("Pallets\u00A0—\u00A0" + containerCode);
         }
 
         TextView txtTaskTitle = findViewById(R.id.txt_task_title);
         TextView txtPalletTotal = findViewById(R.id.txt_pallet_total);
 
         PalletRepository repo = new PalletRepository(this);
-        List<Pallet> pallets;
+        List<Pallet> pallets = repo.getPalletsForTask(containerCode);
 
-        if (containerMode) {
-            // Modo container: mostrar TODOS los pallets.
-            pallets = repo.getAllPallets();
-
-            // Título con container code.
-            if (getSupportActionBar() != null) {
-                getSupportActionBar().setTitle(
-                        containerCode != null && !containerCode.isEmpty()
-                                ? containerCode : "Container");
-            }
-
-            // Subtítulo con tasks.
-            Set<String> tasks = new LinkedHashSet<>();
-            for (Pallet p : pallets) {
-                if (p.taskId != null && !p.taskId.isEmpty()) {
-                    tasks.add(p.taskId);
-                }
-            }
-
-            if (tasks.size() > 1) {
-                StringBuilder sb = new StringBuilder();
-                boolean first = true;
-                for (String t : tasks) {
-                    if (!first) sb.append("\u00A0/\u00A0");
-                    sb.append(t);
-                    first = false;
-                }
-                txtTaskTitle.setText(sb.toString());
-            } else if (tasks.size() == 1) {
-                txtTaskTitle.setText(tasks.iterator().next());
-            } else {
-                txtTaskTitle.setText(containerCode != null ? containerCode : "Container");
-            }
-
-            txtPalletTotal.setText(pallets.size()
-                    + "\u00A0pallets\u00A0escaneados\u00A0•\u00A0"
-                    + tasks.size() + "\u00A0tasks");
-        } else {
-            // Modo normal: un solo task.
-            pallets = repo.getPalletsForTask(taskId);
-
-            if (getSupportActionBar() != null) {
-                getSupportActionBar().setTitle(taskId);
-            }
-            txtTaskTitle.setText(taskId);
-            txtPalletTotal.setText(pallets.size() + "\u00A0pallets\u00A0escaneados");
-        }
+        txtTaskTitle.setText(containerCode);
+        txtPalletTotal.setText(pallets.size() + "\u00A0pallets\u00A0escaneados");
 
         // RecyclerView.
         RecyclerView recycler = findViewById(R.id.recycler_pallets);
