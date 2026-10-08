@@ -131,6 +131,34 @@ public class ScreenCaptureService extends AccessibilityService {
     // filas ubicación + ILP). Permite completar pallets de hoy sin ubicación.
     private final Map<String, String> ilpLocationMap = new HashMap<>();
     private static final int MAX_ILP_MAP = 500;
+
+    // ====================== v4.7 — INSTANTÁNEA / CAMPO "PUT AWAY" ======================
+    // En la pantalla de put away del WMS la ubicación SIEMPRE está en el campo
+    // inferior (junto a GET SUGGESTION) ANTES de tocar PUT AWAY, pero desaparece
+    // después (la pantalla "Put away success" no la muestra). v4.7 la captura de
+    // dos maneras complementarias:
+    //  1) INSTANTÁNEA: al detectar el clic en el botón PUT AWAY se lee la ventana
+    //     de inmediato y se toma la ubicación del campo (máxima prioridad para la
+    //     pallet que confirme a continuación).
+    //  2) CACHÉ CONTINUA: mientras se vea el botón PUT AWAY o GET SUGGESTION se
+    //     cachea el valor del campo con timestamp (TTL 5 min). Tiene prioridad
+    //     sobre la "ubicación reciente" de v4.6.
+    private String putAwaySnapshotLocation = null;
+    private String putAwaySnapshotIlp = null;
+    private long putAwaySnapshotTs = 0L;
+    private static final long PUTAWAY_SNAPSHOT_TTL_MS = 120000; // ~2 min
+    private String putAwayFieldLocation = null;
+    private long putAwayFieldTs = 0L;
+    private static final long PUTAWAY_FIELD_TTL_MS = 300000; // 5 min
+
+    // ====================== v4.7 — DEBOUNCE CON LECTURA FINAL ======================
+    // Antes, el throttle (INTERVALO_MIN_MS) DESCARTABA eventos dentro de la
+    // ventana y se podía perder el ÚLTIMO estado de pantalla. Ahora hacemos una
+    // lectura inmediata (leading) y, además, programamos una lectura final
+    // (trailing) cuando cesan los eventos, para no perder nunca el último estado.
+    private final Handler debounceHandler = new Handler(Looper.getMainLooper());
+    private Runnable debounceRunnable = null;
+    private static final long DEBOUNCE_MS = 300;
     // v4.1: PAT_SKU por regex ELIMINADO. Causaba el bug: "[A-Z]{2,}[_-][A-Z0-9]{4,}"
     // coincidía con "TASK-2693" (TASK + '-' + 2693) y lo guardaba como SKU.
     // Ahora el SKU es el nodo de texto que aparece JUSTO DESPUÉS del ILP.
@@ -181,14 +209,136 @@ public class ScreenCaptureService extends AccessibilityService {
             }
         }
 
-        if (tipo == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
-                || tipo == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            long ahora = System.currentTimeMillis();
-            if (ahora - ultimaLectura > INTERVALO_MIN_MS) {
-                ultimaLectura = ahora;
-                leerPantallaCompleta();
+        // v4.7: clic/enfoque. Si es el botón PUT AWAY, tomar la INSTANTÁNEA de la
+        // ubicación de inmediato (sin demora), porque justo después la pantalla
+        // "Put away success" ya no la mostrará.
+        if (tipo == AccessibilityEvent.TYPE_VIEW_CLICKED
+                || tipo == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            if (esEventoPutAway(event)) {
+                tomarInstantaneaPutAway();
             }
         }
+
+        // v4.7: debounce con lectura final. Para cualquier evento que cambie la
+        // pantalla hacemos una lectura inmediata (si pasó el intervalo) y SIEMPRE
+        // programamos una lectura final cuando cesen los eventos, de modo que el
+        // último estado nunca se pierda.
+        if (tipo == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+                || tipo == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                || tipo == AccessibilityEvent.TYPE_VIEW_CLICKED
+                || tipo == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            programarLecturaDebounce();
+        }
+    }
+
+    // =============================================================
+    //        v4.7 — DEBOUNCE CON LECTURA FINAL (TRAILING EDGE)
+    // =============================================================
+
+    private void programarLecturaDebounce() {
+        long ahora = System.currentTimeMillis();
+        // Leading edge: lectura inmediata si ya pasó el intervalo mínimo.
+        if (ahora - ultimaLectura > INTERVALO_MIN_MS) {
+            ultimaLectura = ahora;
+            leerPantallaCompleta();
+        }
+        // Trailing edge: asegurar la lectura del ÚLTIMO estado al cesar eventos.
+        if (debounceRunnable != null) debounceHandler.removeCallbacks(debounceRunnable);
+        debounceRunnable = () -> {
+            ultimaLectura = System.currentTimeMillis();
+            leerPantallaCompleta();
+        };
+        debounceHandler.postDelayed(debounceRunnable, DEBOUNCE_MS);
+    }
+
+    // =============================================================
+    //        v4.7 — INSTANTÁNEA AL PULSAR "PUT AWAY"
+    // =============================================================
+
+    /** ¿El evento procede del botón PUT AWAY? (texto, descripción o nodo origen). */
+    private boolean esEventoPutAway(AccessibilityEvent event) {
+        if (esTextoPutAway(extraerTextoEvento(event))) return true;
+        try {
+            AccessibilityNodeInfo src = event.getSource();
+            if (src != null) {
+                CharSequence t = src.getText();
+                if (t != null && esTextoPutAway(t.toString())) return true;
+                CharSequence cd = src.getContentDescription();
+                if (cd != null && esTextoPutAway(cd.toString())) return true;
+            }
+        } catch (Exception ignored) { }
+        return false;
+    }
+
+    /** "PUT AWAY" / "Put-away" / "putaway" (sin importar mayúsculas), nunca "success". */
+    private static boolean esTextoPutAway(String s) {
+        if (s == null) return false;
+        String compact = s.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
+        if (compact.isEmpty()) return false;
+        if (compact.contains("success")) return false;
+        return compact.equals("putaway");
+    }
+
+    /**
+     * Lee la ventana de inmediato y toma la ubicación del campo de put away (y el
+     * ILP visible, si lo hay). Se guarda como instantánea con MÁXIMA prioridad
+     * para la siguiente pallet confirmada. Si ya hay una pallet pendiente, la
+     * completa en el acto.
+     */
+    private void tomarInstantaneaPutAway() {
+        try {
+            List<String> textos = recolectarTodo(getRootInActiveWindow());
+            if (textos.isEmpty()) return;
+            String loc = buscarUbicacion(textos, -1);
+            construirMapaDesdeTextos(textos);
+            String ilp = null;
+            for (String s : textos) {
+                if (s == null) continue;
+                Matcher mp = PAT_PALLET.matcher(s);
+                if (mp.find()) { ilp = "ILP-" + mp.group(1); break; }
+            }
+            if (loc == null) return;
+            putAwaySnapshotLocation = loc;
+            putAwaySnapshotIlp = ilp;
+            putAwaySnapshotTs = System.currentTimeMillis();
+            // Alimenta también la caché del campo y la ubicación reciente.
+            putAwayFieldLocation = loc;
+            putAwayFieldTs = System.currentTimeMillis();
+            recordRecentLocation(loc);
+            if (ilp != null) registrarParIlpUbicacion(ilp, loc);
+            PalletTrackerApp.logEvento(this, "Ubicación capturada",
+                    "Instantánea\u00A0PUT\u00A0AWAY\u00A0→\u00A0" + loc
+                            + (ilp != null ? "\u00A0(" + ilp + ")" : ""));
+            // Si hay una pallet esperando ubicación, completarla ya mismo.
+            if (pendingLocPalletCode != null) {
+                completarUbicacionPendiente(loc, "instantánea PUT AWAY");
+            }
+        } catch (Exception ignored) { }
+    }
+
+    /** Instantánea PUT AWAY válida (TTL) y, si tiene ILP, que coincida con el pallet. */
+    private String getPutAwaySnapshotValida(String palletCode) {
+        if (putAwaySnapshotLocation == null) return null;
+        if (System.currentTimeMillis() - putAwaySnapshotTs > PUTAWAY_SNAPSHOT_TTL_MS) return null;
+        if (putAwaySnapshotIlp != null && palletCode != null
+                && !putAwaySnapshotIlp.equals(palletCode)) return null;
+        return putAwaySnapshotLocation;
+    }
+
+    /** Valor cacheado del campo de put away si no ha caducado (5 min). */
+    private String getPutAwayFieldValida() {
+        if (putAwayFieldLocation == null) return null;
+        if (System.currentTimeMillis() - putAwayFieldTs > PUTAWAY_FIELD_TTL_MS) return null;
+        return putAwayFieldLocation;
+    }
+
+    /** Limpia la instantánea y la caché del campo (tras guardar usándolas). */
+    private void limpiarCachePutAway() {
+        putAwaySnapshotLocation = null;
+        putAwaySnapshotIlp = null;
+        putAwaySnapshotTs = 0L;
+        putAwayFieldLocation = null;
+        putAwayFieldTs = 0L;
     }
 
     // =============================================================
@@ -466,6 +616,18 @@ public class ScreenCaptureService extends AccessibilityService {
             recordRecentLocation(location);
         }
 
+        // v4.7: mientras se vea el botón PUT AWAY o GET SUGGESTION, el campo
+        // inferior contiene la ubicación de destino aunque el "success" luego no
+        // la muestre. Se cachea continuamente con su timestamp (TTL 5 min). Esta
+        // caché tiene prioridad sobre la "ubicación reciente" de v4.6.
+        boolean getSuggestionButton = pantallaContiene(textos, "get suggestion")
+                || pantallaContiene(textos, "getsuggestion")
+                || pantallaContiene(textos, "suggestion");
+        if ((putAwayButton || getSuggestionButton) && location != null) {
+            putAwayFieldLocation = location;
+            putAwayFieldTs = System.currentTimeMillis();
+        }
+
         // v4.6: construir el mapa ILP↔ubicación desde ESTA pantalla (sirve para
         // la pantalla "Progress"/"Location View") y completar pallets de hoy.
         construirMapaDesdeTextos(textos);
@@ -496,11 +658,27 @@ public class ScreenCaptureService extends AccessibilityService {
         // ("Container 1", "Container 2", ...). No hay Task ID.
         String containerParaGuardar = repo.getCurrentContainerCode();
 
-        // v4.6: si el success NO mostró ubicación, intentar completarla antes de
-        // guardar con (1) el mapa ILP↔ubicación y (2) la última ubicación
-        // escaneada/escrita reciente. Así el pallet puede nacer ya con ubicación.
+        // Si el success NO mostró ubicación, intentar completarla antes de guardar
+        // para que el pallet pueda nacer ya con su ubicación de destino.
+        // Prioridad: (1) ubicación del propio "success"; (2) INSTANTÁNEA tomada al
+        // pulsar PUT AWAY; (3) caché del campo de put away; (4) mapa ILP↔ubicación;
+        // (5) escaneo reciente (v4.6).
         String locParaGuardar = cachedLocation;
         String fuenteLoc = null;
+        if (locParaGuardar == null || locParaGuardar.trim().isEmpty()) {
+            String snap = getPutAwaySnapshotValida(cachedPalletCode);
+            if (snap != null && !snap.trim().isEmpty()) {
+                locParaGuardar = snap;
+                fuenteLoc = "instantánea PUT AWAY";
+            }
+        }
+        if (locParaGuardar == null || locParaGuardar.trim().isEmpty()) {
+            String campo = getPutAwayFieldValida();
+            if (campo != null && !campo.trim().isEmpty()) {
+                locParaGuardar = campo;
+                fuenteLoc = "campo put away (caché)";
+            }
+        }
         if (locParaGuardar == null || locParaGuardar.trim().isEmpty()) {
             String mapLoc = ilpLocationMap.get(cachedPalletCode);
             if (mapLoc != null && !mapLoc.trim().isEmpty()) {
@@ -555,6 +733,9 @@ public class ScreenCaptureService extends AccessibilityService {
             // para que no se arrastre a la siguiente.
             recentLocation = null;
             recentLocationTs = 0L;
+            // v4.7: la instantánea y la caché del campo de put away ya se usaron
+            // para esta pallet; se limpian para no arrastrarlas a la siguiente.
+            limpiarCachePutAway();
             // v4.0: el container actual se mantiene hasta que el usuario inicie uno nuevo.
 
             // v4.4: si se guardó SIN ubicación, dejar diagnóstico y reintentar leerla.
@@ -607,19 +788,36 @@ public class ScreenCaptureService extends AccessibilityService {
                     loc = buscarUbicacion(textos, -1);
                 } catch (Exception ignored) { }
 
-                // 2) Intentar por el mapa ILP↔ubicación (p.ej. Location View).
+                String fuente = "reintento";
+                // 2) Intentar por la INSTANTÁNEA tomada al pulsar PUT AWAY.
+                if (loc == null) {
+                    String snap = getPutAwaySnapshotValida(pendingLocPalletCode);
+                    if (snap != null && !snap.trim().isEmpty()) {
+                        loc = snap; fuente = "instantánea PUT AWAY";
+                    }
+                }
+                // 3) Intentar por la caché del campo de put away.
+                if (loc == null) {
+                    String campo = getPutAwayFieldValida();
+                    if (campo != null && !campo.trim().isEmpty()) {
+                        loc = campo; fuente = "campo put away (caché)";
+                    }
+                }
+                // 4) Intentar por el mapa ILP↔ubicación (p.ej. Location View).
                 if (loc == null) {
                     String mapLoc = ilpLocationMap.get(pendingLocPalletCode);
-                    if (mapLoc != null && !mapLoc.trim().isEmpty()) loc = mapLoc;
+                    if (mapLoc != null && !mapLoc.trim().isEmpty()) {
+                        loc = mapLoc; fuente = "mapa ILP↔ubicación";
+                    }
                 }
-                // 3) Intentar por la última ubicación escaneada reciente.
+                // 5) Intentar por la última ubicación escaneada reciente.
                 if (loc == null) {
                     String recent = getRecentLocationValida();
-                    if (recent != null) loc = recent;
+                    if (recent != null) { loc = recent; fuente = "escaneo reciente"; }
                 }
 
                 if (loc != null) {
-                    completarUbicacionPendiente(loc, "reintento");
+                    completarUbicacionPendiente(loc, fuente);
                     return;
                 }
                 if (System.currentTimeMillis() < locDeadline) {
@@ -1005,6 +1203,9 @@ public class ScreenCaptureService extends AccessibilityService {
     public boolean onUnbind(Intent intent) {
         try {
             if (locRunnable != null) locHandler.removeCallbacks(locRunnable);
+        } catch (Exception ignored) { }
+        try {
+            if (debounceRunnable != null) debounceHandler.removeCallbacks(debounceRunnable);
         } catch (Exception ignored) { }
         pendingLocPalletCode = null;
         return super.onUnbind(intent);

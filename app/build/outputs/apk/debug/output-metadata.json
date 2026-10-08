@@ -11,9 +11,9 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 26,
-      "versionName": "4.6",
-      "outputFile": "PalletTracker-4.6-debug.apk"
+      "versionCode": 27,
+      "versionName": "4.7",
+      "outputFile": "PalletTracker-4.7-debug.apk"
     }
   ],
   "elementType": "File"
