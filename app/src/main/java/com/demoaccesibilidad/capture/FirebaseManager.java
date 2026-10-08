@@ -787,6 +787,52 @@ public class FirebaseManager {
         return Math.max(0, currentSession.scannedPallets);
     }
 
+    /**
+     * v4.8 — Garantiza que, si la sincronización está activa y hay una sesión
+     * guardada, estemos realmente ESCUCHANDO los cambios en Firebase. Si el
+     * proceso se reinició y solo quedó vivo el servicio del botón flotante, el
+     * singleton se recrea sin listener activo; aquí lo reconectamos para que el
+     * total compartido se mantenga al día. No hace nada si ya está escuchando.
+     */
+    public void ensureListeningIfEnabled() {
+        try {
+            if (syncEnabled && firebaseAvailable
+                    && currentSession != null && sessionListener == null) {
+                reconectarSesion();
+            }
+        } catch (Throwable ignored) { }
+    }
+
+    /**
+     * v4.8 — Total de pallets del container COMPARTIDO actualmente activo en
+     * Firebase, sumando lo de TODOS los dispositivos.
+     *
+     * A diferencia de getTotalScannedForContainer(code), NO compara contra un
+     * código concreto. El botón flotante antes le pasaba el código LOCAL diario
+     * ("yyyy-MM-dd#N"), que NUNCA coincide con el código compartido del
+     * container en Firebase ("CNT-001", etc.), así que el total siempre volvía
+     * a -1 y el botón solo mostraba el conteo propio. Este método resuelve eso:
+     * mientras la sincronización esté activa y haya una sesión unida, devuelve
+     * el total real de equipo.
+     *
+     * Devuelve -1 solo si no hay sync o no hay sesión (el llamador usa entonces
+     * el conteo local).
+     */
+    public int getTotalScannedShared() {
+        if (!syncEnabled || currentSession == null) return -1;
+
+        // Preferir la suma por dispositivo (refleja lo de cada escáner).
+        if (currentSession.activeDevices != null && !currentSession.activeDevices.isEmpty()) {
+            int sum = 0;
+            for (DeviceInfo d : currentSession.activeDevices.values()) {
+                sum += Math.max(0, d.palletsScannedByDevice);
+            }
+            if (sum > 0) return sum;
+        }
+        // Respaldo: contador agregado de la sesión (= nº de pallets únicas).
+        return Math.max(0, currentSession.scannedPallets);
+    }
+
     public int getActiveDeviceCount() {
         if (currentSession == null || currentSession.activeDevices == null) return 0;
         int count = 0;

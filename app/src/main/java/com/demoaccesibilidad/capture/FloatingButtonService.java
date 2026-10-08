@@ -493,13 +493,21 @@ public class FloatingButtonService extends Service {
         int shown = self;
 
         if (fabDisplayMode == MODE_TOTAL) {
-            // Intentar el total compartido desde Firebase; si no hay sync,
-            // el total es igual al conteo local.
+            // v4.8 — Total REAL de todos los dispositivos del container
+            // compartido. Antes se pasaba el código local diario
+            // ("yyyy-MM-dd#N"), que nunca coincide con el código compartido en
+            // Firebase, así que el total siempre caía al conteo propio. Ahora
+            // pedimos directamente el total de la sesión compartida.
             try {
                 FirebaseManager fm = FirebaseManager.getInstance(this);
-                int total = fm.getTotalScannedForContainer(
-                        palletRepo.getCurrentContainerCode());
-                shown = (total >= 0) ? total : self;
+                // Si la sync está activa pero aún no hay sesión escuchando
+                // (p.ej. el proceso se reinició), intentar reconectar para que
+                // el total se mantenga vivo.
+                fm.ensureListeningIfEnabled();
+                int total = fm.getTotalScannedShared();
+                // El total nunca debe ser menor que lo propio (coherencia).
+                shown = (total >= self) ? total : Math.max(total, self);
+                if (total < 0) shown = self;
             } catch (Throwable ignored) {
                 shown = self;
             }
