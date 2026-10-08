@@ -27,8 +27,16 @@ public class AcercaDeFragment extends Fragment {
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
         TextView txt = v.findViewById(R.id.txt_acerca_de);
+        // v4.5 — versión real desde el PackageManager (BuildConfig deshabilitado).
+        String versionName;
+        try {
+            versionName = requireContext().getPackageManager()
+                    .getPackageInfo(requireContext().getPackageName(), 0).versionName;
+        } catch (Throwable t) {
+            versionName = "?";
+        }
         txt.setText(
-            "📦\u00A0PalletTracker\u00A0v2.1\n\n" +
+            "📦\u00A0PalletTracker\u00A0v" + versionName + "\n\n" +
             "App de rastreo automático de pallets\u00A0en\u00A0warehouse.\n\n" +
             "🔍\u00A0¿Qué\u00A0hace?\n" +
             "Captura automáticamente los datos de cada pallet " +

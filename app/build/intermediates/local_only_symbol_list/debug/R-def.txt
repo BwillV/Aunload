@@ -48,6 +48,7 @@ id switch_vibracion
 id text_overlay_status
 id toolbar
 id toolbar_detail
+id txtNavVersion
 id txt_acerca_de
 id txt_container_actual
 id txt_container_code

@@ -165,6 +165,16 @@ public class MainActivity extends AppCompatActivity
         NavigationView navView = findViewById(R.id.nav_view);
         navView.setNavigationItemSelectedListener(this);
 
+        // v4.5 — Versión real en el encabezado del menú (BuildConfig está
+        // deshabilitado, se lee del PackageManager).
+        if (navView.getHeaderCount() > 0) {
+            TextView txtNavVersion = navView.getHeaderView(0)
+                    .findViewById(R.id.txtNavVersion);
+            if (txtNavVersion != null) {
+                txtNavVersion.setText("v" + obtenerVersionName());
+            }
+        }
+
         // Vistas principales.
         homeContainer = findViewById(R.id.home_container);
         fragmentContainer = findViewById(R.id.fragment_container);
@@ -333,6 +343,19 @@ public class MainActivity extends AppCompatActivity
     // ═══════════════════════════════════════════════════════════
 
     /**
+     * v4.5 — Nombre de versión real de la app. Se lee del PackageManager
+     * porque BuildConfig está deshabilitado en este proyecto.
+     */
+    private String obtenerVersionName() {
+        try {
+            return getPackageManager()
+                    .getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Throwable t) {
+            return "?";
+        }
+    }
+
+    /**
      * Actualiza el header del container con la info actual.
      */
     private void refrescarContainerHeader() {
@@ -350,7 +373,14 @@ public class MainActivity extends AppCompatActivity
         txtContainerCode.setText("Vas\u00A0en\u00A0el\u00A0Container\u00A0"
                 + palletRepo.getCurrentContainerNumber());
 
-        int numContainers = palletRepo.getContainerListToday().size();
+        // v4.5 — "Hoy: N containers" = containers INICIADOS hoy, no solo los que
+        // ya tienen pallets. El número del container actual (secuencia diaria)
+        // puede ir por delante de la lista (p.ej. ya vas en el Container 2 pero
+        // solo 1 tiene pallets). Tomamos el mayor de ambos para que el conteo
+        // sea coherente con "Vas en el Container X".
+        int numContainers = Math.max(
+                palletRepo.getCurrentContainerNumber(),
+                palletRepo.getContainerListToday().size());
         txtContainerTasks.setVisibility(View.VISIBLE);
         // "Hoy: N containers" + pallets de hoy (nunca el total histórico).
         txtContainerTasks.setText("Hoy:\u00A0" + numContainers

@@ -1,0 +1,34 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "containers": {
+      "$containerCode": {
+        ".read": true,
+        ".write": true
+      }
+    },
+
+    "sessions": {
+      "$sessionId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+
+    "connection_test": {
+      "$deviceId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+
+    "equipos": {
+      "$pin": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}
