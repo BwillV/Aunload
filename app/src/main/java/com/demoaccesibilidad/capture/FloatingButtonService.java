@@ -35,18 +35,22 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 /**
  * FloatingButtonService — Overlay flotante sobre TODAS las apps.
  *
- * Muestra un FAB con el contador de pallets que se actualiza
- * en tiempo real cuando ScreenCaptureService detecta un pallet.
+ * Muestra un FAB con el CONTEO de pallets del container actual, que se
+ * actualiza en tiempo real cuando ScreenCaptureService detecta un pallet.
  *
+ * v4.2 — Botón simplificado: SOLO cuenta pallets (sin metas ni "faltan").
  * Gestos:
- *  - 1 tap:      Alternar modo (escaneados / faltan / ratio)
- *  - Doble tap:  Abrir dialog de container (overlay)
- *  - Long press:  Resetear contador
- *  - Drag:       Mover el FAB por la pantalla
+ *  - 1 tap:        Alternar entre "este dispositivo" (Yo) y "Total" de todos
+ *                  los dispositivos del container compartido.
+ *  - Mantener pulsado: iniciar un NUEVO container (el contador vuelve a 0),
+ *                  conservando los containers anteriores. Si hay sync, se
+ *                  propaga para que los demás dispositivos empiecen en 0.
+ *  - Drag:         Mover el FAB por la pantalla.
+ *  (El doble tap ya NO hace nada: se eliminó.)
  *
  * Comunicación:
  *  - Recibe broadcasts ACTION_UPDATE_FLOATING_FAB del ScreenCaptureService
- *  - Lee datos directamente de PalletRepository + SharedPreferences
+ *  - Lee datos directamente de PalletRepository + Firebase (modo Total)
  */
 public class FloatingButtonService extends Service {
 
@@ -63,19 +67,17 @@ public class FloatingButtonService extends Service {
     // ═══ SharedPreferences (mismas del FAB en MainActivity) ═══
     private static final String PREFS_FAB = "fab_prefs";
     private static final String KEY_FAB_MODE = "fab_display_mode";
-    private static final String KEY_EXPECTED_PALLETS = "expected_pallets";
     private static final String PREFS_OVERLAY = "overlay_prefs";
     private static final String KEY_OVERLAY_X = "overlay_x";
     private static final String KEY_OVERLAY_Y = "overlay_y";
     private static final String KEY_OVERLAY_OPACITY = "overlay_opacity";
 
-    private static final int MODE_SCANNED = 0;
-    private static final int MODE_REMAINING = 1;
-    private static final int MODE_RATIO = 2;
+    // v4.2: solo dos modos de visualización del conteo.
+    private static final int MODE_SELF = 0;    // conteo de ESTE dispositivo
+    private static final int MODE_TOTAL = 1;   // total de TODOS los dispositivos
 
-    private static final int COLOR_NORMAL = 0xFF2196F3;
-    private static final int COLOR_COMPLETE = 0xFF4CAF50;
-    private static final long DOUBLE_TAP_TIMEOUT = 300L;
+    private static final int COLOR_SELF = 0xFF2196F3;   // azul  → "Yo"
+    private static final int COLOR_TOTAL = 0xFF3F51B5;  // índigo → "Total"
 
     // ═══ Vistas ═══
     private WindowManager windowManager;
@@ -85,17 +87,11 @@ public class FloatingButtonService extends Service {
     private WindowManager.LayoutParams layoutParams;
 
     // ═══ Estado ═══
-    private int fabDisplayMode = MODE_SCANNED;
-    private int expectedPallets = 0;
-    private int currentColor = COLOR_NORMAL;
+    private int fabDisplayMode = MODE_SELF;
+    private int currentColor = COLOR_SELF;
     private PalletRepository palletRepo;
     private SharedPreferences fabPrefs;
     private SharedPreferences overlayPrefs;
-
-    // ═══ Gestos ═══
-    private int tapCount = 0;
-    private Handler tapHandler = new Handler(Looper.getMainLooper());
-    private Runnable tapRunnable;
 
     // ═══ Drag ═══
     private int initialX, initialY;
@@ -146,8 +142,7 @@ public class FloatingButtonService extends Service {
             fabPrefs = getSharedPreferences(PREFS_FAB, MODE_PRIVATE);
             overlayPrefs = getSharedPreferences(PREFS_OVERLAY, MODE_PRIVATE);
 
-            fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SCANNED);
-            expectedPallets = fabPrefs.getInt(KEY_EXPECTED_PALLETS, 0);
+            fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SELF);
 
             // Crear canal de notificación y lanzar foreground.
             crearCanalNotificacion();
@@ -210,7 +205,6 @@ public class FloatingButtonService extends Service {
 
         // Limpiar.
         refreshHandler.removeCallbacks(refreshRunnable);
-        tapHandler.removeCallbacksAndMessages(null);
 
         try {
             unregisterReceiver(updateReceiver);
@@ -265,7 +259,8 @@ public class FloatingButtonService extends Service {
             fabBadge.setElevation(24f);
             fabBadge.setTranslationZ(24f);
             fabBadge.bringToFront();
-            fabBadge.setText(String.valueOf(palletRepo != null ? palletRepo.getPalletCount() : 0));
+            fabBadge.setText(String.valueOf(
+                    palletRepo != null ? palletRepo.getPalletCountInCurrentContainer() : 0));
         }
 
         // Configurar layout params para overlay.
@@ -307,11 +302,10 @@ public class FloatingButtonService extends Service {
     // =============================================================
 
     private void configurarGestos() {
-        // Máquina de estados para que TODOS los gestos coexistan:
+        // Máquina de estados simple (v4.2, sin doble tap):
         //   - Drag: movimiento > DRAG_THRESHOLD (10 px)
-        //   - Long press: dedo quieto > 600 ms
-        //   - Single tap: toque corto, sin segundo tap en 300 ms
-        //   - Double tap: dos toques cortos con < 300 ms entre ellos
+        //   - Long press: dedo quieto > 600 ms → nuevo container (vuelve a 0)
+        //   - Single tap: toque corto → alternar Yo / Total
         fab.setOnTouchListener(new View.OnTouchListener() {
             private long touchDownTime;
             private boolean longPressFired = false;
@@ -379,10 +373,10 @@ public class FloatingButtonService extends Service {
                         // ── Long press ya se disparó: nada más que hacer ──
                         if (longPressFired) return true;
 
-                        // ── Toque corto → delegar a manejarTap() ──
+                        // ── Toque corto → responder al instante (sin doble tap) ──
                         long elapsed = System.currentTimeMillis() - touchDownTime;
                         if (elapsed < 500) {
-                            manejarTap();
+                            onSingleTapFab();
                         }
                         return true;
                 }
@@ -391,34 +385,16 @@ public class FloatingButtonService extends Service {
         });
     }
 
-    private void manejarTap() {
-        tapCount++;
-
-        if (tapCount == 1) {
-            tapRunnable = () -> {
-                if (tapCount == 1) {
-                    onSingleTapFab();
-                }
-                tapCount = 0;
-            };
-            tapHandler.postDelayed(tapRunnable, DOUBLE_TAP_TIMEOUT);
-        } else if (tapCount >= 2) {
-            tapHandler.removeCallbacks(tapRunnable);
-            tapCount = 0;
-            onDoubleTapFab();
-        }
-    }
-
-    // ─── 1 TAP: Cambiar modo ───
+    // ─── 1 TAP: alternar entre "Yo" y "Total" ───
     private void onSingleTapFab() {
-        if (expectedPallets <= 0) {
-            // Sin meta → abrir dialog para configurar.
-            onDoubleTapFab();
-            return;
-        }
-
-        fabDisplayMode = (fabDisplayMode + 1) % 3;
+        fabDisplayMode = (fabDisplayMode == MODE_SELF) ? MODE_TOTAL : MODE_SELF;
         fabPrefs.edit().putInt(KEY_FAB_MODE, fabDisplayMode).apply();
+
+        // Aviso sutil del modo activo.
+        String aviso = (fabDisplayMode == MODE_TOTAL)
+                ? "Mostrando:\u00A0TOTAL\u00A0de\u00A0dispositivos"
+                : "Mostrando:\u00A0este\u00A0dispositivo";
+        Toast.makeText(this, aviso, Toast.LENGTH_SHORT).show();
 
         // Animación de pulse.
         fab.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80)
@@ -429,21 +405,32 @@ public class FloatingButtonService extends Service {
         refrescarContador();
     }
 
-    // ─── DOBLE TAP: Dialog flotante para configurar container ───
-    private void onDoubleTapFab() {
-        FloatingDialogHelper.showContainerDialog(this, windowManager, () -> {
-            // Callback: recargar datos.
-            expectedPallets = fabPrefs.getInt(KEY_EXPECTED_PALLETS, 0);
-            fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SCANNED);
-            refrescarContador();
-        });
-    }
-
-    // ─── LONG PRESS: Resetear ───
+    // ─── LONG PRESS: iniciar NUEVO container (el contador vuelve a 0) ───
     private void onLongPressFab() {
-        FloatingDialogHelper.showResetDialog(this, windowManager, () -> {
+        try {
+            // Avanzar al siguiente container (Container N+1) SIN borrar los
+            // anteriores. El conteo del container nuevo es 0.
+            String nuevo = palletRepo.startNewContainer();
+
+            // Si la sincronización está activa, propagar el nuevo container
+            // para que los demás dispositivos también empiecen en 0.
+            try {
+                FirebaseManager fm = FirebaseManager.getInstance(this);
+                if (fm.isSyncEnabled()) {
+                    fm.setContainerCode(nuevo);
+                    fm.createNewContainerSession(nuevo, 0);
+                }
+            } catch (Throwable ignored) { }
+
+            Toast.makeText(this,
+                    "🔄\u00A0Nuevo\u00A0container\u00A0—\u00A0conteo\u00A0en\u00A00",
+                    Toast.LENGTH_SHORT).show();
+
             refrescarContador();
-        });
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(getApplicationContext(),
+                    "FloatingButtonService.onLongPressFab", t);
+        }
     }
 
     // =============================================================
@@ -451,78 +438,49 @@ public class FloatingButtonService extends Service {
     // =============================================================
 
     private void refrescarContador() {
-        // Re-leer prefs (pueden haber cambiado desde MainActivity).
-        fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SCANNED);
-        expectedPallets = fabPrefs.getInt(KEY_EXPECTED_PALLETS, 0);
+        // Re-leer el modo (puede haber cambiado).
+        fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SELF);
 
-        int scanned = palletRepo.getPalletCount();
+        // Conteo de ESTE dispositivo en el container actual.
+        int self = palletRepo.getPalletCountInCurrentContainer();
+        int shown = self;
 
-        // Considerar sesión Firebase.
-        try {
-            FirebaseManager fm = FirebaseManager.getInstance(this);
-            ContainerSession session = fm.getCurrentSession();
-            if (session != null) {
-                if (session.scannedPallets > scanned) {
-                    scanned = session.scannedPallets;
-                }
-                if (session.expectedPallets > 0 && expectedPallets != session.expectedPallets) {
-                    expectedPallets = session.expectedPallets;
-                }
+        if (fabDisplayMode == MODE_TOTAL) {
+            // Intentar el total compartido desde Firebase; si no hay sync,
+            // el total es igual al conteo local.
+            try {
+                FirebaseManager fm = FirebaseManager.getInstance(this);
+                int total = fm.getTotalScannedForContainer(
+                        palletRepo.getCurrentContainerCode());
+                shown = (total >= 0) ? total : self;
+            } catch (Throwable ignored) {
+                shown = self;
             }
-        } catch (Exception ignored) { }
-
-        // Calcular texto.
-        String displayText;
-        switch (fabDisplayMode) {
-            case MODE_REMAINING:
-                int remaining = Math.max(0, expectedPallets - scanned);
-                displayText = String.valueOf(remaining);
-                break;
-            case MODE_RATIO:
-                if (expectedPallets > 0) {
-                    displayText = scanned + "/" + expectedPallets;
-                } else {
-                    displayText = String.valueOf(scanned);
-                }
-                break;
-            case MODE_SCANNED:
-            default:
-                displayText = String.valueOf(scanned);
-                break;
         }
+
+        String displayText = String.valueOf(shown);
 
         // Actualizar badge.
         if (fabBadge != null) {
             fabBadge.setText(displayText);
-
-            if (displayText.length() > 5) {
-                fabBadge.setTextSize(12);
+            if (displayText.length() > 4) {
+                fabBadge.setTextSize(14);
             } else if (displayText.length() > 3) {
-                fabBadge.setTextSize(15);
+                fabBadge.setTextSize(16);
             } else {
                 fabBadge.setTextSize(20);
             }
         }
 
-        // Color: verde si completo, azul si no.
-        int targetColor;
-        if (expectedPallets > 0 && scanned >= expectedPallets) {
-            targetColor = COLOR_COMPLETE;
-            if (fabDisplayMode == MODE_REMAINING && fabBadge != null) {
-                fabBadge.setText("✓");
-                fabBadge.setTextSize(24);
-            }
-        } else {
-            targetColor = COLOR_NORMAL;
-        }
-
+        // Color según el modo (indicador sutil): azul = Yo, índigo = Total.
+        int targetColor = (fabDisplayMode == MODE_TOTAL) ? COLOR_TOTAL : COLOR_SELF;
         if (targetColor != currentColor && fab != null) {
             fab.setBackgroundTintList(ColorStateList.valueOf(targetColor));
             currentColor = targetColor;
         }
 
         // Actualizar notificación persistente.
-        actualizarNotificacion(scanned);
+        actualizarNotificacion(shown);
     }
 
     // =============================================================
@@ -545,13 +503,8 @@ public class FloatingButtonService extends Service {
     }
 
     private Notification crearNotificacion() {
-        int scanned = palletRepo.getPalletCount();
-        String text;
-        if (expectedPallets > 0) {
-            text = "Registrando\u00A0pallets:\u00A0" + scanned + "/" + expectedPallets;
-        } else {
-            text = "Registrando\u00A0pallets:\u00A0" + scanned;
-        }
+        int scanned = palletRepo.getPalletCountInCurrentContainer();
+        String text = "Registrando\u00A0pallets:\u00A0" + scanned;
 
         Intent openApp = new Intent(this, MainActivity.class);
         openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -573,16 +526,7 @@ public class FloatingButtonService extends Service {
             NotificationManager nm = (NotificationManager)
                     getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) {
-                String text;
-                if (expectedPallets > 0) {
-                    if (scanned >= expectedPallets) {
-                        text = "✅\u00A0Completo:\u00A0" + scanned + "/" + expectedPallets;
-                    } else {
-                        text = "Registrando:\u00A0" + scanned + "/" + expectedPallets;
-                    }
-                } else {
-                    text = "Registrando\u00A0pallets:\u00A0" + scanned;
-                }
+                String text = "Registrando\u00A0pallets:\u00A0" + scanned;
 
                 Intent openApp = new Intent(this, MainActivity.class);
                 openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);

@@ -264,11 +264,29 @@ public class AjustesFragment extends Fragment {
 
         actualizarVistaSync(fm.isSyncEnabled());
 
+        // Indicador de estado de conexión al abrir la pantalla.
+        mostrarEstadoConexion(fm);
+
         switchSync.setOnCheckedChangeListener((btn, isChecked) -> {
             fm.setSyncEnabled(isChecked);
-            actualizarVistaSync(isChecked);
+            // setSyncEnabled puede rechazar la activación si Firebase no inició.
+            boolean realmente = fm.isSyncEnabled();
+            if (isChecked && !realmente) {
+                // No se pudo activar: mostrar el error COMPLETO.
+                btn.setChecked(false);
+                String err = fm.getLastInitError();
+                txtSyncStatus.setText("❌\u00A0No\u00A0se\u00A0pudo\u00A0activar.\n"
+                        + (err != null ? err : "Error\u00A0desconocido\u00A0al\u00A0iniciar\u00A0Firebase"));
+                txtSyncStatus.setTextColor(0xFFF44336);
+                Toast.makeText(requireContext(),
+                        "❌\u00A0No\u00A0se\u00A0pudo\u00A0activar\u00A0la\u00A0sincronización",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+            actualizarVistaSync(realmente);
+            mostrarEstadoConexion(fm);
             Toast.makeText(requireContext(),
-                    isChecked ? "🔗\u00A0Sincronización\u00A0activada"
+                    realmente ? "🔗\u00A0Sincronización\u00A0activada"
                               : "📴\u00A0Sincronización\u00A0desactivada",
                     Toast.LENGTH_SHORT).show();
         });
@@ -392,9 +410,25 @@ public class AjustesFragment extends Fragment {
     private void actualizarVistaSync(boolean enabled) {
         float alpha = enabled ? 1.0f : 0.4f;
         editDeviceName.setEnabled(enabled);
-        btnTestConnection.setEnabled(enabled);
         editDeviceName.setAlpha(alpha);
-        btnTestConnection.setAlpha(alpha);
+        // v4.2: el botón "Probar conexión" SIEMPRE queda habilitado para poder
+        // diagnosticar aunque la sync esté apagada.
+        btnTestConnection.setEnabled(true);
+        btnTestConnection.setAlpha(1.0f);
+    }
+
+    /** v4.2: indicador de estado de la conexión con Firebase. */
+    private void mostrarEstadoConexion(FirebaseManager fm) {
+        if (txtSyncStatus == null) return;
+        if (fm.isFirebaseAvailable()) {
+            txtSyncStatus.setText("🟢\u00A0Estado:\u00A0" + fm.getConnectionStatus());
+            txtSyncStatus.setTextColor(0xFF4CAF50);
+        } else {
+            String err = fm.getLastInitError();
+            txtSyncStatus.setText("🔴\u00A0Estado:\u00A0" + fm.getConnectionStatus()
+                    + (err != null ? "\n" + err : ""));
+            txtSyncStatus.setTextColor(0xFFF44336);
+        }
     }
 
     private void actualizarEstadoAccesibilidad() {

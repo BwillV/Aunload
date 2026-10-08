@@ -8,6 +8,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -59,6 +60,22 @@ public class FirebaseManager {
 
     private static final long HEARTBEAT_INTERVAL = 10_000L;
 
+    // ═══ Configuración Firebase del proyecto "aunload-rescue" ═══
+    // Se define de forma EXPLÍCITA (y no se depende de que el plugin de
+    // google-services procese el JSON) porque en los escáner Honeywell/iData
+    // SIN Google Play Services la auto-configuración puede no resolver la URL
+    // de la Realtime Database y lanzar "Can't determine Firebase Database URL".
+    // Con estos valores + setDatabaseUrl la base de datos funciona sin GMS.
+    private static final String FB_DATABASE_URL =
+            "https://aunload-rescue-default-rtdb.firebaseio.com";
+    private static final String FB_APP_ID =
+            "1:963708693750:android:pallettracker4310d7";
+    private static final String FB_API_KEY =
+            "AIzaSyBnAHU2lBl9TaWUb8LKbVx_gxepiE80ut8";
+    private static final String FB_PROJECT_ID = "aunload-rescue";
+    private static final String FB_SENDER_ID = "963708693750";
+    private static final String FB_APP_NAME = "pallettracker";
+
     private static FirebaseManager instance;
 
     private final SharedPreferences prefs;
@@ -107,17 +124,48 @@ public class FirebaseManager {
     // En escáner sin Google Play Services, las clases de Firebase pueden
     // no cargar (NoClassDefFoundError), por eso atrapamos Throwable.
     private boolean firebaseAvailable = false;
+    // Guarda el ÚLTIMO error de inicialización COMPLETO para mostrarlo en la UI
+    // (pantalla de Ajustes) y en el registro de errores (crash_log.txt).
+    private String lastInitError = null;
+    // FirebaseApp propia creada con opciones explícitas.
+    private FirebaseApp firebaseApp = null;
 
     private void initFirebaseApp() {
         try {
-            if (FirebaseApp.getApps(appContext).isEmpty()) {
-                FirebaseApp.initializeApp(appContext);
+            // Construir las opciones MANUALMENTE con la URL de la Realtime DB.
+            // Esto evita depender de que el JSON se procese, cosa que puede
+            // fallar en dispositivos sin Google Play Services.
+            FirebaseOptions options = new FirebaseOptions.Builder()
+                    .setApplicationId(FB_APP_ID)
+                    .setApiKey(FB_API_KEY)
+                    .setDatabaseUrl(FB_DATABASE_URL)
+                    .setProjectId(FB_PROJECT_ID)
+                    .setGcmSenderId(FB_SENDER_ID)
+                    .build();
+
+            // Reutilizar la instancia si ya existe (evita IllegalStateException).
+            boolean exists = false;
+            for (FirebaseApp app : FirebaseApp.getApps(appContext)) {
+                if (FB_APP_NAME.equals(app.getName())) {
+                    firebaseApp = app;
+                    exists = true;
+                    break;
+                }
             }
+            if (!exists) {
+                firebaseApp = FirebaseApp.initializeApp(appContext, options, FB_APP_NAME);
+            }
+
             firebaseAvailable = true;
-            Log.d(TAG, "Firebase\u00A0inicializado\u00A0correctamente");
+            lastInitError = null;
+            Log.d(TAG, "Firebase\u00A0inicializado\u00A0correctamente\u00A0(URL="
+                    + FB_DATABASE_URL + ")");
         } catch (Throwable t) {
             // Throwable cubre Exception y Error/LinkageError (dispositivos sin GMS).
             firebaseAvailable = false;
+            lastInitError = traceToString(t);
+            // Dejar constancia COMPLETA en el registro de errores de la app.
+            PalletTrackerApp.logException(appContext, "FirebaseManager.initFirebaseApp", t);
             Log.e(TAG, "Firebase\u00A0no\u00A0disponible\u00A0en\u00A0este\u00A0dispositivo", t);
         }
     }
@@ -130,8 +178,39 @@ public class FirebaseManager {
         return firebaseAvailable;
     }
 
+    /**
+     * Devuelve el último error de inicialización (traza completa) o null si
+     * Firebase se inicializó bien. Se usa para mostrar el detalle en Ajustes.
+     */
+    public String getLastInitError() {
+        return lastInitError;
+    }
+
+    /**
+     * Texto de estado legible para el indicador de conexión en Ajustes.
+     */
+    public String getConnectionStatus() {
+        if (firebaseAvailable) {
+            return syncEnabled ? "Listo\u00A0(sync\u00A0activa)" : "Listo\u00A0(sync\u00A0apagada)";
+        }
+        return "Error\u00A0al\u00A0iniciar\u00A0Firebase";
+    }
+
+    /** Convierte una excepción a su traza completa como texto. */
+    private static String traceToString(Throwable t) {
+        if (t == null) return "";
+        java.io.StringWriter sw = new java.io.StringWriter();
+        t.printStackTrace(new java.io.PrintWriter(sw));
+        return sw.toString();
+    }
+
     private DatabaseReference getDatabase() {
-        return FirebaseDatabase.getInstance().getReference();
+        // SIEMPRE con la URL explícita. Si por lo que sea firebaseApp quedó
+        // null, caemos a la instancia por URL (también válida sin GMS).
+        if (firebaseApp != null) {
+            return FirebaseDatabase.getInstance(firebaseApp, FB_DATABASE_URL).getReference();
+        }
+        return FirebaseDatabase.getInstance(FB_DATABASE_URL).getReference();
     }
 
     // ====================== CONFIGURACIÓN ======================
@@ -172,7 +251,9 @@ public class FirebaseManager {
             this.syncEnabled = false;
             prefs.edit().putBoolean(KEY_ENABLED, false).apply();
             if (listener != null) {
-                listener.onSyncError("Firebase no disponible en este dispositivo (falta Google Play Services)");
+                String detalle = lastInitError != null
+                        ? ("\n\nDetalle:\n" + lastInitError) : "";
+                listener.onSyncError("No se pudo iniciar Firebase en este dispositivo." + detalle);
             }
             return;
         }
@@ -641,6 +722,30 @@ public class FirebaseManager {
 
     public interface ConnectionTestCallback {
         void onResult(boolean success, String message);
+    }
+
+    /**
+     * Total de pallets escaneadas por TODOS los dispositivos en el container
+     * compartido indicado. Si no hay sesión sincronizada para ese código,
+     * devuelve -1 para que el llamador use el conteo local.
+     */
+    public int getTotalScannedForContainer(String containerCode) {
+        if (!syncEnabled || currentSession == null) return -1;
+        String cur = currentSession.containerCode;
+        if (containerCode != null && cur != null && !cur.isEmpty()
+                && !containerCode.equals(cur)) {
+            // La sesión activa es de otro container.
+            return -1;
+        }
+        // Preferir la suma por dispositivo; si no, el contador agregado.
+        if (currentSession.activeDevices != null && !currentSession.activeDevices.isEmpty()) {
+            int sum = 0;
+            for (DeviceInfo d : currentSession.activeDevices.values()) {
+                sum += Math.max(0, d.palletsScannedByDevice);
+            }
+            if (sum > 0) return sum;
+        }
+        return Math.max(0, currentSession.scannedPallets);
     }
 
     public int getActiveDeviceCount() {

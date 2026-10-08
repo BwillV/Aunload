@@ -429,6 +429,23 @@ public class PalletRepository {
         return getAllPallets().size();
     }
 
+    /**
+     * v4.2: Número de pallets escaneadas en el CONTAINER ACTUAL por ESTE
+     * dispositivo (conteo local). Es el valor por defecto del botón flotante.
+     * Al iniciar un nuevo container con startNewContainer() este conteo vuelve
+     * a 0 porque el código de container cambia.
+     */
+    public int getPalletCountInCurrentContainer() {
+        String code = getCurrentContainerCode();
+        int n = 0;
+        for (Pallet p : getAllPallets()) {
+            String cid = (p.taskId != null && !p.taskId.isEmpty())
+                    ? p.taskId : "Container\u00A01";
+            if (code.equals(cid)) n++;
+        }
+        return n;
+    }
+
     // ====================== CONTAINER ======================
 
     /**

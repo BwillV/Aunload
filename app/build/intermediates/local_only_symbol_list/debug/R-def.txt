@@ -31,6 +31,7 @@ id fab_floating_badge
 id fragment_container
 id home_container
 id nav_acerca
+id nav_actualizar
 id nav_ajustes
 id nav_errores
 id nav_home
@@ -105,3 +106,4 @@ string project_id
 style Theme.DiagnosticoDemo
 style Theme.PalletTracker.Detail
 xml accessibility_config
+xml file_paths

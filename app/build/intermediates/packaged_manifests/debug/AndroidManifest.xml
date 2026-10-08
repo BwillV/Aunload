@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.demoaccesibilidad.capture"
-    android:versionCode="21"
-    android:versionName="4.1" >
+    android:versionCode="22"
+    android:versionName="4.2" >
 
     <uses-sdk
         android:minSdkVersion="26"
@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name="com.demoaccesibilidad.capture.PalletTrackerApp"
@@ -63,6 +64,18 @@
         <service
             android:name="com.demoaccesibilidad.capture.FloatingButtonService"
             android:exported="false" />
+
+        <!-- FileProvider para instalar el APK de actualizacion (Android 7+) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.demoaccesibilidad.capture.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" >
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <service
             android:name="com.google.firebase.components.ComponentDiscoveryService"
             android:directBootAware="true"

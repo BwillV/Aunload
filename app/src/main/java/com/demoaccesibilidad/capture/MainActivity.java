@@ -715,6 +715,8 @@ public class MainActivity extends AppCompatActivity
             mostrarFragment(new ErroresFragment(), "Errores");
         } else if (id == R.id.nav_acerca) {
             mostrarFragment(new AcercaDeFragment(), "Acerca\u00A0de");
+        } else if (id == R.id.nav_actualizar) {
+            new UpdateChecker().checkForUpdates(this);
         }
 
         drawerLayout.closeDrawer(GravityCompat.START);
