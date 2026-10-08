@@ -78,6 +78,7 @@ public class FloatingButtonService extends Service {
 
     private static final int COLOR_SELF = 0xFF2196F3;   // azul  → "Yo"
     private static final int COLOR_TOTAL = 0xFF3F51B5;  // índigo → "Total"
+    private static final int COLOR_ALERT = 0xFFD32F2F;  // rojo  → accesibilidad OFF
 
     // ═══ Vistas ═══
     private WindowManager windowManager;
@@ -89,6 +90,8 @@ public class FloatingButtonService extends Service {
     // ═══ Estado ═══
     private int fabDisplayMode = MODE_SELF;
     private int currentColor = COLOR_SELF;
+    // v4.3: estado de la accesibilidad (se vigila en cada refresco).
+    private boolean accesibilidadOk = true;
     private PalletRepository palletRepo;
     private SharedPreferences fabPrefs;
     private SharedPreferences overlayPrefs;
@@ -387,6 +390,13 @@ public class FloatingButtonService extends Service {
 
     // ─── 1 TAP: alternar entre "Yo" y "Total" ───
     private void onSingleTapFab() {
+        // v4.3 — Si la accesibilidad está OFF, el tap abre directamente los
+        // Ajustes de accesibilidad para reactivarla (no alterna el modo).
+        if (!accesibilidadOk) {
+            abrirAjustesAccesibilidad();
+            return;
+        }
+
         fabDisplayMode = (fabDisplayMode == MODE_SELF) ? MODE_TOTAL : MODE_SELF;
         fabPrefs.edit().putInt(KEY_FAB_MODE, fabDisplayMode).apply();
 
@@ -405,8 +415,28 @@ public class FloatingButtonService extends Service {
         refrescarContador();
     }
 
+    // ─── v4.3: abrir Ajustes de accesibilidad desde el overlay ───
+    private void abrirAjustesAccesibilidad() {
+        try {
+            Intent intent = AccessibilityHelper.buildAccessibilitySettingsIntent(this);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            Toast.makeText(this,
+                    "Activa\u00A0PalletTracker\u00A0en\u00A0Accesibilidad",
+                    Toast.LENGTH_LONG).show();
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(getApplicationContext(),
+                    "FloatingButtonService.abrirAjustesAccesibilidad", t);
+        }
+    }
+
     // ─── LONG PRESS: iniciar NUEVO container (el contador vuelve a 0) ───
     private void onLongPressFab() {
+        // v4.3 — Si la accesibilidad está OFF, priorizar su reactivación.
+        if (!accesibilidadOk) {
+            abrirAjustesAccesibilidad();
+            return;
+        }
         try {
             // Avanzar al siguiente container (Container N+1) SIN borrar los
             // anteriores. El conteo del container nuevo es 0.
@@ -438,6 +468,23 @@ public class FloatingButtonService extends Service {
     // =============================================================
 
     private void refrescarContador() {
+        // v4.3 — Vigilar el servicio de accesibilidad. Si está desactivado,
+        // el conteo no funciona, así que avisamos en el propio overlay:
+        // FAB rojo con "!" para que el operario lo note y lo reactive tocándolo.
+        accesibilidadOk = AccessibilityHelper.isServiceEnabled(this);
+        if (!accesibilidadOk) {
+            if (fabBadge != null) {
+                fabBadge.setText("!");
+                fabBadge.setTextSize(22);
+            }
+            if (fab != null && currentColor != COLOR_ALERT) {
+                fab.setBackgroundTintList(ColorStateList.valueOf(COLOR_ALERT));
+                currentColor = COLOR_ALERT;
+            }
+            actualizarNotificacion(-1);
+            return;
+        }
+
         // Re-leer el modo (puede haber cambiado).
         fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SELF);
 
@@ -526,7 +573,13 @@ public class FloatingButtonService extends Service {
             NotificationManager nm = (NotificationManager)
                     getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) {
-                String text = "Registrando\u00A0pallets:\u00A0" + scanned;
+                boolean alerta = (scanned < 0);
+                String title = alerta
+                        ? "⚠️\u00A0Accesibilidad\u00A0desactivada"
+                        : "📦\u00A0PalletTracker\u00A0Activo";
+                String text = alerta
+                        ? "Toca\u00A0el\u00A0botón\u00A0flotante\u00A0para\u00A0reactivarla"
+                        : "Registrando\u00A0pallets:\u00A0" + scanned;
 
                 Intent openApp = new Intent(this, MainActivity.class);
                 openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -534,7 +587,7 @@ public class FloatingButtonService extends Service {
                         PendingIntent.FLAG_UPDATE_CURRENT);
 
                 Notification notif = new NotificationCompat.Builder(this, CHANNEL_OVERLAY)
-                        .setContentTitle("📦\u00A0PalletTracker\u00A0Activo")
+                        .setContentTitle(title)
                         .setContentText(text)
                         .setSmallIcon(android.R.drawable.ic_dialog_info)
                         .setContentIntent(pi)

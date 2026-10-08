@@ -256,6 +256,64 @@ public class MainActivity extends AppCompatActivity
         } catch (Exception ignored) { }
         refrescarDatos();
         refreshHandler.postDelayed(refreshRunnable, 3000);
+
+        // v4.3 — Si la accesibilidad está desactivada (ocurre al apagar el
+        // escáner de un día para otro), avisar de inmediato y llevar directo
+        // a los Ajustes para reactivarla.
+        verificarAccesibilidad();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //         v4.3 — VIGILANCIA DEL SERVICIO DE ACCESIBILIDAD
+    // ═══════════════════════════════════════════════════════════
+
+    private AlertDialog dialogAccesibilidad;
+
+    private void verificarAccesibilidad() {
+        try {
+            boolean activo = AccessibilityHelper.isServiceEnabled(this);
+
+            if (activo) {
+                // Ya está activa: cerrar el diálogo si seguía abierto.
+                if (dialogAccesibilidad != null && dialogAccesibilidad.isShowing()) {
+                    dialogAccesibilidad.dismiss();
+                }
+                dialogAccesibilidad = null;
+                return;
+            }
+
+            // Desactivada: mostrar diálogo (evitar duplicados).
+            if (dialogAccesibilidad != null && dialogAccesibilidad.isShowing()) {
+                return;
+            }
+
+            dialogAccesibilidad = new AlertDialog.Builder(this)
+                    .setCancelable(false)
+                    .setTitle("⚠️\u00A0Accesibilidad\u00A0desactivada")
+                    .setMessage("La\u00A0accesibilidad\u00A0de\u00A0PalletTracker\u00A0está\u00A0"
+                            + "desactivada.\u00A0Sin\u00A0ella\u00A0no\u00A0se\u00A0pueden\u00A0"
+                            + "contar\u00A0las\u00A0pallets.\n\nActívala\u00A0para\u00A0seguir\u00A0"
+                            + "registrando\u00A0automáticamente.")
+                    .setPositiveButton("Activar\u00A0ahora", (d, w) -> abrirAjustesAccesibilidad())
+                    .setNegativeButton("Más\u00A0tarde", (d, w) -> d.dismiss())
+                    .create();
+            dialogAccesibilidad.show();
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(getApplicationContext(),
+                    "MainActivity.verificarAccesibilidad", t);
+        }
+    }
+
+    private void abrirAjustesAccesibilidad() {
+        try {
+            startActivity(AccessibilityHelper.buildAccessibilitySettingsIntent(this));
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(getApplicationContext(),
+                    "MainActivity.abrirAjustesAccesibilidad", t);
+            Toast.makeText(this,
+                    "No\u00A0se\u00A0pudieron\u00A0abrir\u00A0los\u00A0Ajustes\u00A0de\u00A0accesibilidad.",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
