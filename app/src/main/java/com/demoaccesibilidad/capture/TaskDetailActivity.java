@@ -43,14 +43,17 @@ public class TaskDetailActivity extends AppCompatActivity {
         // Toolbar.
         Toolbar toolbar = findViewById(R.id.toolbar_detail);
         setSupportActionBar(toolbar);
+        // v4.4: containerCode es el id interno "yyyy-MM-dd#N" (se usa para buscar
+        // los pallets); en pantalla se muestra como "Container N".
+        String containerDisplay = PalletRepository.displayContainer(containerCode);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("Pallets\u00A0—\u00A0" + containerCode);
+            getSupportActionBar().setTitle("Pallets\u00A0—\u00A0" + containerDisplay);
         }
 
         TextView txtTaskTitle = findViewById(R.id.txt_task_title);
         txtPalletTotal = findViewById(R.id.txt_pallet_total);
-        txtTaskTitle.setText(containerCode);
+        txtTaskTitle.setText(containerDisplay);
 
         // RecyclerView.
         RecyclerView recycler = findViewById(R.id.recycler_pallets);

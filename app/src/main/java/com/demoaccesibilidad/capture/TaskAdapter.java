@@ -64,7 +64,8 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.TaskViewHolder
         }
 
         void bind(TaskSummary task, OnTaskClickListener listener) {
-            txtTaskId.setText(task.taskId);
+            // v4.4: task.taskId es el id interno "yyyy-MM-dd#N"; mostrar "Container N".
+            txtTaskId.setText(PalletRepository.displayContainer(task.taskId));
             txtPalletCount.setText("(" + task.palletCount + ")");
             txtLastTime.setText(task.getLastTimeDisplay());
 

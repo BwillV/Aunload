@@ -37,7 +37,16 @@ public class PalletRepository {
     private static final String KEY_PALLETS = "pallets_json";
     private static final String KEY_COUNTER = "pallet_counter";
     // v3.2: número de container secuencial (Container 1, Container 2, ...).
+    // (legado) se conserva solo para migración de datos viejos.
     private static final String KEY_CONTAINER_NUM = "container_number";
+    // v4.4: NUMERACIÓN DIARIA. El número de container EMPIEZA EN 1 CADA DÍA.
+    //  - KEY_CONTAINER_DATE guarda la fecha local (yyyy-MM-dd) del container activo.
+    //  - KEY_CONTAINER_SEQ guarda el número de container de ESE día (1, 2, 3, ...).
+    // El id interno de cada pallet (campo taskId) es "yyyy-MM-dd#N" para que los
+    // containers de distintos días NUNCA se mezclen, pero en la UI se muestra
+    // siempre como "Container N" (el N del día).
+    private static final String KEY_CONTAINER_DATE = "container_date";
+    private static final String KEY_CONTAINER_SEQ = "container_seq_today";
     private static final int MAX_PALLETS = 2000;
 
     private final SharedPreferences prefs;
@@ -92,6 +101,36 @@ public class PalletRepository {
         }
 
         return true;
+    }
+
+    /**
+     * v4.4: Actualiza la UBICACIÓN de un pallet YA guardado, buscándolo por su
+     * palletCode. Se usa cuando la ubicación aparece en pantalla DESPUÉS de que
+     * se confirmó "Put away success" (la pantalla se llena en varios eventos).
+     * NO duplica el pallet: solo rellena la ubicación si estaba vacía.
+     * @return true si se actualizó (había un pallet y no tenía ubicación).
+     */
+    public synchronized boolean updatePalletLocation(String palletCode, String location) {
+        if (palletCode == null || location == null || location.trim().isEmpty()) {
+            return false;
+        }
+        List<Pallet> all = getAllPallets();
+        boolean changed = false;
+        for (Pallet p : all) {
+            if (palletCode.equals(p.palletCode)) {
+                if (p.location == null || p.location.trim().isEmpty()) {
+                    p.location = location.trim();
+                    changed = true;
+                }
+                break;
+            }
+        }
+        if (changed) {
+            savePallets(all);
+            Log.d(TAG, "Ubicación\u00A0rellenada\u00A0para\u00A0" + palletCode
+                    + ":\u00A0" + location);
+        }
+        return changed;
     }
 
     // ====================== CONSULTAS ======================
@@ -225,9 +264,20 @@ public class PalletRepository {
      * @return el nuevo código de container actual.
      */
     public synchronized String startNewContainer() {
-        int next = prefs.getInt(KEY_CONTAINER_NUM, 1) + 1;
-        prefs.edit().putInt(KEY_CONTAINER_NUM, next).apply();
-        return getCurrentContainerCode();
+        String hoy = todayKey();
+        String fechaGuardada = prefs.getString(KEY_CONTAINER_DATE, "");
+        int seq;
+        if (!hoy.equals(fechaGuardada)) {
+            // Primer container del nuevo día → Container 1.
+            seq = 1;
+        } else {
+            seq = prefs.getInt(KEY_CONTAINER_SEQ, 1) + 1;
+        }
+        prefs.edit()
+                .putString(KEY_CONTAINER_DATE, hoy)
+                .putInt(KEY_CONTAINER_SEQ, seq)
+                .apply();
+        return hoy + "#" + seq;
     }
 
     /**
@@ -281,6 +331,61 @@ public class PalletRepository {
             }
         }
         if (changed) savePallets(all);
+    }
+
+    /**
+     * v4.4: Migración a NUMERACIÓN DIARIA. Convierte los ids de container
+     * legados ("Container N", vacío, "SIN TASK", etc.) al formato interno con
+     * fecha "yyyy-MM-dd#N", asignando a cada día su propia numeración 1..k en
+     * orden de entrada (por timestamp). Así cada día empieza en "Container 1"
+     * y los días no se mezclan. Idempotente: si todos los pallets ya tienen un
+     * id con '#', no hace nada.
+     */
+    public synchronized void migrateContainersToDaily() {
+        List<Pallet> all = getAllPallets();
+        if (all.isEmpty()) return;
+
+        boolean hayLegado = false;
+        for (Pallet p : all) {
+            if (p.taskId == null || p.taskId.indexOf('#') < 0) { hayLegado = true; break; }
+        }
+        if (!hayLegado) return;
+
+        // Copia ordenada por timestamp ascendente (orden de entrada real).
+        List<Pallet> ordenados = new ArrayList<>(all);
+        Collections.sort(ordenados, (a, b) -> Long.compare(a.timestamp, b.timestamp));
+
+        // Por fecha: mapa de código legado → nuevo id "fecha#N".
+        Map<String, Map<String, String>> porFecha = new LinkedHashMap<>();
+        Map<String, Integer> seqPorFecha = new LinkedHashMap<>();
+
+        for (Pallet p : ordenados) {
+            if (p.taskId != null && p.taskId.indexOf('#') >= 0) continue; // ya migrado
+            String fecha = dateKeyOf(p.timestamp);
+            String legado = (p.taskId != null && !p.taskId.isEmpty())
+                    ? p.taskId : "Container\u00A01";
+            Map<String, String> m = porFecha.get(fecha);
+            if (m == null) { m = new LinkedHashMap<>(); porFecha.put(fecha, m); }
+            String nuevo = m.get(legado);
+            if (nuevo == null) {
+                int next = seqPorFecha.containsKey(fecha) ? seqPorFecha.get(fecha) + 1 : 1;
+                seqPorFecha.put(fecha, next);
+                nuevo = fecha + "#" + next;
+                m.put(legado, nuevo);
+            }
+            p.taskId = nuevo;
+        }
+        savePallets(all);
+
+        // Ajustar el puntero del día de hoy para continuar la numeración.
+        String hoy = todayKey();
+        Integer seqHoy = seqPorFecha.get(hoy);
+        if (seqHoy != null) {
+            prefs.edit()
+                    .putString(KEY_CONTAINER_DATE, hoy)
+                    .putInt(KEY_CONTAINER_SEQ, seqHoy)
+                    .apply();
+        }
     }
 
     /**
@@ -355,12 +460,23 @@ public class PalletRepository {
     }
 
     /**
-     * Extrae el número N de un código "Container N". Devuelve null si el texto
-     * no tiene ese formato.
+     * Extrae el número N de un id de container. Acepta los dos formatos:
+     *  - "yyyy-MM-dd#N" (v4.4, id interno con fecha) → N
+     *  - "Container N"  (legado) → N
+     * Devuelve null si el texto no tiene ninguno de esos formatos.
      */
-    private Integer parseContainerNumber(String code) {
+    private static Integer parseContainerNumber(String code) {
         if (code == null) return null;
         String c = code.replace('\u00A0', ' ').trim();
+        int hash = c.indexOf('#');
+        if (hash >= 0) {
+            String num = c.substring(hash + 1).trim();
+            try {
+                return Integer.parseInt(num);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
         if (!c.toLowerCase(java.util.Locale.ROOT).startsWith("container")) return null;
         String num = c.substring("container".length()).trim();
         if (num.isEmpty()) return null;
@@ -449,24 +565,85 @@ public class PalletRepository {
     // ====================== CONTAINER ======================
 
     /**
-     * v3.2: Código de container secuencial actual (ej. "Container 1").
-     * La pantalla de Put away del WMS no muestra Task ID, así que usamos
-     * este código simple como identificador de agrupación de los pallets.
+     * v4.4: Id INTERNO del container activo, con fecha: "yyyy-MM-dd#N".
+     * La fecha evita que los containers de días distintos se mezclen; el N
+     * es el número de container de HOY (empieza en 1 cada día).
+     *
+     * Si la fecha guardada no es la de hoy (primer uso del día), se reinicia
+     * automáticamente a "Container 1": N vuelve a 1 y el conteo del botón
+     * flotante empieza en 0 (porque el código cambia y no hay pallets de hoy
+     * con ese código todavía).
+     *
+     * Para mostrar en pantalla usar displayContainer(code) → "Container N".
      */
-    public String getCurrentContainerCode() {
-        return "Container\u00A0" + prefs.getInt(KEY_CONTAINER_NUM, 1);
+    public synchronized String getCurrentContainerCode() {
+        String hoy = todayKey();
+        String fechaGuardada = prefs.getString(KEY_CONTAINER_DATE, "");
+        int seq;
+        if (!hoy.equals(fechaGuardada)) {
+            // Cambió el día → reiniciar numeración a 1.
+            seq = 1;
+            prefs.edit()
+                    .putString(KEY_CONTAINER_DATE, hoy)
+                    .putInt(KEY_CONTAINER_SEQ, seq)
+                    .apply();
+        } else {
+            seq = prefs.getInt(KEY_CONTAINER_SEQ, 1);
+            if (seq < 1) seq = 1;
+        }
+        return hoy + "#" + seq;
+    }
+
+    /**
+     * v4.4: Número del container actual DENTRO de hoy (para "Vas en el
+     * Container X"). Empieza en 1 cada día.
+     */
+    public int getCurrentContainerNumber() {
+        Integer n = parseContainerNumber(getCurrentContainerCode());
+        return n != null ? n : 1;
+    }
+
+    /**
+     * v4.4: Convierte un id interno de container a su texto visible.
+     *  - "yyyy-MM-dd#N"  → "Container N"
+     *  - "Container N"    → "Container N" (datos legado ya migrados)
+     *  - vacío/otro       → "Container 1"
+     */
+    public static String displayContainer(String code) {
+        Integer n = parseContainerNumber(code);
+        if (n != null) return "Container\u00A0" + n;
+        if (code == null || code.trim().isEmpty()) return "Container\u00A01";
+        return code;
+    }
+
+    /** Fecha local de hoy como clave yyyy-MM-dd. */
+    private static String todayKey() {
+        return dateKeyOf(System.currentTimeMillis());
+    }
+
+    /** Fecha local de un timestamp como clave yyyy-MM-dd. */
+    private static String dateKeyOf(long ts) {
+        if (ts <= 0) return "1970-01-01";
+        java.text.SimpleDateFormat fmt =
+                new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+        return fmt.format(new java.util.Date(ts));
     }
 
     // ====================== RESET ======================
 
     public void clearAll() {
-        // v3.2: al cerrar el turno/container, avanzamos al siguiente número
-        // para que los nuevos pallets se agrupen en "Container N+1".
-        int nextContainer = prefs.getInt(KEY_CONTAINER_NUM, 1) + 1;
+        // v4.4: al cerrar el turno/container, avanzamos al siguiente número
+        // del día (o 1 si cambió el día) para que los nuevos pallets se
+        // agrupen en el siguiente container.
+        String hoy = todayKey();
+        String fechaGuardada = prefs.getString(KEY_CONTAINER_DATE, "");
+        int seq = hoy.equals(fechaGuardada)
+                ? prefs.getInt(KEY_CONTAINER_SEQ, 1) + 1 : 1;
         prefs.edit()
                 .remove(KEY_PALLETS)
                 .putInt(KEY_COUNTER, 0)
-                .putInt(KEY_CONTAINER_NUM, nextContainer)
+                .putString(KEY_CONTAINER_DATE, hoy)
+                .putInt(KEY_CONTAINER_SEQ, seq)
                 .apply();
     }
 

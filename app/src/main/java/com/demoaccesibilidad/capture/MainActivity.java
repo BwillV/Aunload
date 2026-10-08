@@ -138,6 +138,9 @@ public class MainActivity extends AppCompatActivity
         palletRepo.migrateLegacyToContainers();
         // v4.1 — Limpiar SKU que quedaron con "TASK-xxxx" por el bug del regex.
         palletRepo.migrateFixSkuTask();
+        // v4.4 — Numeración DIARIA: pasar ids "Container N" al formato interno
+        // con fecha "yyyy-MM-dd#N" para que cada día empiece en 1 y no se mezclen.
+        palletRepo.migrateContainersToDaily();
         notifHelper = new NotificationHelper(this);
         fabPrefs = getSharedPreferences(PREFS_FAB, MODE_PRIVATE);
 
@@ -342,12 +345,17 @@ public class MainActivity extends AppCompatActivity
         }
 
         containerHeader.setVisibility(View.VISIBLE);
-        txtContainerCode.setText("Actual:\u00A0" + palletRepo.getCurrentContainerCode());
+        // v4.4 — SOLO datos de HOY, sin totales históricos.
+        // "Vas en el Container X" = número de container actual DENTRO de hoy.
+        txtContainerCode.setText("Vas\u00A0en\u00A0el\u00A0Container\u00A0"
+                + palletRepo.getCurrentContainerNumber());
 
         int numContainers = palletRepo.getContainerListToday().size();
         txtContainerTasks.setVisibility(View.VISIBLE);
-        txtContainerTasks.setText(palletsHoy + "\u00A0pallets\u00A0hoy\u00A0•\u00A0"
-                + numContainers + (numContainers == 1 ? "\u00A0container" : "\u00A0containers"));
+        // "Hoy: N containers" + pallets de hoy (nunca el total histórico).
+        txtContainerTasks.setText("Hoy:\u00A0" + numContainers
+                + (numContainers == 1 ? "\u00A0container" : "\u00A0containers")
+                + "\u00A0•\u00A0" + palletsHoy + "\u00A0pallets");
 
         // Dispositivos activos.
         FirebaseManager fm = FirebaseManager.getInstance(this);
@@ -966,7 +974,8 @@ public class MainActivity extends AppCompatActivity
         final boolean[] checked = new boolean[containers.size()];
         for (int i = 0; i < containers.size(); i++) {
             int count = palletRepo.getPalletsForTask(containers.get(i)).size();
-            labels[i] = containers.get(i) + "\u00A0(" + count + "\u00A0pallets)";
+            labels[i] = PalletRepository.displayContainer(containers.get(i))
+                    + "\u00A0(" + count + "\u00A0pallets)";
         }
 
         new AlertDialog.Builder(this)
@@ -997,7 +1006,7 @@ public class MainActivity extends AppCompatActivity
         StringBuilder sb = new StringBuilder();
         for (String c : containers) {
             if (sb.length() > 0) sb.append(",\u00A0");
-            sb.append(c);
+            sb.append(PalletRepository.displayContainer(c));
         }
 
         new AlertDialog.Builder(this)

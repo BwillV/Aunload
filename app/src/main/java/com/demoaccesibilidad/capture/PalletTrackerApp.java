@@ -79,6 +79,44 @@ public class PalletTrackerApp extends Application {
     }
 
     /**
+     * Registra un EVENTO informativo de diagnóstico (no es un error) en el
+     * mismo registro legible. Se usa, por ejemplo, cuando se guarda un pallet
+     * sin ubicación: se vuelca el listado de textos leídos de la pantalla para
+     * poder entender por qué no se detectó la ubicación.
+     */
+    public static void logEvento(Context ctx, String titulo, String detalle) {
+        try {
+            String fecha = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                    .format(new Date());
+            StringBuilder sb = new StringBuilder();
+            sb.append("======================================================\n");
+            sb.append("  PalletTracker DIAGNÓSTICO\n");
+            sb.append("  Fecha:    ").append(fecha).append('\n');
+            sb.append("  Evento:   ").append(titulo).append('\n');
+            sb.append("------------------------------------------------------\n");
+            if (detalle != null) sb.append(detalle).append('\n');
+            sb.append("======================================================\n\n");
+            String contenido = sb.toString();
+
+            Log.d(TAG, "Evento diagnóstico: " + titulo);
+
+            try {
+                File dir = ctx.getExternalFilesDir(null);
+                if (dir != null) {
+                    FileWriter fw = new FileWriter(new File(dir, CRASH_FILE), true);
+                    fw.write(contenido);
+                    fw.close();
+                }
+            } catch (Throwable ignored) { }
+            try {
+                FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), CRASH_FILE), true);
+                fw.write(contenido);
+                fw.close();
+            } catch (Throwable ignored) { }
+        } catch (Throwable ignored) { }
+    }
+
+    /**
      * Lee el contenido completo del registro de errores para mostrarlo
      * dentro de la app (pestaña "Errores"). Devuelve cadena vacía si no
      * hay errores registrados.

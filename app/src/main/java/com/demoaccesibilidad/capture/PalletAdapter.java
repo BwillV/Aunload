@@ -66,11 +66,15 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
             txtSku.setText(p.sku != null && !p.sku.isEmpty() ? p.sku : "—");
             txtQuantity.setText(p.getQuantityDisplay());
 
+            // v4.4: siempre visible. Si no hay ubicación, se muestra
+            // "Sin ubicación" en rojo para que el usuario sepa que falta.
+            txtLocation.setVisibility(View.VISIBLE);
             if (p.location != null && !p.location.isEmpty()) {
-                txtLocation.setVisibility(View.VISIBLE);
                 txtLocation.setText("📍\u00A0" + p.location);
+                txtLocation.setTextColor(0xFF4CAF50); // verde
             } else {
-                txtLocation.setVisibility(View.GONE);
+                txtLocation.setText("📍\u00A0Sin\u00A0ubicación");
+                txtLocation.setTextColor(0xFFE53935); // rojo
             }
 
             txtTime.setText(p.getTimestampDisplay());

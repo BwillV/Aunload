@@ -8,7 +8,10 @@ import android.view.accessibility.AccessibilityNodeInfo;
 
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+import android.view.accessibility.AccessibilityWindowInfo;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,15 +25,25 @@ import java.util.regex.Pattern;
  * Servicio de Accesibilidad — PalletTracker
  *
  * Lee textos visibles en pantalla y detecta automáticamente:
- *  - Task IDs (TASK-XXXX)
  *  - Pallet Codes (ILP-XXXXX)
- *  - SKUs (códigos alfanuméricos)
+ *  - SKUs (el texto que aparece justo después del ILP)
  *  - Cantidades (decimales)
- *  - Ubicaciones (formato B02-133-3)
+ *  - Ubicaciones (B03-033-4, DOCK-01, STAGE 3, ...)
+ *
+ * NUNCA se extrae ni se guarda ningún "TASK-...".
  *
  * Patrón "Señal vs Dato":
  *  → Los DATOS se cachean conforme aparecen en pantalla.
  *  → La SEÑAL "Put away success" confirma y guarda el registro.
+ *
+ * v4.4 — detección de ubicación mucho más robusta:
+ *  → Patrón de ubicación flexible (distinto nº de segmentos, sufijos, DOCK/STAGE...).
+ *  → Prioridad por etiqueta (Location / To Location / Dest...), luego estructural
+ *    (texto junto al SKU) y por último patrón.
+ *  → Se recorren TODAS las ventanas (getWindows) y se leen text + contentDescription + hint.
+ *  → Reintentos temporales: si un pallet se guarda sin ubicación, se reintenta
+ *    durante ~1.5 s y se actualiza la MISMA pallet (sin duplicar).
+ *  → Diagnóstico: al guardar sin ubicación se vuelca todo lo leído al registro.
  */
 public class ScreenCaptureService extends AccessibilityService {
 
@@ -63,10 +76,41 @@ public class ScreenCaptureService extends AccessibilityService {
     // v4.0: PAT_TASK eliminado — ya no se extrae Task ID.
     private static final Pattern PAT_PALLET =
             Pattern.compile("ILP[-\\s]?(\\d{4,8})");
+
+    // v4.4: Ubicación FLEXIBLE. Antes solo valía "B02-133-3" (demasiado estricto,
+    // por eso "detectaba una y otras no"). Ahora acepta:
+    //   - 2 ó 3 (o más) segmentos separados por "-" o "." con distinta cantidad
+    //     de dígitos: B03-033-4, A1-12-3, BIN-12, 12-034-5-2, ...
+    //   - un prefijo de 1 a 3 letras opcional por segmento (B03, A1, AA12...).
+    //   - sufijo opcional.
+    // El primer segmento debe tener alguna letra O al menos dos dígitos, para
+    // no confundir con una cantidad suelta.
     private static final Pattern PAT_LOCATION =
-            Pattern.compile("[A-Z]\\d{1,2}-\\d{2,3}-\\d{1,2}");
+            Pattern.compile("\\b([A-Z]{0,3}\\d{1,4})([-.][A-Z]{0,3}\\d{1,4}){1,4}[A-Z]?\\b");
+
+    // v4.4: Ubicaciones "con nombre" tipo DOCK-01, STAGE 3, DOOR 12, BAY-7...
+    private static final Pattern PAT_LOCATION_NAMED =
+            Pattern.compile("\\b(DOCK|STAGE|STAGING|DOOR|BAY|LANE|SLOT|SPOT|AISLE|ZONE|RACK|SHELF|BIN|PICK|DROP)[\\s-]*([A-Z]?\\d{1,4})\\b",
+                    Pattern.CASE_INSENSITIVE);
+
     private static final Pattern PAT_QUANTITY =
             Pattern.compile("(\\d{1,5}\\.\\d{1,2})");
+
+    // Etiquetas típicas del WMS que anteceden al valor de la ubicación.
+    private static final String[] ETIQUETAS_UBICACION = {
+            "To Location", "To Loc", "Location", "Loc", "Ubicación", "Ubicacion",
+            "Destination", "Dest", "Put to", "Putaway to", "Bin", "Slot", "Position"
+    };
+
+    // ====================== REINTENTOS DE UBICACIÓN ======================
+    // Si un pallet se guarda sin ubicación, se reintenta leer la pantalla
+    // varias veces durante ~1.5 s y se ACTUALIZA la misma pallet (sin duplicar).
+    private final Handler locHandler = new Handler(Looper.getMainLooper());
+    private Runnable locRunnable = null;
+    private String pendingLocPalletCode = null;   // pallet a completar
+    private int locRetries = 0;
+    private static final int MAX_LOC_RETRIES = 7;
+    private static final long LOC_RETRY_MS = 220;
     // v4.1: PAT_SKU por regex ELIMINADO. Causaba el bug: "[A-Z]{2,}[_-][A-Z0-9]{4,}"
     // coincidía con "TASK-2693" (TASK + '-' + 2693) y lo guardaba como SKU.
     // Ahora el SKU es el nodo de texto que aparece JUSTO DESPUÉS del ILP.
@@ -136,18 +180,18 @@ public class ScreenCaptureService extends AccessibilityService {
         try {
             root = getRootInActiveWindow();
         } catch (Exception ignored) { }
-        if (root == null) return;
 
         boolean esAppPropia = false;
         try {
-            CharSequence pkg = root.getPackageName();
-            esAppPropia = pkg != null && getPackageName().contentEquals(pkg);
+            if (root != null) {
+                CharSequence pkg = root.getPackageName();
+                esAppPropia = pkg != null && getPackageName().contentEquals(pkg);
+            }
         } catch (Exception ignored) { }
 
-        List<String> textos = new ArrayList<>();
-        try {
-            recolectarTextos(root, textos, 0);
-        } catch (Exception ignored) { }
+        // v4.4: leer la ventana activa Y todas las demás ventanas (getWindows),
+        // porque algunos WMS muestran la ubicación en un panel/overlay separado.
+        List<String> textos = recolectarTodo(root);
         if (textos.isEmpty()) return;
 
         String firma = String.valueOf(textos);
@@ -193,6 +237,7 @@ public class ScreenCaptureService extends AccessibilityService {
         String location = null;
         boolean putAwaySuccess = false;
         boolean putAwayButton = false;
+        int idxIlp = -1;   // posición del ILP, para buscar ubicación de forma estructural
 
         for (int i = 0; i < textos.size(); i++) {
             String t = textos.get(i);
@@ -219,6 +264,7 @@ public class ScreenCaptureService extends AccessibilityService {
             Matcher mp = PAT_PALLET.matcher(s);
             if (mp.find()) {
                 palletCode = "ILP-" + mp.group(1);
+                idxIlp = i;
                 String skuSiguiente = buscarSkuDespuesDeIlp(textos, i);
                 if (skuSiguiente != null) {
                     sku = skuSiguiente;
@@ -226,11 +272,9 @@ public class ScreenCaptureService extends AccessibilityService {
                 continue; // este nodo ya se consumió como ILP
             }
 
-            // Ubicación.
-            Matcher ml = PAT_LOCATION.matcher(s);
-            if (ml.find()) {
-                location = ml.group();
-            }
+            // La ubicación se resuelve DESPUÉS del bucle con buscarUbicacion(),
+            // que prioriza el valor junto a la etiqueta y evita confundirla con
+            // el ILP / SKU / cantidad.
 
             // Cantidad (decimal).
             Matcher mq = PAT_QUANTITY.matcher(s);
@@ -244,42 +288,42 @@ public class ScreenCaptureService extends AccessibilityService {
             }
         }
 
+        // ── Ubicación: prioridad etiqueta → estructural (junto al SKU/ILP) → patrón ──
+        location = buscarUbicacion(textos, idxIlp);
+
+        // Fallbacks de SKU/cantidad por etiqueta (por si no se capturaron con regex).
+        if (sku == null) {
+            String skuLabel = valorEtiqueta(textos, "SKU", false);
+            if (skuLabel != null && skuLabel.length() >= 4 && esCandidatoSku(skuLabel)) {
+                sku = skuLabel;
+            }
+        }
+        if (quantity <= 0) {
+            String qtyLabel = valorEtiqueta(textos, "Qty", true);
+            if (qtyLabel == null) qtyLabel = valorEtiqueta(textos, "Quantity", true);
+            if (qtyLabel == null) qtyLabel = valorEtiqueta(textos, "CTNs", true);
+            if (qtyLabel != null) {
+                try {
+                    quantity = Double.parseDouble(qtyLabel);
+                } catch (NumberFormatException ignored) { }
+            }
+        }
+
         // ── Paso 2: Actualizar caché (los datos que aparecen) ──
         if (palletCode != null) cachedPalletCode = palletCode;
         if (sku != null) cachedSku = sku;
         if (quantity > 0) cachedQuantity = quantity;
         if (location != null) cachedLocation = location;
 
+        // Si ya hay un pallet guardado esperando su ubicación y por fin
+        // apareció una ubicación válida, completarla sin duplicar.
+        if (location != null && pendingLocPalletCode != null) {
+            completarUbicacionPendiente(location);
+        }
+
         // ── Paso 3: SEÑAL — guardar cuando se confirma "Put away success" ──
         if (putAwaySuccess && cachedPalletCode != null) {
             guardarPalletSiNuevo();
-        }
-
-        // También intentar valorEtiqueta para campos que pudieran
-        // no haberse capturado con regex (etiquetas del WMS).
-        if (cachedSku == null) {
-            String skuLabel = valorEtiqueta(textos, "SKU", false);
-            if (skuLabel != null && skuLabel.length() >= 4 && esCandidatoSku(skuLabel)) {
-                cachedSku = skuLabel;
-            }
-        }
-        if (cachedQuantity <= 0) {
-            String qtyLabel = valorEtiqueta(textos, "Qty", true);
-            if (qtyLabel == null) qtyLabel = valorEtiqueta(textos, "Quantity", true);
-            if (qtyLabel == null) qtyLabel = valorEtiqueta(textos, "CTNs", true);
-            if (qtyLabel != null) {
-                try {
-                    cachedQuantity = Double.parseDouble(qtyLabel);
-                } catch (NumberFormatException ignored) { }
-            }
-        }
-        if (cachedLocation == null) {
-            String locLabel = valorEtiqueta(textos, "Location", false);
-            if (locLabel == null) locLabel = valorEtiqueta(textos, "Loc", false);
-            if (locLabel != null) {
-                Matcher ml2 = PAT_LOCATION.matcher(locLabel);
-                if (ml2.find()) cachedLocation = ml2.group();
-            }
         }
     }
 
@@ -308,23 +352,15 @@ public class ScreenCaptureService extends AccessibilityService {
 
         if (inserted) {
             savedPalletCodes.add(cachedPalletCode);
-            Log.d(TAG, "✅\u00A0Pallet\u00A0guardado:\u00A0" + cachedPalletCode
+            String guardado = cachedPalletCode;
+            boolean sinUbicacion = (cachedLocation == null || cachedLocation.trim().isEmpty());
+            Log.d(TAG, "✅\u00A0Pallet\u00A0guardado:\u00A0" + guardado
                     + "\u00A0container=" + containerParaGuardar
-                    + "\u00A0qty=" + cachedQuantity);
+                    + "\u00A0qty=" + cachedQuantity
+                    + "\u00A0loc=" + cachedLocation);
 
             // Notificar a la UI (MainActivity).
-            try {
-                Intent broadcast = new Intent(ACTION_PALLET_SAVED);
-                broadcast.setPackage(getPackageName());
-                sendBroadcast(broadcast);
-            } catch (Exception ignored) { }
-
-            // Notificar al overlay flotante.
-            try {
-                Intent fabUpdate = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
-                fabUpdate.setPackage(getPackageName());
-                sendBroadcast(fabUpdate);
-            } catch (Exception ignored) { }
+            notificarPalletGuardado();
 
             // Limpiar caché para el siguiente pallet.
             cachedPalletCode = null;
@@ -332,7 +368,106 @@ public class ScreenCaptureService extends AccessibilityService {
             cachedQuantity = 0.0;
             cachedLocation = null;
             // v4.0: el container actual se mantiene hasta que el usuario inicie uno nuevo.
+
+            // v4.4: si se guardó SIN ubicación, dejar diagnóstico y reintentar leerla.
+            if (sinUbicacion) {
+                volcarDiagnosticoSinUbicacion(guardado);
+                iniciarReintentosUbicacion(guardado);
+            }
         }
+    }
+
+    /** Avisa a MainActivity y al overlay flotante de que cambió algo. */
+    private void notificarPalletGuardado() {
+        try {
+            Intent broadcast = new Intent(ACTION_PALLET_SAVED);
+            broadcast.setPackage(getPackageName());
+            sendBroadcast(broadcast);
+        } catch (Exception ignored) { }
+        try {
+            Intent fabUpdate = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
+            fabUpdate.setPackage(getPackageName());
+            sendBroadcast(fabUpdate);
+        } catch (Exception ignored) { }
+    }
+
+    // =============================================================
+    //       REINTENTOS: COMPLETAR UBICACIÓN DE UN PALLET YA GUARDADO
+    // =============================================================
+
+    /**
+     * Marca un pallet como "pendiente de ubicación" y programa varios reintentos
+     * durante ~1.5 s. En cada reintento se vuelve a leer TODA la pantalla (todas
+     * las ventanas) por si la ubicación aparece un instante después del guardado.
+     */
+    private void iniciarReintentosUbicacion(String palletCode) {
+        pendingLocPalletCode = palletCode;
+        locRetries = 0;
+        if (locRunnable != null) locHandler.removeCallbacks(locRunnable);
+        locRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (pendingLocPalletCode == null) return;
+                locRetries++;
+
+                String loc = null;
+                try {
+                    List<String> textos = recolectarTodo(getRootInActiveWindow());
+                    loc = buscarUbicacion(textos, -1);
+                } catch (Exception ignored) { }
+
+                if (loc != null) {
+                    completarUbicacionPendiente(loc);
+                    return;
+                }
+                if (locRetries < MAX_LOC_RETRIES) {
+                    locHandler.postDelayed(this, LOC_RETRY_MS);
+                } else {
+                    // Se agotaron los reintentos: queda "Sin ubicación".
+                    pendingLocPalletCode = null;
+                }
+            }
+        };
+        locHandler.postDelayed(locRunnable, LOC_RETRY_MS);
+    }
+
+    /**
+     * Rellena la ubicación del pallet pendiente SIN duplicarlo. Usa
+     * PalletRepository.updatePalletLocation, que solo escribe si estaba vacía.
+     */
+    private void completarUbicacionPendiente(String location) {
+        String code = pendingLocPalletCode;
+        if (code == null || location == null || location.trim().isEmpty()) return;
+        pendingLocPalletCode = null;
+        if (locRunnable != null) locHandler.removeCallbacks(locRunnable);
+        try {
+            PalletRepository repo = new PalletRepository(this);
+            boolean ok = repo.updatePalletLocation(code, location.trim());
+            if (ok) {
+                Log.d(TAG, "📍\u00A0Ubicación\u00A0completada:\u00A0" + code + "\u00A0→\u00A0" + location);
+                notificarPalletGuardado();
+            }
+        } catch (Exception ignored) { }
+    }
+
+    /**
+     * Vuelca al registro (crash_log / pestaña Errores) TODOS los textos leídos,
+     * en orden, para entender por qué no se detectó la ubicación.
+     */
+    private void volcarDiagnosticoSinUbicacion(String palletCode) {
+        try {
+            List<String> textos = recolectarTodoConIds(getRootInActiveWindow());
+            StringBuilder sb = new StringBuilder();
+            sb.append("Pallet guardado SIN ubicación: ").append(palletCode).append('\n');
+            sb.append("Textos leídos de pantalla (text / contentDescription / hint):\n");
+            int n = 0;
+            for (String t : textos) {
+                if (t == null || t.isEmpty()) continue;
+                sb.append(String.format(Locale.ROOT, "[%02d] ", n++)).append(t).append('\n');
+                if (n >= 150) { sb.append("...(recortado)\n"); break; }
+            }
+            PalletTrackerApp.logEvento(this, "Ubicación no detectada", sb.toString());
+        } catch (Exception ignored) { }
     }
 
     // =============================================================
@@ -375,10 +510,188 @@ public class ScreenCaptureService extends AccessibilityService {
         if (t != null && t.length() > 0) out.add(t.toString().trim());
         CharSequence cd = node.getContentDescription();
         if (cd != null && cd.length() > 0) out.add(cd.toString().trim());
+        // v4.4: también el "hint" (texto de ayuda del campo), API 26+.
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                CharSequence hint = node.getHintText();
+                if (hint != null && hint.length() > 0) out.add(hint.toString().trim());
+            }
+        } catch (Throwable ignored) { }
         int n = node.getChildCount();
         for (int i = 0; i < n; i++) {
             recolectarTextos(node.getChild(i), out, prof + 1);
         }
+    }
+
+    /**
+     * v4.4: Recolecta los textos de la ventana activa Y de TODAS las demás
+     * ventanas accesibles (getWindows). Algunos WMS pintan la ubicación en un
+     * panel/overlay distinto de la ventana con foco.
+     */
+    private List<String> recolectarTodo(AccessibilityNodeInfo activeRoot) {
+        List<String> textos = new ArrayList<>();
+        if (activeRoot != null) {
+            try { recolectarTextos(activeRoot, textos, 0); } catch (Exception ignored) { }
+        }
+        try {
+            List<AccessibilityWindowInfo> ventanas = getWindows();
+            if (ventanas != null) {
+                for (AccessibilityWindowInfo w : ventanas) {
+                    if (w == null) continue;
+                    AccessibilityNodeInfo r = null;
+                    try { r = w.getRoot(); } catch (Exception ignored) { }
+                    if (r == null) continue;
+                    // Saltar nuestra propia app (overlay flotante).
+                    try {
+                        CharSequence pkg = r.getPackageName();
+                        if (pkg != null && getPackageName().contentEquals(pkg)) continue;
+                    } catch (Exception ignored) { }
+                    try { recolectarTextos(r, textos, 0); } catch (Exception ignored) { }
+                }
+            }
+        } catch (Exception ignored) { }
+        return textos;
+    }
+
+    /**
+     * Igual que recolectarTodo pero añadiendo el viewId de cada nodo, para el
+     * volcado de diagnóstico (ayuda a identificar el campo de la ubicación).
+     */
+    private List<String> recolectarTodoConIds(AccessibilityNodeInfo activeRoot) {
+        List<String> out = new ArrayList<>();
+        if (activeRoot != null) {
+            try { recolectarConIds(activeRoot, out, 0); } catch (Exception ignored) { }
+        }
+        try {
+            List<AccessibilityWindowInfo> ventanas = getWindows();
+            if (ventanas != null) {
+                for (AccessibilityWindowInfo w : ventanas) {
+                    if (w == null) continue;
+                    AccessibilityNodeInfo r = null;
+                    try { r = w.getRoot(); } catch (Exception ignored) { }
+                    if (r == null) continue;
+                    try {
+                        CharSequence pkg = r.getPackageName();
+                        if (pkg != null && getPackageName().contentEquals(pkg)) continue;
+                    } catch (Exception ignored) { }
+                    try { recolectarConIds(r, out, 0); } catch (Exception ignored) { }
+                }
+            }
+        } catch (Exception ignored) { }
+        return out;
+    }
+
+    private void recolectarConIds(AccessibilityNodeInfo node, List<String> out, int prof) {
+        if (node == null || prof > MAX_PROFUNDIDAD || out.size() > MAX_TEXTOS) return;
+        String vid = null;
+        try { vid = node.getViewIdResourceName(); } catch (Throwable ignored) { }
+        String idTag = (vid != null && !vid.isEmpty())
+                ? " {" + vid.substring(vid.indexOf('/') + 1) + "}" : "";
+        CharSequence t = node.getText();
+        if (t != null && t.length() > 0) out.add(t.toString().trim() + idTag);
+        CharSequence cd = node.getContentDescription();
+        if (cd != null && cd.length() > 0) out.add("(desc) " + cd.toString().trim() + idTag);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                CharSequence hint = node.getHintText();
+                if (hint != null && hint.length() > 0) out.add("(hint) " + hint.toString().trim() + idTag);
+            }
+        } catch (Throwable ignored) { }
+        int n = node.getChildCount();
+        for (int i = 0; i < n; i++) {
+            recolectarConIds(node.getChild(i), out, prof + 1);
+        }
+    }
+
+    // =============================================================
+    //            DETECCIÓN DE UBICACIÓN (v4.4, robusta)
+    // =============================================================
+
+    /**
+     * Resuelve la ubicación con esta prioridad:
+     *   1) Valor junto a una etiqueta conocida (Location / To Location / Dest...).
+     *   2) Estructural: el texto que aparece justo después del SKU/ILP.
+     *   3) Patrón: primer texto de la pantalla que parezca una ubicación.
+     * Nunca devuelve un ILP, un SKU ni una cantidad.
+     */
+    private String buscarUbicacion(List<String> textos, int idxIlp) {
+        if (textos == null || textos.isEmpty()) return null;
+
+        // 1) Por etiqueta.
+        for (String etiqueta : ETIQUETAS_UBICACION) {
+            String val = valorEtiqueta(textos, etiqueta, false);
+            if (val != null) {
+                String loc = extraerUbicacionDeTexto(val);
+                if (loc != null) return loc;
+            }
+        }
+
+        // 2) Estructural: unos pocos nodos después del ILP.
+        if (idxIlp >= 0) {
+            for (int j = idxIlp + 1; j < textos.size() && j <= idxIlp + 6; j++) {
+                String s = textos.get(j) == null ? "" : textos.get(j).trim();
+                if (s.isEmpty()) continue;
+                String loc = extraerUbicacionDeTexto(s);
+                if (loc != null) return loc;
+            }
+        }
+
+        // 3) Patrón: recorrer toda la pantalla.
+        for (String s : textos) {
+            if (s == null || s.trim().isEmpty()) continue;
+            String loc = extraerUbicacionDeTexto(s.trim());
+            if (loc != null) return loc;
+        }
+        return null;
+    }
+
+    /**
+     * Intenta extraer una ubicación de un texto. Devuelve la ubicación
+     * normalizada o null si no hay nada que parezca una ubicación válida.
+     */
+    private static String extraerUbicacionDeTexto(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        if (t.isEmpty()) return null;
+
+        // No confundir con un ILP ni con un "TASK-...".
+        if (t.toUpperCase(Locale.ROOT).startsWith("TASK")) return null;
+        if (PAT_PALLET.matcher(t).find()) return null;
+
+        // Ubicaciones con nombre: DOCK-01, STAGE 3...
+        Matcher mn = PAT_LOCATION_NAMED.matcher(t);
+        if (mn.find()) {
+            return mn.group().replaceAll("\\s+", "\u00A0").toUpperCase(Locale.ROOT);
+        }
+
+        // Ubicaciones por segmentos: B03-033-4, A1-12-3...
+        Matcher ml = PAT_LOCATION.matcher(t.toUpperCase(Locale.ROOT));
+        while (ml.find()) {
+            String cand = ml.group();
+            if (esUbicacionValida(cand)) return cand;
+        }
+        return null;
+    }
+
+    /**
+     * Valida un candidato por segmentos para que no sea una cantidad, un
+     * teléfono ni un decimal. Debe tener al menos 2 segmentos y, o bien alguna
+     * letra, o bien un segmento con 3+ dígitos (típico de un rack: 033).
+     */
+    private static boolean esUbicacionValida(String cand) {
+        if (cand == null) return false;
+        String c = cand.trim();
+        if (c.length() < 3) return false;
+        // Un decimal puro (32.5) no es ubicación.
+        if (c.matches("\\d+\\.\\d+")) return false;
+        String[] segs = c.split("[-.]");
+        if (segs.length < 2) return false;
+        boolean tieneLetra = c.matches(".*[A-Za-z].*");
+        boolean segLargo = false;
+        for (String seg : segs) {
+            if (seg.replaceAll("[^0-9]", "").length() >= 3) segLargo = true;
+        }
+        return tieneLetra || segLargo;
     }
 
     private String extraerTextoEvento(AccessibilityEvent event) {
@@ -474,11 +787,20 @@ public class ScreenCaptureService extends AccessibilityService {
         String up = t.toUpperCase(Locale.ROOT);
         if (up.startsWith("TASK")) return false;             // nunca el Task
         if (PAT_PALLET.matcher(t).find()) return false;       // no es otro ILP
-        if (PAT_LOCATION.matcher(t).find()) return false;     // no es ubicación
+        if (extraerUbicacionDeTexto(t) != null) return false; // no es ubicación
         if (t.matches("\\d{1,7}(\\.\\d{1,2})?")) return false; // no es cantidad pura
         return true;
     }
 
     @Override
     public void onInterrupt() { }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        try {
+            if (locRunnable != null) locHandler.removeCallbacks(locRunnable);
+        } catch (Exception ignored) { }
+        pendingLocPalletCode = null;
+        return super.onUnbind(intent);
+    }
 }
