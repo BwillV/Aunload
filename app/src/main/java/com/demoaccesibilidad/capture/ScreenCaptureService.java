@@ -14,9 +14,11 @@ import android.provider.Settings;
 import android.view.accessibility.AccessibilityWindowInfo;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -108,9 +110,27 @@ public class ScreenCaptureService extends AccessibilityService {
     private final Handler locHandler = new Handler(Looper.getMainLooper());
     private Runnable locRunnable = null;
     private String pendingLocPalletCode = null;   // pallet a completar
-    private int locRetries = 0;
-    private static final int MAX_LOC_RETRIES = 7;
-    private static final long LOC_RETRY_MS = 220;
+    // v4.6: ventana de reintentos AMPLIADA. Se sondea la pantalla hasta que
+    // aparezca la ubicación o llegue el siguiente ILP, con tope de 60 s.
+    private long locDeadline = 0L;
+    private static final long LOC_WINDOW_MS = 60000;  // 60 s máximo
+    private static final long LOC_RETRY_MS = 500;     // sondeo cada 0.5 s
+
+    // ====================== UBICACIÓN RECIENTE (ESCANEO/TEXTO) ======================
+    // v4.6: cuando la ubicación se escanea/escribe en un campo ANTES de que la
+    // pantalla "Put away success" la muestre, se guarda aquí con su timestamp y
+    // se usa para la pallet en curso. No se limpia hasta guardar la pallet o
+    // hasta que llega un ILP distinto.
+    private String recentLocation = null;
+    private long recentLocationTs = 0L;
+    private static final long RECENT_LOC_TTL_MS = 120000; // ~2 min
+
+    // ====================== MAPA ILP → UBICACIÓN ======================
+    // v4.6: se construye desde CUALQUIER pantalla del WMS donde aparezcan juntos
+    // un ILP y una ubicación (incluida "Progress" → "Location View", que lista
+    // filas ubicación + ILP). Permite completar pallets de hoy sin ubicación.
+    private final Map<String, String> ilpLocationMap = new HashMap<>();
+    private static final int MAX_ILP_MAP = 500;
     // v4.1: PAT_SKU por regex ELIMINADO. Causaba el bug: "[A-Z]{2,}[_-][A-Z0-9]{4,}"
     // coincidía con "TASK-2693" (TASK + '-' + 2693) y lo guardaba como SKU.
     // Ahora el SKU es el nodo de texto que aparece JUSTO DESPUÉS del ILP.
@@ -222,8 +242,132 @@ public class ScreenCaptureService extends AccessibilityService {
         if (texto == null) return;
         Matcher m = PAT_PALLET.matcher(texto);
         if (m.find()) {
-            cachedPalletCode = "ILP-" + m.group(1);
+            String nuevo = "ILP-" + m.group(1);
+            onNuevoIlpDetectado(nuevo);
+            cachedPalletCode = nuevo;
             Log.d(TAG, "Pallet\u00A0escaneado:\u00A0" + cachedPalletCode);
+        }
+
+        // v4.6: la ubicación también puede escanearse/escribirse en un campo
+        // (EditText) ANTES de que aparezca en la pantalla "Put away success".
+        String loc = extraerUbicacionDeTexto(texto);
+        if (loc != null) {
+            recordRecentLocation(loc);
+            if (cachedPalletCode != null) registrarParIlpUbicacion(cachedPalletCode, loc);
+            // Si hay un pallet esperando ubicación, completarlo de inmediato.
+            if (pendingLocPalletCode != null) {
+                completarUbicacionPendiente(loc, "escaneo");
+            }
+        }
+    }
+
+    // =============================================================
+    //        v4.6 — UBICACIÓN RECIENTE Y MAPA ILP↔UBICACIÓN
+    // =============================================================
+
+    /** Guarda la última ubicación vista/escaneada con su timestamp. */
+    private void recordRecentLocation(String loc) {
+        if (loc == null || loc.trim().isEmpty()) return;
+        recentLocation = loc.trim();
+        recentLocationTs = System.currentTimeMillis();
+    }
+
+    /** Devuelve la ubicación reciente si aún no ha caducado (~2 min). */
+    private String getRecentLocationValida() {
+        if (recentLocation != null
+                && System.currentTimeMillis() - recentLocationTs <= RECENT_LOC_TTL_MS) {
+            return recentLocation;
+        }
+        return null;
+    }
+
+    /** Registra un par ILP↔ubicación en el mapa (con tope de tamaño). */
+    private void registrarParIlpUbicacion(String ilp, String loc) {
+        if (ilp == null || loc == null || loc.trim().isEmpty()) return;
+        if (ilpLocationMap.size() > MAX_ILP_MAP) ilpLocationMap.clear();
+        ilpLocationMap.put(ilp, loc.trim());
+    }
+
+    /**
+     * Cuando aparece un ILP distinto al que teníamos en curso, cerramos la
+     * ventana del pallet anterior pendiente de ubicación y descartamos la
+     * ubicación reciente (ya pertenece a otro pallet).
+     */
+    private void onNuevoIlpDetectado(String nuevoIlp) {
+        if (nuevoIlp == null) return;
+        if (cachedPalletCode != null && !nuevoIlp.equals(cachedPalletCode)) {
+            if (pendingLocPalletCode != null && !nuevoIlp.equals(pendingLocPalletCode)) {
+                finalizarPendienteSinUbicacion();
+            }
+            recentLocation = null;
+            recentLocationTs = 0L;
+        }
+    }
+
+    /** Cierra la ventana de reintentos dejando el pallet "Sin ubicación". */
+    private void finalizarPendienteSinUbicacion() {
+        pendingLocPalletCode = null;
+        if (locRunnable != null) locHandler.removeCallbacks(locRunnable);
+    }
+
+    /**
+     * Construye el mapa ILP↔ubicación a partir de los textos de la pantalla.
+     * Empareja por cercanía en el ORDEN DE LECTURA, considerando solo los nodos
+     * que son ILP o ubicación. Para cada ILP se prefiere la ubicación
+     * inmediatamente ANTERIOR (caso "Location View": fila ubicación → ILP) y, si
+     * no la hay, la inmediatamente POSTERIOR (caso "Put away": ILP → ubicación).
+     */
+    private void construirMapaDesdeTextos(List<String> textos) {
+        if (textos == null || textos.isEmpty()) return;
+        List<String> tipos = new ArrayList<>();
+        List<String> valores = new ArrayList<>();
+        for (String s : textos) {
+            if (s == null || s.trim().isEmpty()) continue;
+            Matcher mp = PAT_PALLET.matcher(s);
+            if (mp.find()) {
+                tipos.add("ILP");
+                valores.add("ILP-" + mp.group(1));
+                continue;
+            }
+            String loc = extraerUbicacionDeTexto(s);
+            if (loc != null) {
+                tipos.add("LOC");
+                valores.add(loc);
+            }
+        }
+        for (int i = 0; i < tipos.size(); i++) {
+            if (!"ILP".equals(tipos.get(i))) continue;
+            String ilp = valores.get(i);
+            String loc = null;
+            for (int d = 1; d <= 3 && loc == null; d++) {
+                if (i - d >= 0 && "LOC".equals(tipos.get(i - d))) {
+                    loc = valores.get(i - d);
+                } else if (i + d < tipos.size() && "LOC".equals(tipos.get(i + d))) {
+                    loc = valores.get(i + d);
+                }
+            }
+            if (loc != null) registrarParIlpUbicacion(ilp, loc);
+        }
+    }
+
+    /**
+     * Recorre el mapa ILP↔ubicación y completa las pallets de HOY que se
+     * guardaron sin ubicación. Nunca pisa una ubicación ya existente.
+     */
+    private void aplicarMapaAPendientes() {
+        if (ilpLocationMap.isEmpty()) return;
+        PalletRepository repo = new PalletRepository(this);
+        for (Map.Entry<String, String> e : ilpLocationMap.entrySet()) {
+            boolean ok = repo.completarUbicacionSiHoy(e.getKey(), e.getValue());
+            if (ok) {
+                PalletTrackerApp.logEvento(this, "Ubicación completada",
+                        "Pallet " + e.getKey() + " → " + e.getValue()
+                                + " (fuente: pantalla Progress/Location View)");
+                notificarPalletGuardado();
+                if (e.getKey().equals(pendingLocPalletCode)) {
+                    finalizarPendienteSinUbicacion();
+                }
+            }
         }
     }
 
@@ -310,15 +454,27 @@ public class ScreenCaptureService extends AccessibilityService {
         }
 
         // ── Paso 2: Actualizar caché (los datos que aparecen) ──
-        if (palletCode != null) cachedPalletCode = palletCode;
+        // v4.6: si cambió el ILP en curso, cerrar ventana pendiente anterior.
+        if (palletCode != null) {
+            onNuevoIlpDetectado(palletCode);
+            cachedPalletCode = palletCode;
+        }
         if (sku != null) cachedSku = sku;
         if (quantity > 0) cachedQuantity = quantity;
-        if (location != null) cachedLocation = location;
+        if (location != null) {
+            cachedLocation = location;
+            recordRecentLocation(location);
+        }
+
+        // v4.6: construir el mapa ILP↔ubicación desde ESTA pantalla (sirve para
+        // la pantalla "Progress"/"Location View") y completar pallets de hoy.
+        construirMapaDesdeTextos(textos);
+        aplicarMapaAPendientes();
 
         // Si ya hay un pallet guardado esperando su ubicación y por fin
         // apareció una ubicación válida, completarla sin duplicar.
         if (location != null && pendingLocPalletCode != null) {
-            completarUbicacionPendiente(location);
+            completarUbicacionPendiente(location, "pantalla");
         }
 
         // ── Paso 3: SEÑAL — guardar cuando se confirma "Put away success" ──
@@ -340,12 +496,32 @@ public class ScreenCaptureService extends AccessibilityService {
         // ("Container 1", "Container 2", ...). No hay Task ID.
         String containerParaGuardar = repo.getCurrentContainerCode();
 
+        // v4.6: si el success NO mostró ubicación, intentar completarla antes de
+        // guardar con (1) el mapa ILP↔ubicación y (2) la última ubicación
+        // escaneada/escrita reciente. Así el pallet puede nacer ya con ubicación.
+        String locParaGuardar = cachedLocation;
+        String fuenteLoc = null;
+        if (locParaGuardar == null || locParaGuardar.trim().isEmpty()) {
+            String mapLoc = ilpLocationMap.get(cachedPalletCode);
+            if (mapLoc != null && !mapLoc.trim().isEmpty()) {
+                locParaGuardar = mapLoc;
+                fuenteLoc = "mapa ILP↔ubicación";
+            }
+        }
+        if (locParaGuardar == null || locParaGuardar.trim().isEmpty()) {
+            String recent = getRecentLocationValida();
+            if (recent != null) {
+                locParaGuardar = recent;
+                fuenteLoc = "escaneo reciente";
+            }
+        }
+
         Pallet p = new Pallet(
                 containerParaGuardar,
                 cachedPalletCode,
                 cachedSku != null ? cachedSku : "",
                 cachedQuantity,
-                cachedLocation != null ? cachedLocation : ""
+                locParaGuardar != null ? locParaGuardar : ""
         );
 
         boolean inserted = repo.insertPallet(p);
@@ -353,7 +529,15 @@ public class ScreenCaptureService extends AccessibilityService {
         if (inserted) {
             savedPalletCodes.add(cachedPalletCode);
             String guardado = cachedPalletCode;
-            boolean sinUbicacion = (cachedLocation == null || cachedLocation.trim().isEmpty());
+            boolean sinUbicacion = (locParaGuardar == null || locParaGuardar.trim().isEmpty());
+
+            // v4.6: si la ubicación vino de un fallback (no estaba en el success),
+            // registrarlo en el diagnóstico.
+            if (!sinUbicacion && fuenteLoc != null) {
+                PalletTrackerApp.logEvento(this, "Ubicación completada",
+                        "Pallet " + guardado + " → " + locParaGuardar.trim()
+                                + " (fuente: " + fuenteLoc + ")");
+            }
             Log.d(TAG, "✅\u00A0Pallet\u00A0guardado:\u00A0" + guardado
                     + "\u00A0container=" + containerParaGuardar
                     + "\u00A0qty=" + cachedQuantity
@@ -367,6 +551,10 @@ public class ScreenCaptureService extends AccessibilityService {
             cachedSku = null;
             cachedQuantity = 0.0;
             cachedLocation = null;
+            // v4.6: la ubicación reciente pertenecía a ESTA pallet; se descarta
+            // para que no se arrastre a la siguiente.
+            recentLocation = null;
+            recentLocationTs = 0L;
             // v4.0: el container actual se mantiene hasta que el usuario inicie uno nuevo.
 
             // v4.4: si se guardó SIN ubicación, dejar diagnóstico y reintentar leerla.
@@ -396,34 +584,48 @@ public class ScreenCaptureService extends AccessibilityService {
     // =============================================================
 
     /**
-     * Marca un pallet como "pendiente de ubicación" y programa varios reintentos
-     * durante ~1.5 s. En cada reintento se vuelve a leer TODA la pantalla (todas
-     * las ventanas) por si la ubicación aparece un instante después del guardado.
+     * Marca un pallet como "pendiente de ubicación" y programa reintentos hasta
+     * 60 s (o hasta que llegue el siguiente ILP). En cada reintento se vuelve a
+     * leer TODA la pantalla (todas las ventanas), se reconstruye el mapa
+     * ILP↔ubicación y se revisa la ubicación reciente escaneada.
      */
     private void iniciarReintentosUbicacion(String palletCode) {
         pendingLocPalletCode = palletCode;
-        locRetries = 0;
+        // v4.6: ventana extendida hasta 60 s (o hasta que llegue el siguiente ILP).
+        locDeadline = System.currentTimeMillis() + LOC_WINDOW_MS;
         if (locRunnable != null) locHandler.removeCallbacks(locRunnable);
         locRunnable = new Runnable() {
             @Override
             public void run() {
                 if (pendingLocPalletCode == null) return;
-                locRetries++;
 
+                // 1) Intentar por lectura directa de la pantalla.
                 String loc = null;
                 try {
                     List<String> textos = recolectarTodo(getRootInActiveWindow());
+                    construirMapaDesdeTextos(textos);
                     loc = buscarUbicacion(textos, -1);
                 } catch (Exception ignored) { }
 
+                // 2) Intentar por el mapa ILP↔ubicación (p.ej. Location View).
+                if (loc == null) {
+                    String mapLoc = ilpLocationMap.get(pendingLocPalletCode);
+                    if (mapLoc != null && !mapLoc.trim().isEmpty()) loc = mapLoc;
+                }
+                // 3) Intentar por la última ubicación escaneada reciente.
+                if (loc == null) {
+                    String recent = getRecentLocationValida();
+                    if (recent != null) loc = recent;
+                }
+
                 if (loc != null) {
-                    completarUbicacionPendiente(loc);
+                    completarUbicacionPendiente(loc, "reintento");
                     return;
                 }
-                if (locRetries < MAX_LOC_RETRIES) {
+                if (System.currentTimeMillis() < locDeadline) {
                     locHandler.postDelayed(this, LOC_RETRY_MS);
                 } else {
-                    // Se agotaron los reintentos: queda "Sin ubicación".
+                    // Se agotó la ventana: queda "Sin ubicación".
                     pendingLocPalletCode = null;
                 }
             }
@@ -434,8 +636,9 @@ public class ScreenCaptureService extends AccessibilityService {
     /**
      * Rellena la ubicación del pallet pendiente SIN duplicarlo. Usa
      * PalletRepository.updatePalletLocation, que solo escribe si estaba vacía.
+     * Registra en el diagnóstico la FUENTE por la que se completó.
      */
-    private void completarUbicacionPendiente(String location) {
+    private void completarUbicacionPendiente(String location, String fuente) {
         String code = pendingLocPalletCode;
         if (code == null || location == null || location.trim().isEmpty()) return;
         pendingLocPalletCode = null;
@@ -446,6 +649,9 @@ public class ScreenCaptureService extends AccessibilityService {
             if (ok) {
                 Log.d(TAG, "📍\u00A0Ubicación\u00A0completada:\u00A0" + code + "\u00A0→\u00A0" + location);
                 notificarPalletGuardado();
+                PalletTrackerApp.logEvento(this, "Ubicación completada",
+                        "Pallet " + code + " → " + location.trim()
+                                + " (fuente: " + (fuente != null ? fuente : "automática") + ")");
             }
         } catch (Exception ignored) { }
     }

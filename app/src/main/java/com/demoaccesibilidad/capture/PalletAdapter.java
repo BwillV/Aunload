@@ -18,6 +18,20 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
 
     private List<Pallet> pallets = new ArrayList<>();
 
+    /**
+     * v4.6: callback para editar la ubicación de una pallet con una
+     * pulsación larga sobre la fila.
+     */
+    public interface OnPalletLongClickListener {
+        void onPalletLongClick(Pallet p);
+    }
+
+    private OnPalletLongClickListener longClickListener;
+
+    public void setOnPalletLongClickListener(OnPalletLongClickListener l) {
+        this.longClickListener = l;
+    }
+
     public void setPallets(List<Pallet> newPallets) {
         this.pallets = newPallets != null ? newPallets : new ArrayList<>();
         notifyDataSetChanged();
@@ -35,6 +49,13 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
     public void onBindViewHolder(@NonNull PalletViewHolder holder, int position) {
         Pallet p = pallets.get(position);
         holder.bind(p, position + 1);
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onPalletLongClick(p);
+                return true;
+            }
+            return false;
+        });
     }
 
     @Override

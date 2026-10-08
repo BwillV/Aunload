@@ -11,8 +11,8 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 25,
-      "versionName": "4.5",
+      "versionCode": 26,
+      "versionName": "4.6",
       "outputFile": "AndroidManifest.xml"
     }
   ],

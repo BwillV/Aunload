@@ -555,6 +555,45 @@ public class FirebaseManager {
         }
     }
 
+    /**
+     * v4.6: Actualiza solo la UBICACIÓN de un pallet ya reportado, tanto en la
+     * sesión local como en Firebase (sin volver a crear el pallet). Se usa
+     * cuando la ubicación se completa después de guardar (escaneo, pantalla
+     * "Progress"/"Location View" o edición manual).
+     */
+    public void updatePalletLocationRemote(String palletCode, String location) {
+        if (palletCode == null || palletCode.isEmpty()
+                || location == null || location.trim().isEmpty()) {
+            return;
+        }
+        String loc = location.trim();
+
+        // Reflejar en la sesión local en memoria.
+        if (currentSession != null && currentSession.pallets != null) {
+            for (Pallet ex : currentSession.pallets) {
+                if (ex.palletCode != null && ex.palletCode.equals(palletCode)) {
+                    ex.location = loc;
+                    break;
+                }
+            }
+            guardarSesionLocal();
+        }
+
+        if (syncEnabled && sessionRef != null) {
+            try {
+                String key = sanitizeKey(palletCode);
+                sessionRef.child("pallets").child(key).child("location").setValue(loc)
+                        .addOnSuccessListener(v ->
+                                Log.d(TAG, "Ubicación\u00A0sincronizada:\u00A0" + palletCode
+                                        + "\u00A0→\u00A0" + loc))
+                        .addOnFailureListener(e ->
+                                Log.e(TAG, "Error\u00A0sincronizando\u00A0ubicación", e));
+            } catch (Exception e) {
+                Log.w(TAG, "No\u00A0se\u00A0pudo\u00A0sincronizar\u00A0ubicación", e);
+            }
+        }
+    }
+
     // ====================== ESCUCHAR ACTUALIZACIONES ======================
 
     private void iniciarEscucha() {

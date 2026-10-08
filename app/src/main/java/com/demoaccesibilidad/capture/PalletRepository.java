@@ -111,15 +111,30 @@ public class PalletRepository {
      * @return true si se actualizó (había un pallet y no tenía ubicación).
      */
     public synchronized boolean updatePalletLocation(String palletCode, String location) {
+        return updatePalletLocation(palletCode, location, false);
+    }
+
+    /**
+     * v4.6: Variante con opción de FORZAR la sobrescritura.
+     *  - force=false (automático): solo rellena si la ubicación estaba vacía.
+     *    Nunca pisa una ubicación existente con otra distinta.
+     *  - force=true (edición manual): el usuario puede corregir una ubicación
+     *    ya existente.
+     * En ambos casos, si cambió algo, se refleja en la lista local y en
+     * Firebase (si la sincronización está activa).
+     */
+    public synchronized boolean updatePalletLocation(String palletCode, String location, boolean force) {
         if (palletCode == null || location == null || location.trim().isEmpty()) {
             return false;
         }
+        String loc = location.trim();
         List<Pallet> all = getAllPallets();
         boolean changed = false;
         for (Pallet p : all) {
             if (palletCode.equals(p.palletCode)) {
-                if (p.location == null || p.location.trim().isEmpty()) {
-                    p.location = location.trim();
+                boolean vacia = (p.location == null || p.location.trim().isEmpty());
+                if (vacia || (force && !loc.equals(p.location))) {
+                    p.location = loc;
                     changed = true;
                 }
                 break;
@@ -127,10 +142,50 @@ public class PalletRepository {
         }
         if (changed) {
             savePallets(all);
+            sincronizarUbicacionFirebase(palletCode, loc);
             Log.d(TAG, "Ubicación\u00A0rellenada\u00A0para\u00A0" + palletCode
-                    + ":\u00A0" + location);
+                    + ":\u00A0" + loc);
         }
         return changed;
+    }
+
+    /**
+     * v4.6: Completa la ubicación de un pallet SOLO si es de HOY y está vacía.
+     * Se usa al emparejar ILP↔ubicación desde cualquier pantalla del WMS
+     * (p.ej. "Progress" → "Location View"). Nunca pisa una ubicación existente.
+     * @return true si se completó.
+     */
+    public synchronized boolean completarUbicacionSiHoy(String palletCode, String location) {
+        if (palletCode == null || location == null || location.trim().isEmpty()) {
+            return false;
+        }
+        String loc = location.trim();
+        List<Pallet> all = getAllPallets();
+        for (Pallet p : all) {
+            if (palletCode.equals(p.palletCode)) {
+                if (!esDeHoy(p.timestamp)) return false;
+                if (p.location != null && !p.location.trim().isEmpty()) return false;
+                p.location = loc;
+                savePallets(all);
+                sincronizarUbicacionFirebase(palletCode, loc);
+                Log.d(TAG, "Ubicación\u00A0(hoy)\u00A0completada\u00A0para\u00A0" + palletCode
+                        + ":\u00A0" + loc);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** v4.6: Propaga el cambio de ubicación a Firebase si la sync está activa. */
+    private void sincronizarUbicacionFirebase(String palletCode, String location) {
+        try {
+            FirebaseManager fm = FirebaseManager.getInstance(context);
+            if (fm.isSyncEnabled()) {
+                fm.updatePalletLocationRemote(palletCode, location);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "No\u00A0se\u00A0pudo\u00A0sincronizar\u00A0ubicación", e);
+        }
     }
 
     // ====================== CONSULTAS ======================

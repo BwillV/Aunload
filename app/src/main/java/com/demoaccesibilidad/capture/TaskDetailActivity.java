@@ -4,7 +4,9 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -60,6 +62,8 @@ public class TaskDetailActivity extends AppCompatActivity {
         recycler.setLayoutManager(new LinearLayoutManager(this));
         adapter = new PalletAdapter();
         recycler.setAdapter(adapter);
+        // v4.6: pulsación larga sobre una pallet para escribir/editar su ubicación a mano.
+        adapter.setOnPalletLongClickListener(this::mostrarDialogoUbicacion);
 
         cargarPallets();
     }
@@ -90,6 +94,49 @@ public class TaskDetailActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * v4.6: diálogo para escribir o corregir a mano la ubicación de una pallet.
+     * Se abre con una pulsación larga sobre la fila. Guarda con force=true
+     * (permite sobrescribir una ubicación existente porque es una corrección
+     * explícita del usuario) y lo registra en el diagnóstico como fuente "manual".
+     */
+    private void mostrarDialogoUbicacion(Pallet p) {
+        if (p == null || p.palletCode == null) return;
+
+        final EditText input = new EditText(this);
+        input.setHint("Ej.\u00A0A07-197-3");
+        if (p.location != null && !p.location.isEmpty()) {
+            input.setText(p.location);
+            input.setSelection(p.location.length());
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Ubicación\u00A0de\u00A0" + p.palletCode)
+                .setMessage("Escribe\u00A0o\u00A0corrige\u00A0la\u00A0ubicación\u00A0de\u00A0esta\u00A0pallet.")
+                .setView(input)
+                .setPositiveButton("Guardar", (d, which) -> {
+                    String loc = input.getText() != null
+                            ? input.getText().toString().trim() : "";
+                    if (loc.isEmpty()) {
+                        Toast.makeText(this,
+                                "La\u00A0ubicación\u00A0no\u00A0puede\u00A0estar\u00A0vacía",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    PalletRepository repo = new PalletRepository(this);
+                    repo.updatePalletLocation(p.palletCode, loc, true);
+                    PalletTrackerApp.logEvento(this, "Ubicación completada",
+                            "Pallet\u00A0" + p.palletCode + "\u00A0→\u00A0" + loc
+                                    + "\u00A0(fuente:\u00A0manual)");
+                    Toast.makeText(this,
+                            "Ubicación\u00A0guardada:\u00A0" + loc,
+                            Toast.LENGTH_SHORT).show();
+                    cargarPallets();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void mostrarDialogoOrden() {
