@@ -2,6 +2,8 @@ R_DEF: Internal format may change without notice
 local
 drawable ic_launcher_background
 drawable ic_launcher_foreground
+drawable ic_sort
+id action_sort
 id btn_activar_accesibilidad
 id btn_actualizar_log
 id btn_compartir_log
@@ -87,6 +89,7 @@ layout item_task
 layout layout_floating_fab
 layout nav_header
 menu drawer_menu
+menu menu_sort
 mipmap ic_launcher
 string acc_desc
 string app_name

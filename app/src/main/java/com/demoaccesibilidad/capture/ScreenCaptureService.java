@@ -67,8 +67,9 @@ public class ScreenCaptureService extends AccessibilityService {
             Pattern.compile("[A-Z]\\d{1,2}-\\d{2,3}-\\d{1,2}");
     private static final Pattern PAT_QUANTITY =
             Pattern.compile("(\\d{1,5}\\.\\d{1,2})");
-    private static final Pattern PAT_SKU =
-            Pattern.compile("[A-Z]{2,}[_-][A-Z0-9]{4,}");
+    // v4.1: PAT_SKU por regex ELIMINADO. Causaba el bug: "[A-Z]{2,}[_-][A-Z0-9]{4,}"
+    // coincidía con "TASK-2693" (TASK + '-' + 2693) y lo guardaba como SKU.
+    // Ahora el SKU es el nodo de texto que aparece JUSTO DESPUÉS del ILP.
 
     // =============================================================
     //                    PUNTO DE ENTRADA
@@ -193,7 +194,8 @@ public class ScreenCaptureService extends AccessibilityService {
         boolean putAwaySuccess = false;
         boolean putAwayButton = false;
 
-        for (String t : textos) {
+        for (int i = 0; i < textos.size(); i++) {
+            String t = textos.get(i);
             if (t == null || t.trim().isEmpty()) continue;
             String s = t.trim();
             String lower = s.toLowerCase(Locale.ROOT);
@@ -211,18 +213,17 @@ public class ScreenCaptureService extends AccessibilityService {
                 putAwayButton = true;
             }
 
-            // v4.0: Task ID eliminado — no se extrae ni se usa.
+            // v4.1: Task ID eliminado por completo — ni se extrae ni se usa.
 
-            // Pallet Code.
+            // Pallet Code (ILP). El SKU es el nodo que aparece JUSTO DESPUÉS.
             Matcher mp = PAT_PALLET.matcher(s);
             if (mp.find()) {
                 palletCode = "ILP-" + mp.group(1);
-            }
-
-            // SKU — patrón alfanumérico con guion bajo/medio.
-            Matcher ms = PAT_SKU.matcher(s);
-            if (ms.find()) {
-                sku = ms.group();
+                String skuSiguiente = buscarSkuDespuesDeIlp(textos, i);
+                if (skuSiguiente != null) {
+                    sku = skuSiguiente;
+                }
+                continue; // este nodo ya se consumió como ILP
             }
 
             // Ubicación.
@@ -258,7 +259,7 @@ public class ScreenCaptureService extends AccessibilityService {
         // no haberse capturado con regex (etiquetas del WMS).
         if (cachedSku == null) {
             String skuLabel = valorEtiqueta(textos, "SKU", false);
-            if (skuLabel != null && skuLabel.length() >= 4) {
+            if (skuLabel != null && skuLabel.length() >= 4 && esCandidatoSku(skuLabel)) {
                 cachedSku = skuLabel;
             }
         }
@@ -441,6 +442,41 @@ public class ScreenCaptureService extends AccessibilityService {
     protected static String normalizar(String s) {
         if (s == null) return "";
         return s.toLowerCase(Locale.ROOT).replaceAll("[*:#]", "").trim();
+    }
+
+    // =============================================================
+    //            SKU = NODO JUSTO DESPUÉS DEL ILP (v4.1)
+    // =============================================================
+
+    /**
+     * v4.1: Busca el SKU como el primer nodo de texto significativo que
+     * aparece DESPUÉS del nodo del ILP en la lista leída de la pantalla.
+     * Se descartan los nodos que claramente NO son SKU (otro ILP, una
+     * ubicación, una cantidad pura o cualquier texto "TASK-...").
+     */
+    private static String buscarSkuDespuesDeIlp(List<String> textos, int idxIlp) {
+        for (int j = idxIlp + 1; j < textos.size() && j <= idxIlp + 4; j++) {
+            String sig = textos.get(j) == null ? "" : textos.get(j).trim();
+            if (sig.isEmpty()) continue;
+            if (esCandidatoSku(sig)) return sig;
+        }
+        return null;
+    }
+
+    /**
+     * Decide si un texto puede ser un SKU válido. Nunca acepta "TASK-...",
+     * ni otro ILP, ni una ubicación, ni un número puro (cantidad).
+     */
+    private static boolean esCandidatoSku(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        if (t.length() < 2) return false;
+        String up = t.toUpperCase(Locale.ROOT);
+        if (up.startsWith("TASK")) return false;             // nunca el Task
+        if (PAT_PALLET.matcher(t).find()) return false;       // no es otro ILP
+        if (PAT_LOCATION.matcher(t).find()) return false;     // no es ubicación
+        if (t.matches("\\d{1,7}(\\.\\d{1,2})?")) return false; // no es cantidad pura
+        return true;
     }
 
     @Override

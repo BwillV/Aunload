@@ -16,6 +16,7 @@ import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
@@ -135,6 +136,8 @@ public class MainActivity extends AppCompatActivity
         palletRepo = new PalletRepository(this);
         // v4.0 — Migrar datos heredados (TASK-xxxx / SIN TASK / vacío) a "Container 1".
         palletRepo.migrateLegacyToContainers();
+        // v4.1 — Limpiar SKU que quedaron con "TASK-xxxx" por el bug del regex.
+        palletRepo.migrateFixSkuTask();
         notifHelper = new NotificationHelper(this);
         fabPrefs = getSharedPreferences(PREFS_FAB, MODE_PRIVATE);
 
@@ -272,10 +275,10 @@ public class MainActivity extends AppCompatActivity
      * Actualiza el header del container con la info actual.
      */
     private void refrescarContainerHeader() {
-        // v4.0 — Header simple, solo containers. Sin tasks.
-        int totalPallets = palletRepo.getPalletCount();
+        // v4.1 — Header simple, solo containers y solo datos de HOY.
+        int palletsHoy = palletRepo.getPalletCountToday();
 
-        if (totalPallets <= 0) {
+        if (palletsHoy <= 0) {
             containerHeader.setVisibility(View.GONE);
             return;
         }
@@ -283,9 +286,9 @@ public class MainActivity extends AppCompatActivity
         containerHeader.setVisibility(View.VISIBLE);
         txtContainerCode.setText("Actual:\u00A0" + palletRepo.getCurrentContainerCode());
 
-        int numContainers = palletRepo.getContainerList().size();
+        int numContainers = palletRepo.getContainerListToday().size();
         txtContainerTasks.setVisibility(View.VISIBLE);
-        txtContainerTasks.setText(totalPallets + "\u00A0pallets\u00A0•\u00A0"
+        txtContainerTasks.setText(palletsHoy + "\u00A0pallets\u00A0hoy\u00A0•\u00A0"
                 + numContainers + (numContainers == 1 ? "\u00A0container" : "\u00A0containers"));
 
         // Dispositivos activos.
@@ -756,9 +759,9 @@ public class MainActivity extends AppCompatActivity
     // ====================== DATOS ======================
 
     private void refrescarDatos() {
-        // v4.0 — Solo containers. Ya no hay tasks: la lista siempre se agrupa
-        // por container (Container 1, Container 2, ...).
-        List<TaskSummary> tasks = palletRepo.getContainerList();
+        // v4.1 — Solo containers con pallets escaneadas HOY (los datos viejos se
+        // conservan pero no se muestran). Ordenados por número de container.
+        List<TaskSummary> tasks = palletRepo.getContainerListToday();
 
         taskAdapter.setTasks(tasks);
 
@@ -808,6 +811,48 @@ public class MainActivity extends AppCompatActivity
         startActivity(intent);
     }
 
+    // ====================== ORDEN (v4.1) ======================
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_sort, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.action_sort) {
+            mostrarDialogoOrden();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void mostrarDialogoOrden() {
+        final int[] modos = {
+                SortHelper.SORT_SKU, SortHelper.SORT_ILP, SortHelper.SORT_ENTRY };
+        final String[] opciones = {
+                SortHelper.label(SortHelper.SORT_SKU),
+                SortHelper.label(SortHelper.SORT_ILP),
+                SortHelper.label(SortHelper.SORT_ENTRY) };
+
+        int actual = SortHelper.getMode(this);
+        int sel = 0;
+        for (int i = 0; i < modos.length; i++) {
+            if (modos[i] == actual) sel = i;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Ordenar\u00A0pallets")
+                .setSingleChoiceItems(opciones, sel, (d, which) -> {
+                    SortHelper.setMode(this, modos[which]);
+                    d.dismiss();
+                    refrescarDatos();
+                })
+                .setNegativeButton("Cerrar", null)
+                .show();
+    }
+
     // ====================== RESET ======================
 
     private void mostrarDialogoReset() {
@@ -849,10 +894,10 @@ public class MainActivity extends AppCompatActivity
     private void mostrarDialogoBorrarContainers() {
         notifHelper.vibrarCorto();
 
-        final List<String> containers = palletRepo.getUniqueContainers();
+        final List<String> containers = palletRepo.getUniqueContainersToday();
         if (containers.isEmpty()) {
             Toast.makeText(this,
-                    "🗑\u00A0No\u00A0hay\u00A0containers\u00A0para\u00A0borrar",
+                    "🗑\u00A0No\u00A0hay\u00A0containers\u00A0de\u00A0hoy\u00A0para\u00A0borrar",
                     Toast.LENGTH_SHORT).show();
             return;
         }

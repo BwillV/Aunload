@@ -9,6 +9,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -258,6 +260,98 @@ public class PalletRepository {
             int pointer = Math.max(prefs.getInt(KEY_CONTAINER_NUM, 1), Math.max(maxNum, 1));
             prefs.edit().putInt(KEY_CONTAINER_NUM, pointer).apply();
         }
+    }
+
+    /**
+     * v4.1: Limpia los SKU heredados que quedaron con un valor "TASK-xxxx"
+     * (por el bug del regex de SKU). Deja el SKU vacío para que la UI muestre
+     * "—" en lugar del Task. Idempotente.
+     */
+    public synchronized void migrateFixSkuTask() {
+        List<Pallet> all = getAllPallets();
+        if (all.isEmpty()) return;
+        boolean changed = false;
+        for (Pallet p : all) {
+            if (p.sku != null) {
+                String up = p.sku.toUpperCase(java.util.Locale.ROOT).trim();
+                if (up.startsWith("TASK")) {
+                    p.sku = "";
+                    changed = true;
+                }
+            }
+        }
+        if (changed) savePallets(all);
+    }
+
+    /**
+     * v4.1: ¿el timestamp cae en el día local de hoy? Un registro viejo sin
+     * timestamp (0) se considera que NO es de hoy.
+     */
+    private static boolean esDeHoy(long ts) {
+        if (ts <= 0) return false;
+        Calendar ahora = Calendar.getInstance();
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(ts);
+        return ahora.get(Calendar.YEAR) == c.get(Calendar.YEAR)
+                && ahora.get(Calendar.DAY_OF_YEAR) == c.get(Calendar.DAY_OF_YEAR);
+    }
+
+    /**
+     * v4.1: Lista de containers con pallets escaneadas HOY (fecha local).
+     * Los datos viejos se conservan pero no se muestran. Ordenada por número
+     * de container ascendente (Container 1, 2, 3, ...).
+     */
+    public List<TaskSummary> getContainerListToday() {
+        List<Pallet> all = getAllPallets();
+        Map<String, TaskSummary> map = new LinkedHashMap<>();
+        for (Pallet p : all) {
+            if (!esDeHoy(p.timestamp)) continue;
+            String cid = (p.taskId != null && !p.taskId.isEmpty())
+                    ? p.taskId : "Container\u00A01";
+            TaskSummary ts = map.get(cid);
+            if (ts == null) {
+                ts = new TaskSummary(cid, 0, 0L);
+                map.put(cid, ts);
+            }
+            ts.palletCount++;
+            if (p.timestamp > ts.lastTimestamp) {
+                ts.lastTimestamp = p.timestamp;
+            }
+        }
+        List<TaskSummary> list = new ArrayList<>(map.values());
+        Collections.sort(list, (a, b) -> {
+            Integer na = parseContainerNumber(a.taskId);
+            Integer nb = parseContainerNumber(b.taskId);
+            int va = na != null ? na : Integer.MAX_VALUE;
+            int vb = nb != null ? nb : Integer.MAX_VALUE;
+            return Integer.compare(va, vb);
+        });
+        return list;
+    }
+
+    /**
+     * v4.1: Containers únicos (con pallets de HOY) para el diálogo de borrado.
+     */
+    public List<String> getUniqueContainersToday() {
+        List<String> out = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (Pallet p : getAllPallets()) {
+            if (!esDeHoy(p.timestamp)) continue;
+            String key = (p.taskId != null && !p.taskId.isEmpty()) ? p.taskId : "Container\u00A01";
+            if (seen.add(key)) out.add(key);
+        }
+        return out;
+    }
+
+    /**
+     * v4.1: Número de pallets escaneadas HOY (fecha local).
+     */
+    public int getPalletCountToday() {
+        int n = 0;
+        for (Pallet p : getAllPallets()) {
+            if (esDeHoy(p.timestamp)) n++;
+        }
+        return n;
     }
 
     /**
