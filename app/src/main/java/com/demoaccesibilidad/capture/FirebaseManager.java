@@ -1214,6 +1214,22 @@ public class FirebaseManager {
                 currentContainerNumber = numero != null ? numero.intValue() : 1;
                 currentContainerDate = fecha;
 
+                // v5.2 — SINCRONIZAR el puntero de container LOCAL con el
+                // compartido. Es el fix central del bug "sigue metiendo en el
+                // container viejo": así todo pallet escaneado en este
+                // dispositivo se guarda bajo el id del container del equipo
+                // (mismo formato "yyyy-MM-dd#N"), tanto en Firebase como en
+                // local, y la pantalla principal lo agrupa en el nuevo
+                // container. Se hace SIEMPRE (no solo cuando cambia) para que
+                // un dispositivo que se acaba de unir adopte el container
+                // vigente del equipo.
+                try {
+                    String fechaSync = (fecha != null && !fecha.isEmpty())
+                            ? fecha : todayKey();
+                    new PalletRepository(appContext)
+                            .syncSharedContainer(fechaSync, currentContainerNumber);
+                } catch (Throwable ignored) { }
+
                 // (Re)enganchar el listener de pallets del container vigente.
                 attachPalletsListener(teamKey, currentContainerId);
 

@@ -656,7 +656,23 @@ public class ScreenCaptureService extends AccessibilityService {
 
         // v4.0: SIEMPRE se agrupa por container secuencial simple
         // ("Container 1", "Container 2", ...). No hay Task ID.
-        String containerParaGuardar = repo.getCurrentContainerCode();
+        // v5.2: con EQUIPO activo, la fuente de verdad del container es el
+        // compartido de Firebase. Usamos su id directamente (mismo formato
+        // "yyyy-MM-dd#N") para que el pallet se guarde SIEMPRE en el container
+        // vigente del equipo, incluso si el listener aún no sincronizó el
+        // puntero local. Así se elimina el bug de "sigue metiendo en el viejo".
+        String containerParaGuardar;
+        try {
+            FirebaseManager fm = FirebaseManager.getInstance(this);
+            String sharedId = fm.getCurrentContainerId();
+            if (fm.isTeamActive() && sharedId != null && !sharedId.isEmpty()) {
+                containerParaGuardar = sharedId;
+            } else {
+                containerParaGuardar = repo.getCurrentContainerCode();
+            }
+        } catch (Throwable t) {
+            containerParaGuardar = repo.getCurrentContainerCode();
+        }
 
         // Si el success NO mostró ubicación, intentar completarla antes de guardar
         // para que el pallet pueda nacer ya con su ubicación de destino.

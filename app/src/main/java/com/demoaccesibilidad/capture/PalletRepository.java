@@ -681,6 +681,40 @@ public class PalletRepository {
     }
 
     /**
+     * v5.2: SINCRONIZA el container local con el container COMPARTIDO del equipo.
+     *
+     * Causa raíz del bug "al abrir un nuevo container sigue metiendo en el
+     * antiguo": el container que se asigna a cada pallet escaneado se tomaba de
+     * KEY_CONTAINER_SEQ/KEY_CONTAINER_DATE (puntero LOCAL), que nunca se
+     * actualizaba cuando el equipo avanzaba de container en Firebase. Resultado:
+     * el FAB (que lee de Firebase) mostraba 0, pero los pallets nuevos se
+     * guardaban bajo el código del container viejo y la pantalla principal los
+     * seguía metiendo ahí.
+     *
+     * Con equipo activo, la ÚNICA fuente de verdad es `contenedorActual` de
+     * Firebase. El FirebaseManager llama a este método cada vez que el listener
+     * recibe el container compartido (fecha + número), de modo que el puntero
+     * local queda idéntico al compartido y getCurrentContainerCode() devuelve
+     * exactamente el id del equipo ("yyyy-MM-dd#N", mismo formato en ambos
+     * lados). El número NUNCA retrocede: solo lo movemos al valor compartido,
+     * que únicamente sube dentro del día (y se reinicia a 1 al cambiar de día,
+     * por la transacción del equipo).
+     */
+    public synchronized void syncSharedContainer(String fecha, int numero) {
+        if (fecha == null || fecha.trim().isEmpty() || numero < 1) return;
+        String f = fecha.trim();
+        String fechaGuardada = prefs.getString(KEY_CONTAINER_DATE, "");
+        int seqGuardado = prefs.getInt(KEY_CONTAINER_SEQ, 0);
+        if (f.equals(fechaGuardada) && seqGuardado == numero) {
+            return; // ya está sincronizado, evitar escrituras redundantes
+        }
+        prefs.edit()
+                .putString(KEY_CONTAINER_DATE, f)
+                .putInt(KEY_CONTAINER_SEQ, numero)
+                .apply();
+    }
+
+    /**
      * v4.4: Número del container actual DENTRO de hoy (para "Vas en el
      * Container X"). Empieza en 1 cada día.
      */
