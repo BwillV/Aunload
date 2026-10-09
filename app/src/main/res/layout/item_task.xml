@@ -55,6 +55,19 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
+        <!-- v5.0: Botón rojo para BORRAR el container (bote de basura blanco).
+             Se sincroniza a todo el equipo. -->
+        <ImageButton
+            android:id="@+id/btn_delete_container"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_circle_red"
+            android:src="@drawable/ic_delete_white"
+            android:scaleType="centerInside"
+            android:padding="8dp"
+            android:contentDescription="Borrar\u00A0container" />
+
         <!-- Flecha -->
         <TextView
             android:layout_width="wrap_content"

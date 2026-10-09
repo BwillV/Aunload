@@ -1473,6 +1473,7 @@ drawable abc_textfield_search_material
 drawable abc_vector_test
 drawable avd_hide_password
 drawable avd_show_password
+drawable bg_circle_red
 drawable btn_checkbox_checked_mtrl
 drawable btn_checkbox_checked_to_unchecked_mtrl_animation
 drawable btn_checkbox_unchecked_mtrl
@@ -1510,6 +1511,7 @@ drawable googleg_disabled_color_18
 drawable googleg_standard_color_18
 drawable ic_calendar_black_24dp
 drawable ic_clear_black_24dp
+drawable ic_delete_white
 drawable ic_edit_black_24dp
 drawable ic_keyboard_arrow_left_black_24dp
 drawable ic_keyboard_arrow_right_black_24dp
@@ -1640,6 +1642,8 @@ id bounce
 id btn_activar_accesibilidad
 id btn_actualizar_log
 id btn_compartir_log
+id btn_delete_container
+id btn_delete_pallet
 id btn_diag_borrar
 id btn_diag_copiar
 id btn_diag_grabar
@@ -1723,6 +1727,7 @@ id fab_badge
 id fab_counter
 id fab_floating
 id fab_floating_badge
+id fab_refresh
 id fade
 id fill
 id fill_horizontal

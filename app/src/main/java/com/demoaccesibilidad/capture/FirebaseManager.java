@@ -1350,6 +1350,56 @@ public class FirebaseManager {
                         Log.e(TAG, "Error\u00A0actualizando\u00A0ubicación\u00A0del\u00A0equipo", e));
     }
 
+    /**
+     * v5.0 — Borra un CONTAINER completo del equipo (y todos sus pallets) en
+     * Firebase bajo equipos/{código}/containers/{id}. El cambio se propaga a
+     * TODOS los escáneres del equipo por los listeners. Si el container borrado
+     * es el que está activo (contenedorActual), el equipo avanza a un container
+     * nuevo mediante la misma transacción de v4.9 (así nadie queda escaneando
+     * sobre un container que ya no existe). NO toca el código de equipo.
+     */
+    public void deleteTeamContainer(String containerId) {
+        if (!syncEnabled || !firebaseAvailable || !hasTeam()
+                || containerId == null || containerId.isEmpty()) {
+            return;
+        }
+        final String teamKey = sanitizeKey(getTeamCode().trim());
+        getDatabase().child("equipos").child(teamKey)
+                .child("containers").child(sanitizeKey(containerId))
+                .removeValue()
+                .addOnSuccessListener(v ->
+                        Log.d(TAG, "Container\u00A0borrado\u00A0del\u00A0equipo:\u00A0" + containerId))
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Error\u00A0borrando\u00A0container\u00A0del\u00A0equipo", e));
+
+        // Si borramos el container activo, el equipo entero pasa a uno nuevo.
+        if (containerId.equals(currentContainerId)) {
+            startNewContainerShared();
+        }
+    }
+
+    /**
+     * v5.0 — Borra UN pallet del container indicado del equipo en Firebase bajo
+     * equipos/{código}/containers/{id}/pallets/{ilp}. El total compartido baja en
+     * todos los escáneres en tiempo real. NO toca el código de equipo.
+     */
+    public void deleteTeamPallet(String containerId, String palletCode) {
+        if (!syncEnabled || !firebaseAvailable || !hasTeam()
+                || containerId == null || containerId.isEmpty()
+                || palletCode == null || palletCode.isEmpty()) {
+            return;
+        }
+        final String teamKey = sanitizeKey(getTeamCode().trim());
+        getDatabase().child("equipos").child(teamKey)
+                .child("containers").child(sanitizeKey(containerId))
+                .child("pallets").child(sanitizeKey(palletCode))
+                .removeValue()
+                .addOnSuccessListener(v ->
+                        Log.d(TAG, "Pallet\u00A0borrada\u00A0del\u00A0equipo:\u00A0" + palletCode))
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Error\u00A0borrando\u00A0pallet\u00A0del\u00A0equipo", e));
+    }
+
     /** Nº de pallets del container actual del equipo (suma de escáneres). */
     public int getTeamPalletCount() {
         return Math.max(0, teamPalletCount);

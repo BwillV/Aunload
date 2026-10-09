@@ -3,6 +3,7 @@ package com.demoaccesibilidad.capture;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -32,6 +33,17 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
         this.longClickListener = l;
     }
 
+    /** v5.0: callback para BORRAR una pallet con el botón rojo de la fila. */
+    public interface OnPalletDeleteListener {
+        void onPalletDelete(Pallet p);
+    }
+
+    private OnPalletDeleteListener deleteListener;
+
+    public void setOnPalletDeleteListener(OnPalletDeleteListener l) {
+        this.deleteListener = l;
+    }
+
     public void setPallets(List<Pallet> newPallets) {
         this.pallets = newPallets != null ? newPallets : new ArrayList<>();
         notifyDataSetChanged();
@@ -56,6 +68,11 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
             }
             return false;
         });
+        if (holder.btnDelete != null) {
+            holder.btnDelete.setOnClickListener(v -> {
+                if (deleteListener != null) deleteListener.onPalletDelete(p);
+            });
+        }
     }
 
     @Override
@@ -70,6 +87,7 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
         final TextView txtQuantity;
         final TextView txtLocation;
         final TextView txtTime;
+        final ImageButton btnDelete;
 
         PalletViewHolder(@NonNull View v) {
             super(v);
@@ -79,6 +97,7 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
             txtQuantity = v.findViewById(R.id.txt_pallet_qty);
             txtLocation = v.findViewById(R.id.txt_pallet_location);
             txtTime = v.findViewById(R.id.txt_pallet_time);
+            btnDelete = v.findViewById(R.id.btn_delete_pallet);
         }
 
         void bind(Pallet p, int num) {

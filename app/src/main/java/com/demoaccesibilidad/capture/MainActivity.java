@@ -86,6 +86,7 @@ public class MainActivity extends AppCompatActivity
     private RecyclerView recyclerTasks;
     private TextView txtEmpty;
     private FloatingActionButton fab;
+    private FloatingActionButton fabRefresh; // v5.0: botón Actualizar/Sincronizar
     private TextView fabBadge;
     private View homeContainer;
     private View fragmentContainer;
@@ -181,6 +182,7 @@ public class MainActivity extends AppCompatActivity
         recyclerTasks = findViewById(R.id.recycler_tasks);
         txtEmpty = findViewById(R.id.txt_empty);
         fab = findViewById(R.id.fab_counter);
+        fabRefresh = findViewById(R.id.fab_refresh);
         fabBadge = findViewById(R.id.fab_badge);
 
         // Header del container (v2.3).
@@ -193,19 +195,32 @@ public class MainActivity extends AppCompatActivity
         taskAdapter = new TaskAdapter(this);
         recyclerTasks.setLayoutManager(new LinearLayoutManager(this));
         recyclerTasks.setAdapter(taskAdapter);
+        // v5.0: botón rojo por fila para BORRAR un container (se sincroniza al equipo).
+        taskAdapter.setOnTaskDeleteListener(this::mostrarDialogoBorrarUnContainer);
 
-        // ═══════════ FAB — BOTÓN DE BASURA (v3.4) ═══════════
-        // El FAB dentro de la app deja de cambiar el modo del contador y pasa
-        // a ser un botón de "papelera" para borrar containers completos.
+        // ═══════════ FAB PRINCIPAL — NUEVO / FINALIZAR CONTAINER (v5.0) ═══════════
+        // v5.0: este FAB ya NO borra datos. Con un equipo activo da por
+        // finalizado el container actual e inicia uno nuevo para todo el equipo.
+        // El BORRADO real de containers y pallets se hace con los botones rojos
+        // (bote de basura blanco) de cada fila.
         fabBadge.setVisibility(View.GONE);            // ya no mostramos el contador aquí
-        fab.setImageResource(android.R.drawable.ic_menu_delete);
-        fab.setBackgroundTintList(ColorStateList.valueOf(0xFFF44336)); // rojo destructivo
-        fab.setContentDescription("Borrar\u00A0containers");
+        fab.setImageResource(android.R.drawable.ic_menu_add);
+        fab.setBackgroundTintList(ColorStateList.valueOf(0xFF2196F3)); // azul = acción normal
+        fab.setImageTintList(ColorStateList.valueOf(0xFFFFFFFF));
+        fab.setContentDescription("Nuevo\u00A0o\u00A0finalizar\u00A0container");
         fab.setOnClickListener(v -> mostrarDialogoBorrarContainers());
         fab.setOnLongClickListener(v -> {
             mostrarDialogoBorrarContainers();
             return true;
         });
+
+        // ═══════════ FAB ACTUALIZAR / SINCRONIZAR (v5.0) ═══════════
+        // Situado ARRIBA del FAB principal. Fuerza una re-sincronización y
+        // refresca todos los datos por si el tiempo real no se actualizó solo.
+        if (fabRefresh != null) {
+            fabRefresh.setContentDescription("Actualizar\u00A0y\u00A0sincronizar");
+            fabRefresh.setOnClickListener(v -> actualizarYSincronizar());
+        }
 
         // Refresh periódico.
         refreshHandler = new Handler();
@@ -1005,6 +1020,82 @@ public class MainActivity extends AppCompatActivity
                 })
                 .setNegativeButton("Cancelar", null)
                 .show();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //      v5.0 — BORRAR UN CONTAINER (botón rojo de cada fila)
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * v5.0: confirma y borra UN container concreto (el de su fila). Se elimina
+     * del equipo en Firebase (se propaga a todos los escáneres) y también en
+     * local. Si era el container activo del equipo, se inicia uno nuevo para
+     * todos. Nunca toca el código de equipo.
+     */
+    private void mostrarDialogoBorrarUnContainer(TaskSummary task) {
+        if (task == null || task.taskId == null) return;
+        notifHelper.vibrarCorto();
+        final String containerId = task.taskId;
+        final String display = PalletRepository.displayContainer(containerId);
+
+        new AlertDialog.Builder(this)
+                .setTitle("🗑\u00A0Borrar\u00A0" + display)
+                .setMessage("¿Borrar\u00A0" + display + "?\u00A0Se\u00A0eliminarán\u00A0"
+                        + "sus\u00A0pallets\u00A0para\u00A0todo\u00A0el\u00A0equipo.\n\n"
+                        + "Esta\u00A0acción\u00A0no\u00A0se\u00A0puede\u00A0deshacer.")
+                .setPositiveButton("Borrar", (d, w) -> {
+                    // Borrar del equipo (Firebase) y en local.
+                    FirebaseManager.getInstance(this).deleteTeamContainer(containerId);
+                    int removed = palletRepo.deletePalletsByContainer(containerId);
+                    notifHelper.vibrarCorto();
+                    PalletTrackerApp.logEvento(this, "Container borrado",
+                            display + "\u00A0(" + removed + "\u00A0pallets)");
+
+                    refrescarDatos();
+
+                    // Avisar al overlay flotante para que actualice su contador.
+                    try {
+                        Intent fabUpdate = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
+                        fabUpdate.setPackage(getPackageName());
+                        sendBroadcast(fabUpdate);
+                    } catch (Exception ignored) { }
+
+                    Toast.makeText(this,
+                            "🗑\u00A0" + display + "\u00A0borrado",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //      v5.0 — ACTUALIZAR / SINCRONIZAR (botón verde)
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * v5.0: fuerza una re-sincronización manual con Firebase y refresca toda
+     * la pantalla, por si el tiempo real no se actualizó automáticamente.
+     */
+    private void actualizarYSincronizar() {
+        notifHelper.vibrarCorto();
+        try {
+            FirebaseManager.getInstance(this).ensureListeningIfEnabled();
+        } catch (Exception ignored) { }
+
+        refrescarDatos();
+        refrescarContador();
+        refrescarContainerHeader();
+
+        // Avisar al overlay flotante para que actualice su contador.
+        try {
+            Intent fabUpdate = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
+            fabUpdate.setPackage(getPackageName());
+            sendBroadcast(fabUpdate);
+        } catch (Exception ignored) { }
+
+        Toast.makeText(this,
+                "🔄\u00A0Actualizado\u00A0y\u00A0sincronizado",
+                Toast.LENGTH_SHORT).show();
     }
 
     // ═══════════════════════════════════════════════════════════

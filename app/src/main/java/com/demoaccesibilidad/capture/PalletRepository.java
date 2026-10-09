@@ -596,6 +596,31 @@ public class PalletRepository {
         return removed;
     }
 
+    /**
+     * v5.0: Borra UNA pallet por su código (ILP). Mantiene el contador
+     * acumulado coherente con lo que queda.
+     * @return true si se eliminó alguna pallet.
+     */
+    public synchronized boolean deletePallet(String palletCode) {
+        if (palletCode == null || palletCode.isEmpty()) return false;
+        List<Pallet> all = getAllPallets();
+        List<Pallet> keep = new ArrayList<>();
+        int removed = 0;
+        for (Pallet p : all) {
+            if (palletCode.equals(p.palletCode)) {
+                removed++;
+            } else {
+                keep.add(p);
+            }
+        }
+        if (removed > 0) {
+            savePallets(keep);
+            prefs.edit().putInt(KEY_COUNTER, keep.size()).apply();
+            return true;
+        }
+        return false;
+    }
+
     // ====================== CONTADOR ======================
 
     public int getCounter() {

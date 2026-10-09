@@ -1,6 +1,7 @@
 package com.demoaccesibilidad.capture;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -64,8 +65,41 @@ public class TaskDetailActivity extends AppCompatActivity {
         recycler.setAdapter(adapter);
         // v4.6: pulsación larga sobre una pallet para escribir/editar su ubicación a mano.
         adapter.setOnPalletLongClickListener(this::mostrarDialogoUbicacion);
+        // v5.0: botón rojo por fila para BORRAR una pallet (se sincroniza al equipo).
+        adapter.setOnPalletDeleteListener(this::mostrarDialogoBorrarPallet);
 
         cargarPallets();
+    }
+
+    /**
+     * v5.0: confirma y borra UNA pallet. Se elimina del equipo en Firebase
+     * (baja el total en todos los escáneres en tiempo real) y también en local.
+     */
+    private void mostrarDialogoBorrarPallet(Pallet p) {
+        if (p == null || p.palletCode == null) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Borrar\u00A0pallet")
+                .setMessage("¿Borrar\u00A0la\u00A0pallet\u00A0" + p.palletCode
+                        + "?\u00A0Se\u00A0eliminará\u00A0para\u00A0todo\u00A0el\u00A0equipo.")
+                .setPositiveButton("Borrar", (d, which) -> {
+                    // Borrar del equipo (Firebase) y en local.
+                    FirebaseManager.getInstance(this)
+                            .deleteTeamPallet(containerCode, p.palletCode);
+                    PalletRepository repo = new PalletRepository(this);
+                    repo.deletePallet(p.palletCode);
+                    PalletTrackerApp.logEvento(this, "Pallet borrada",
+                            "Pallet\u00A0" + p.palletCode
+                                    + "\u00A0(container\u00A0" + containerCode + ")");
+                    // Avisar a la pantalla principal para refrescar contador/FAB.
+                    sendBroadcast(new Intent(
+                            "com.demoaccesibilidad.capture.UPDATE_FLOATING_FAB"));
+                    Toast.makeText(this,
+                            "Pallet\u00A0borrada:\u00A0" + p.palletCode,
+                            Toast.LENGTH_SHORT).show();
+                    cargarPallets();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     /** Carga los pallets del container aplicando el orden elegido. */

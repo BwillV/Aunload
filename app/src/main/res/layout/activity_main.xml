@@ -141,36 +141,60 @@
                 android:layout_height="match_parent"
                 android:visibility="gone" />
 
-            <!-- FAB con badge -->
-            <FrameLayout
+            <!-- v5.0: columna vertical en la esquina inferior derecha.
+                 Arriba el botón ACTUALIZAR (verde, re-sincroniza por si el
+                 tiempo real no actualizó) y debajo el FAB principal. -->
+            <LinearLayout
+                android:orientation="vertical"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|end"
+                android:gravity="center_horizontal"
                 android:layout_marginBottom="24dp"
                 android:layout_marginEnd="24dp">
 
+                <!-- Botón Actualizar / Sincronizar -->
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
-                    android:id="@+id/fab_counter"
+                    android:id="@+id/fab_refresh"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:backgroundTint="#2196F3"
+                    android:layout_marginBottom="16dp"
+                    app:backgroundTint="#43A047"
                     app:fabSize="normal"
                     app:elevation="6dp"
-                    app:tint="@android:color/transparent" />
+                    app:srcCompat="@android:drawable/ic_popup_sync"
+                    app:tint="#FFFFFF"
+                    android:contentDescription="Actualizar\u00A0y\u00A0sincronizar" />
 
-                <TextView
-                    android:id="@+id/fab_badge"
+                <!-- FAB principal con badge -->
+                <FrameLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="0"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:clickable="false"
-                    android:focusable="false" />
+                    android:layout_height="wrap_content">
 
-            </FrameLayout>
+                    <com.google.android.material.floatingactionbutton.FloatingActionButton
+                        android:id="@+id/fab_counter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:backgroundTint="#2196F3"
+                        app:fabSize="normal"
+                        app:elevation="6dp"
+                        app:tint="#FFFFFF" />
+
+                    <TextView
+                        android:id="@+id/fab_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="0"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:clickable="false"
+                        android:focusable="false" />
+
+                </FrameLayout>
+
+            </LinearLayout>
 
         </FrameLayout>
     </LinearLayout>

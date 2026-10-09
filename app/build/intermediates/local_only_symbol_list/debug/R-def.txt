@@ -1,5 +1,7 @@
 R_DEF: Internal format may change without notice
 local
+drawable bg_circle_red
+drawable ic_delete_white
 drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_sort
@@ -7,6 +9,8 @@ id action_sort
 id btn_activar_accesibilidad
 id btn_actualizar_log
 id btn_compartir_log
+id btn_delete_container
+id btn_delete_pallet
 id btn_diag_borrar
 id btn_diag_copiar
 id btn_diag_grabar
@@ -28,6 +32,7 @@ id fab_badge
 id fab_counter
 id fab_floating
 id fab_floating_badge
+id fab_refresh
 id fragment_container
 id home_container
 id nav_acerca
