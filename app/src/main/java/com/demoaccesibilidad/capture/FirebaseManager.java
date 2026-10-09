@@ -133,6 +133,7 @@ public class FirebaseManager {
     private int currentContainerNumber = 1;
     private String currentContainerDate;     // "yyyy-MM-dd"
     private int teamPalletCount = 0;
+    private int myTeamPalletCount = 0;   // v5.1 — pallets de ESTE dispositivo en el container del equipo
 
     // ====================== SINGLETON ======================
 
@@ -1135,6 +1136,7 @@ public class FirebaseManager {
         currentContainerDate = null;
         currentContainerNumber = 1;
         teamPalletCount = 0;
+        myTeamPalletCount = 0;
         setTeamCode("");
         broadcastFabUpdate();
     }
@@ -1218,6 +1220,7 @@ public class FirebaseManager {
                 if (changed) {
                     // Nuevo container → el conteo visible vuelve a cero en todos.
                     teamPalletCount = 0;
+                    myTeamPalletCount = 0;
                     broadcastFabUpdate();
                 }
             }
@@ -1250,6 +1253,16 @@ public class FirebaseManager {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 teamPalletCount = (int) snapshot.getChildrenCount();
+                // v5.1 — Contar también cuántos de esos pallets los escaneó
+                // ESTE dispositivo, para el modo "solo este dispositivo" del FAB.
+                int mine = 0;
+                for (DataSnapshot ps : snapshot.getChildren()) {
+                    Object dev = ps.child("deviceId").getValue();
+                    if (dev != null && dev.toString().equals(deviceId)) {
+                        mine++;
+                    }
+                }
+                myTeamPalletCount = mine;
                 broadcastFabUpdate();
             }
 
@@ -1403,6 +1416,14 @@ public class FirebaseManager {
     /** Nº de pallets del container actual del equipo (suma de escáneres). */
     public int getTeamPalletCount() {
         return Math.max(0, teamPalletCount);
+    }
+
+    /**
+     * v5.1 — Nº de pallets del container actual del equipo escaneados por ESTE
+     * dispositivo (modo "solo este dispositivo" del botón flotante).
+     */
+    public int getMyTeamPalletCount() {
+        return Math.max(0, myTeamPalletCount);
     }
 
     /** Número del container compartido actual (1, 2, 3...). */

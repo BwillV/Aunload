@@ -489,14 +489,19 @@ public class FloatingButtonService extends Service {
         int self = palletRepo.getPalletCountInCurrentContainer();
         int shown = self;
 
-        // v4.9 — Si hay un equipo activo, el número mostrado es el total del
-        // container compartido (suma de todos los escáneres), en tiempo real.
+        // v5.1 — Con un equipo activo, el botón RESPETA el modo elegido:
+        //   • MODE_TOTAL → total del equipo (suma de todos los escáneres).
+        //   • MODE_SELF  → solo lo escaneado por ESTE dispositivo.
+        // Antes se forzaba SIEMPRE el total del equipo, por eso el modo "solo
+        // este dispositivo" seguía mostrando el total (p.ej. 48 en vez de 41).
         boolean teamShown = false;
         try {
             FirebaseManager fmTeam = FirebaseManager.getInstance(this);
             fmTeam.ensureListeningIfEnabled();
             if (fmTeam.isTeamActive()) {
-                shown = fmTeam.getTeamPalletCount();
+                shown = (fabDisplayMode == MODE_TOTAL)
+                        ? fmTeam.getTeamPalletCount()
+                        : fmTeam.getMyTeamPalletCount();
                 teamShown = true;
             }
         } catch (Throwable ignored) { }
