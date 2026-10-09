@@ -438,19 +438,16 @@ public class FloatingButtonService extends Service {
             return;
         }
         try {
-            // Avanzar al siguiente container (Container N+1) SIN borrar los
-            // anteriores. El conteo del container nuevo es 0.
-            String nuevo = palletRepo.startNewContainer();
-
-            // Si la sincronización está activa, propagar el nuevo container
-            // para que los demás dispositivos también empiecen en 0.
-            try {
-                FirebaseManager fm = FirebaseManager.getInstance(this);
-                if (fm.isSyncEnabled()) {
-                    fm.setContainerCode(nuevo);
-                    fm.createNewContainerSession(nuevo, 0);
-                }
-            } catch (Throwable ignored) { }
+            // v4.9 — Si hay un equipo activo, iniciar un NUEVO container
+            // COMPARTIDO: todos los escáneres del equipo pasan a 0 a la vez y
+            // los pallets anteriores quedan guardados en su container. El código
+            // de equipo NO se toca. Si no hay equipo, avanzar el container local.
+            FirebaseManager fm = FirebaseManager.getInstance(this);
+            if (fm.isTeamActive()) {
+                fm.startNewContainerShared();
+            } else {
+                palletRepo.startNewContainer();
+            }
 
             Toast.makeText(this,
                     "🔄\u00A0Nuevo\u00A0container\u00A0—\u00A0conteo\u00A0en\u00A00",
@@ -492,7 +489,19 @@ public class FloatingButtonService extends Service {
         int self = palletRepo.getPalletCountInCurrentContainer();
         int shown = self;
 
-        if (fabDisplayMode == MODE_TOTAL) {
+        // v4.9 — Si hay un equipo activo, el número mostrado es el total del
+        // container compartido (suma de todos los escáneres), en tiempo real.
+        boolean teamShown = false;
+        try {
+            FirebaseManager fmTeam = FirebaseManager.getInstance(this);
+            fmTeam.ensureListeningIfEnabled();
+            if (fmTeam.isTeamActive()) {
+                shown = fmTeam.getTeamPalletCount();
+                teamShown = true;
+            }
+        } catch (Throwable ignored) { }
+
+        if (!teamShown && fabDisplayMode == MODE_TOTAL) {
             // v4.8 — Total REAL de todos los dispositivos del container
             // compartido. Antes se pasaba el código local diario
             // ("yyyy-MM-dd#N"), que nunca coincide con el código compartido en

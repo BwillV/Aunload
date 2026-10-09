@@ -45,7 +45,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📦  Container / Equipo"
+            android:text="👥  Equipo"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -54,16 +54,16 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Código compartido para trabajo en equipo"
+            android:text="Código del equipo para trabajar juntos. Es persistente: no se borra al iniciar un nuevo container."
             android:textColor="#AAAAAA"
             android:textSize="13sp"
             android:layout_marginBottom="8dp" />
 
-        <!-- Campo de código de container -->
+        <!-- Campo de código de equipo -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Código de Container/Equipo"
+            android:text="Código de equipo"
             android:textColor="#AAAAAA"
             android:textSize="12sp"
             android:layout_marginBottom="4dp" />
@@ -96,7 +96,7 @@
                 android:layout_height="44dp"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:text="💾  Guardar Código"
+                android:text="💾  Unirse al equipo"
                 android:textColor="#FFFFFF"
                 android:textSize="14sp"
                 android:background="#4CAF50"
@@ -105,23 +105,26 @@
 
             <TextView
                 android:id="@+id/btn_limpiar_container"
-                android:layout_width="60dp"
+                android:layout_width="wrap_content"
                 android:layout_height="44dp"
                 android:gravity="center"
-                android:text="🗑"
-                android:textSize="18sp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Salir"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
                 android:background="#F44336"
                 android:layout_marginStart="8dp"
                 android:clickable="true"
                 android:focusable="true" />
         </LinearLayout>
 
-        <!-- Indicador del container actual -->
+        <!-- Indicador del código de equipo actual -->
         <TextView
             android:id="@+id/txt_container_actual"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Container actual: Sin configurar"
+            android:text="Código de equipo: Sin configurar"
             android:textColor="#FF9800"
             android:textSize="14sp"
             android:textStyle="bold"

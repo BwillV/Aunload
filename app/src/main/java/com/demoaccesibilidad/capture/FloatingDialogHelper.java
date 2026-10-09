@@ -76,13 +76,21 @@ public class FloatingDialogHelper {
         Button btnNuevo = crearBoton(context, "🆕\u00A0Nuevo\u00A0Container", COLOR_BLUE);
         btnNuevo.setOnClickListener(v -> {
             removerOverlay(wm, root);
-            PalletRepository r = new PalletRepository(context);
-            String nuevo = r.startNewContainer();
+            // v4.9 — Si hay equipo activo, iniciar un NUEVO container COMPARTIDO
+            // (todos los escáneres pasan a 0 a la vez; el código de equipo se
+            // conserva). Si no, avanzar el container local.
             try {
-                FirebaseManager.getInstance(context).setContainerCode(nuevo);
-            } catch (Exception ignored) { }
+                FirebaseManager fm = FirebaseManager.getInstance(context);
+                if (fm.isTeamActive()) {
+                    fm.startNewContainerShared();
+                } else {
+                    new PalletRepository(context).startNewContainer();
+                }
+            } catch (Exception ignored) {
+                new PalletRepository(context).startNewContainer();
+            }
             Toast.makeText(context,
-                    "🆕\u00A0Empezamos\u00A0" + nuevo + "\u00A0—\u00A0¡a\u00A0escanear!",
+                    "🆕\u00A0Nuevo\u00A0container\u00A0—\u00A0¡a\u00A0escanear!",
                     Toast.LENGTH_LONG).show();
             Intent up = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
             up.setPackage(context.getPackageName());

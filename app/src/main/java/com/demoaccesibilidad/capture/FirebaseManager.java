@@ -1,6 +1,7 @@
 package com.demoaccesibilidad.capture;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
@@ -13,17 +14,22 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.MutableData;
 import com.google.firebase.database.ServerValue;
+import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -100,6 +106,33 @@ public class FirebaseManager {
     }
 
     private SyncListener listener;
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  v4.9 — CÓDIGO DE EQUIPO PERSISTENTE + CONTENEDOR COMPARTIDO
+    //
+    //  El "código de equipo" NO es el código de un container: es el identificador
+    //  del grupo de escáneres que trabajan juntos. Se guarda en KEY_CONTAINER_CODE
+    //  (reutilizado) y NUNCA se borra al iniciar un nuevo container, reiniciar la
+    //  app o cambiar de día. Solo cambia si el usuario escribe otro código o pulsa
+    //  "Salir del equipo".
+    //
+    //  Estructura en Firebase:
+    //    equipos/{codigoEquipo}/
+    //        contenedorActual: { fecha, numero, id:"yyyy-MM-dd#N", iniciadoPor, timestamp }
+    //        containers/{idSanitizado}/pallets/{ilpSanitizado}:
+    //            { deviceId, deviceName, palletCode, sku, cantidad, ubicacion, timestamp }
+    //
+    //  El total mostrado (FAB/pantalla) = nº de pallets del container actual =
+    //  suma de lo escaneado por TODOS los escáneres, en tiempo real vía listener.
+    // ══════════════════════════════════════════════════════════════════════
+    private DatabaseReference teamContenedorRef;
+    private ValueEventListener teamContenedorListener;
+    private DatabaseReference teamPalletsRef;
+    private ValueEventListener teamPalletsListener;
+    private String currentContainerId;       // "yyyy-MM-dd#N"
+    private int currentContainerNumber = 1;
+    private String currentContainerDate;     // "yyyy-MM-dd"
+    private int teamPalletCount = 0;
 
     // ====================== SINGLETON ======================
 
@@ -265,6 +298,13 @@ public class FirebaseManager {
             reconectarSesion();
         } else if (!enabled) {
             detenerEscucha();
+        }
+
+        // v4.9 — Conectar/desconectar el contenedor compartido del equipo.
+        if (enabled && firebaseAvailable && hasTeam()) {
+            attachTeam(getTeamCode());
+        } else if (!enabled) {
+            detachTeam();
         }
     }
 
@@ -800,6 +840,12 @@ public class FirebaseManager {
                     && currentSession != null && sessionListener == null) {
                 reconectarSesion();
             }
+            // v4.9 — Reconectar también el contenedor compartido del equipo si el
+            // proceso se reinició y quedó vivo solo el servicio del botón flotante.
+            if (syncEnabled && firebaseAvailable && hasTeam()
+                    && teamContenedorListener == null) {
+                attachTeam(getTeamCode());
+            }
         } catch (Throwable ignored) { }
     }
 
@@ -1034,5 +1080,327 @@ public class FirebaseManager {
         }
 
         return s;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  v4.9 — CÓDIGO DE EQUIPO PERSISTENTE + CONTENEDOR COMPARTIDO
+    // ══════════════════════════════════════════════════════════════════════
+
+    /** Código de equipo persistente (reutiliza KEY_CONTAINER_CODE). */
+    public String getTeamCode() {
+        return prefs.getString(KEY_CONTAINER_CODE, "");
+    }
+
+    /**
+     * Guarda el código de equipo. NO borra pallets ni containers: el código es
+     * del grupo, no del container. Solo se vacía si el usuario sale del equipo.
+     */
+    public void setTeamCode(String code) {
+        prefs.edit().putString(KEY_CONTAINER_CODE, code != null ? code.trim() : "").apply();
+    }
+
+    /** True si hay un código de equipo configurado. */
+    public boolean hasTeam() {
+        String c = getTeamCode();
+        return c != null && !c.trim().isEmpty();
+    }
+
+    /**
+     * True si el equipo está realmente operativo: sync activa, Firebase
+     * disponible, hay código de equipo y ya conocemos el container actual.
+     */
+    public boolean isTeamActive() {
+        return syncEnabled && firebaseAvailable && hasTeam() && currentContainerId != null;
+    }
+
+    /**
+     * Unirse a un equipo por código. Guarda el código de forma persistente y,
+     * si la sync está activa, se conecta al contenedor compartido. NUNCA
+     * resetea lo que ya había: adopta el container actual del equipo.
+     */
+    public void joinTeam(String code) {
+        setTeamCode(code);
+        if (syncEnabled && firebaseAvailable && hasTeam()) {
+            attachTeam(getTeamCode());
+        }
+    }
+
+    /**
+     * Salir del equipo: desconecta listeners, limpia estado y borra el código.
+     * Esta es la ÚNICA forma de borrar el código de equipo.
+     */
+    public void leaveTeam() {
+        detachTeam();
+        currentContainerId = null;
+        currentContainerDate = null;
+        currentContainerNumber = 1;
+        teamPalletCount = 0;
+        setTeamCode("");
+        broadcastFabUpdate();
+    }
+
+    /**
+     * Conecta al contenedor compartido del equipo. Si el equipo no existe aún
+     * en Firebase, crea el container #1 de hoy mediante una transacción
+     * create-if-absent (no pisa lo que otro escáner haya creado primero).
+     */
+    private void attachTeam(final String code) {
+        if (code == null || code.trim().isEmpty() || !firebaseAvailable) return;
+        detachTeam();
+
+        final String teamKey = sanitizeKey(code.trim());
+        teamContenedorRef = getDatabase()
+                .child("equipos").child(teamKey).child("contenedorActual");
+
+        // Crear el container #1 SOLO si el equipo no existe todavía.
+        teamContenedorRef.runTransaction(new Transaction.Handler() {
+            @Override
+            public Transaction.Result doTransaction(MutableData data) {
+                if (data.getValue() == null) {
+                    data.setValue(buildContainerMap(todayKey(), 1));
+                }
+                return Transaction.success(data);
+            }
+
+            @Override
+            public void onComplete(DatabaseError error, boolean committed, DataSnapshot snap) {
+                if (error != null) {
+                    Log.e(TAG, "Error\u00A0creando\u00A0equipo:\u00A0" + error.getMessage());
+                }
+                // Tanto si lo creamos como si ya existía, empezamos a escuchar.
+                startContenedorListener(teamKey);
+            }
+        });
+        Log.d(TAG, "Conectado\u00A0al\u00A0equipo:\u00A0" + code);
+    }
+
+    /**
+     * Escucha el contenedor actual del equipo. Cuando cambia (p. ej. otro
+     * escáner inicia un nuevo container), adoptamos el nuevo id y reiniciamos
+     * el conteo visible a cero en todos los dispositivos a la vez.
+     */
+    private void startContenedorListener(final String teamKey) {
+        if (teamContenedorRef == null) return;
+        if (teamContenedorListener != null) {
+            teamContenedorRef.removeEventListener(teamContenedorListener);
+        }
+        teamContenedorListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (!snapshot.exists()) {
+                    // El equipo quedó sin contenedor: crear el #1 de hoy.
+                    teamContenedorRef.runTransaction(new Transaction.Handler() {
+                        @Override
+                        public Transaction.Result doTransaction(MutableData data) {
+                            if (data.getValue() == null) {
+                                data.setValue(buildContainerMap(todayKey(), 1));
+                            }
+                            return Transaction.success(data);
+                        }
+                        @Override
+                        public void onComplete(DatabaseError e, boolean c, DataSnapshot s) { }
+                    });
+                    return;
+                }
+
+                String id = snapshot.child("id").getValue(String.class);
+                Long numero = snapshot.child("numero").getValue(Long.class);
+                String fecha = snapshot.child("fecha").getValue(String.class);
+
+                boolean changed = (id != null && !id.equals(currentContainerId));
+                currentContainerId = id;
+                currentContainerNumber = numero != null ? numero.intValue() : 1;
+                currentContainerDate = fecha;
+
+                // (Re)enganchar el listener de pallets del container vigente.
+                attachPalletsListener(teamKey, currentContainerId);
+
+                if (changed) {
+                    // Nuevo container → el conteo visible vuelve a cero en todos.
+                    teamPalletCount = 0;
+                    broadcastFabUpdate();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Error\u00A0escuchando\u00A0contenedor\u00A0del\u00A0equipo:\u00A0"
+                        + error.getMessage());
+            }
+        };
+        teamContenedorRef.addValueEventListener(teamContenedorListener);
+    }
+
+    /**
+     * Escucha los pallets del container actual del equipo. El total mostrado es
+     * el nº de pallets (suma de todos los escáneres), en tiempo real.
+     */
+    private void attachPalletsListener(String teamKey, String containerId) {
+        if (teamKey == null || containerId == null) return;
+
+        if (teamPalletsRef != null && teamPalletsListener != null) {
+            teamPalletsRef.removeEventListener(teamPalletsListener);
+        }
+        teamPalletsRef = getDatabase()
+                .child("equipos").child(teamKey)
+                .child("containers").child(sanitizeKey(containerId))
+                .child("pallets");
+
+        teamPalletsListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                teamPalletCount = (int) snapshot.getChildrenCount();
+                broadcastFabUpdate();
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Error\u00A0escuchando\u00A0pallets\u00A0del\u00A0equipo:\u00A0"
+                        + error.getMessage());
+            }
+        };
+        teamPalletsRef.addValueEventListener(teamPalletsListener);
+    }
+
+    /**
+     * Inicia un NUEVO container compartido para el equipo. Mediante transacción:
+     * si seguimos el mismo día, numero+1; si cambió el día, numero=1. Los pallets
+     * anteriores NO se borran (quedan en su container en el historial). El
+     * listener de contenedorActual hará que todos los escáneres pasen a 0.
+     *
+     * Esta misma acción se usa cuando el usuario "borra" los pallets: borrar =
+     * dar por finalizado el container actual y abrir uno nuevo.
+     */
+    public void startNewContainerShared() {
+        if (!syncEnabled || !firebaseAvailable || !hasTeam()) return;
+        final String teamKey = sanitizeKey(getTeamCode().trim());
+        DatabaseReference ref = getDatabase()
+                .child("equipos").child(teamKey).child("contenedorActual");
+
+        ref.runTransaction(new Transaction.Handler() {
+            @Override
+            public Transaction.Result doTransaction(MutableData data) {
+                String hoy = todayKey();
+                Object fechaObj = data.child("fecha").getValue();
+                Long numObj = data.child("numero").getValue(Long.class);
+                int nuevoNumero;
+                if (fechaObj != null && hoy.equals(fechaObj.toString()) && numObj != null) {
+                    nuevoNumero = numObj.intValue() + 1;
+                } else {
+                    nuevoNumero = 1;
+                }
+                data.setValue(buildContainerMap(hoy, nuevoNumero));
+                return Transaction.success(data);
+            }
+
+            @Override
+            public void onComplete(DatabaseError error, boolean committed, DataSnapshot snap) {
+                if (error != null) {
+                    Log.e(TAG, "Error\u00A0iniciando\u00A0nuevo\u00A0container:\u00A0"
+                            + error.getMessage());
+                } else {
+                    Log.d(TAG, "Nuevo\u00A0container\u00A0compartido\u00A0iniciado");
+                }
+            }
+        });
+    }
+
+    /**
+     * Reporta un pallet escaneado al container compartido del equipo. Usa el ILP
+     * (palletCode) como clave para evitar duplicados entre escáneres.
+     */
+    public void reportPalletToTeam(Pallet pallet) {
+        if (!isTeamActive() || pallet == null) return;
+        final String teamKey = sanitizeKey(getTeamCode().trim());
+        String palletKey = (pallet.palletCode != null && !pallet.palletCode.isEmpty())
+                ? sanitizeKey(pallet.palletCode)
+                : "pallet_" + System.currentTimeMillis();
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("deviceId", deviceId);
+        map.put("deviceName", deviceName);
+        map.put("palletCode", pallet.palletCode != null ? pallet.palletCode : "");
+        map.put("sku", pallet.sku != null ? pallet.sku : "");
+        map.put("cantidad", pallet.quantity);
+        map.put("ubicacion", pallet.location != null ? pallet.location : "");
+        map.put("timestamp", ServerValue.TIMESTAMP);
+
+        getDatabase().child("equipos").child(teamKey)
+                .child("containers").child(sanitizeKey(currentContainerId))
+                .child("pallets").child(palletKey)
+                .setValue(map)
+                .addOnSuccessListener(v ->
+                        Log.d(TAG, "Pallet\u00A0al\u00A0equipo:\u00A0" + pallet.palletCode))
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Error\u00A0reportando\u00A0pallet\u00A0al\u00A0equipo", e));
+    }
+
+    /** Actualiza la ubicación de un pallet ya reportado al equipo. */
+    public void updateTeamPalletLocation(String palletCode, String location) {
+        if (!isTeamActive() || palletCode == null || palletCode.isEmpty()
+                || location == null || location.trim().isEmpty()) {
+            return;
+        }
+        final String teamKey = sanitizeKey(getTeamCode().trim());
+        getDatabase().child("equipos").child(teamKey)
+                .child("containers").child(sanitizeKey(currentContainerId))
+                .child("pallets").child(sanitizeKey(palletCode))
+                .child("ubicacion").setValue(location.trim())
+                .addOnFailureListener(e ->
+                        Log.e(TAG, "Error\u00A0actualizando\u00A0ubicación\u00A0del\u00A0equipo", e));
+    }
+
+    /** Nº de pallets del container actual del equipo (suma de escáneres). */
+    public int getTeamPalletCount() {
+        return Math.max(0, teamPalletCount);
+    }
+
+    /** Número del container compartido actual (1, 2, 3...). */
+    public int getCurrentContainerNumberShared() {
+        return currentContainerNumber;
+    }
+
+    /** Id del container compartido actual ("yyyy-MM-dd#N") o null. */
+    public String getCurrentContainerId() {
+        return currentContainerId;
+    }
+
+    /** Desconecta los listeners del equipo sin borrar el código. */
+    private void detachTeam() {
+        if (teamContenedorRef != null && teamContenedorListener != null) {
+            teamContenedorRef.removeEventListener(teamContenedorListener);
+        }
+        if (teamPalletsRef != null && teamPalletsListener != null) {
+            teamPalletsRef.removeEventListener(teamPalletsListener);
+        }
+        teamContenedorListener = null;
+        teamPalletsListener = null;
+        teamContenedorRef = null;
+        teamPalletsRef = null;
+    }
+
+    /** Avisa al botón flotante (y a la UI) para que refresque el conteo. */
+    private void broadcastFabUpdate() {
+        try {
+            Intent i = new Intent(FloatingButtonService.ACTION_UPDATE_FAB);
+            i.setPackage(appContext.getPackageName());
+            appContext.sendBroadcast(i);
+        } catch (Throwable ignored) { }
+    }
+
+    /** Construye el mapa de contenedorActual. */
+    private Map<String, Object> buildContainerMap(String fecha, int numero) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("fecha", fecha);
+        map.put("numero", numero);
+        map.put("id", fecha + "#" + numero);
+        map.put("iniciadoPor", deviceId);
+        map.put("timestamp", ServerValue.TIMESTAMP);
+        return map;
+    }
+
+    /** Fecha de hoy "yyyy-MM-dd" (Locale.US, igual que el repositorio local). */
+    private static String todayKey() {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
     }
 }

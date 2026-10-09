@@ -92,7 +92,11 @@ public class PalletRepository {
         // ═══ DUAL WRITE: Firebase ═══
         try {
             FirebaseManager fm = FirebaseManager.getInstance(context);
-            if (fm.isSyncEnabled()) {
+            if (fm.isTeamActive()) {
+                // v4.9 — Reportar al container compartido del equipo.
+                fm.reportPalletToTeam(pallet);
+                Log.d(TAG, "Pallet\u00A0enviado\u00A0al\u00A0equipo:\u00A0" + pallet.palletCode);
+            } else if (fm.isSyncEnabled()) {
                 fm.reportPalletScanned(pallet);
                 Log.d(TAG, "Pallet\u00A0sincronizado\u00A0a\u00A0Firebase:\u00A0" + pallet.palletCode);
             }
@@ -180,7 +184,9 @@ public class PalletRepository {
     private void sincronizarUbicacionFirebase(String palletCode, String location) {
         try {
             FirebaseManager fm = FirebaseManager.getInstance(context);
-            if (fm.isSyncEnabled()) {
+            if (fm.isTeamActive()) {
+                fm.updateTeamPalletLocation(palletCode, location);
+            } else if (fm.isSyncEnabled()) {
                 fm.updatePalletLocationRemote(palletCode, location);
             }
         } catch (Exception e) {

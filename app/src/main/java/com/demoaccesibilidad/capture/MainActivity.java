@@ -359,6 +359,33 @@ public class MainActivity extends AppCompatActivity
      * Actualiza el header del container con la info actual.
      */
     private void refrescarContainerHeader() {
+        FirebaseManager fm = FirebaseManager.getInstance(this);
+
+        // v4.9 — Si hay un equipo activo, el header refleja el CONTAINER
+        // COMPARTIDO del equipo (número y total de pallets de todos los
+        // escáneres), no el conteo local de este dispositivo.
+        if (fm.isTeamActive()) {
+            fm.ensureListeningIfEnabled();
+            containerHeader.setVisibility(View.VISIBLE);
+            txtContainerCode.setText("Vas\u00A0en\u00A0el\u00A0Container\u00A0"
+                    + fm.getCurrentContainerNumberShared());
+            int totalEquipo = fm.getTeamPalletCount();
+            txtContainerTasks.setVisibility(View.VISIBLE);
+            txtContainerTasks.setText("Equipo\u00A0" + fm.getTeamCode()
+                    + "\u00A0•\u00A0" + totalEquipo
+                    + (totalEquipo == 1 ? "\u00A0pallet" : "\u00A0pallets"));
+
+            int devCount = fm.getActiveDeviceCount();
+            if (devCount > 1) {
+                txtDeviceIndicator.setText("📱\u00A0" + devCount);
+                txtDeviceIndicator.setTextColor(0xFF4CAF50);
+            } else {
+                txtDeviceIndicator.setText("📱\u00A01");
+                txtDeviceIndicator.setTextColor(0xFF888888);
+            }
+            return;
+        }
+
         // v4.1 — Header simple, solo containers y solo datos de HOY.
         int palletsHoy = palletRepo.getPalletCountToday();
 
@@ -388,7 +415,6 @@ public class MainActivity extends AppCompatActivity
                 + "\u00A0•\u00A0" + palletsHoy + "\u00A0pallets");
 
         // Dispositivos activos.
-        FirebaseManager fm = FirebaseManager.getInstance(this);
         int deviceCount = fm.getActiveDeviceCount();
         if (deviceCount > 1) {
             txtDeviceIndicator.setText("📱\u00A0" + deviceCount);
@@ -991,6 +1017,32 @@ public class MainActivity extends AppCompatActivity
      */
     private void mostrarDialogoBorrarContainers() {
         notifHelper.vibrarCorto();
+
+        // v4.9 — Con un equipo activo, "borrar" = dar por FINALIZADO el container
+        // actual e iniciar uno nuevo para TODO el equipo. Los pallets no se
+        // pierden: quedan guardados en el historial del container cerrado, y
+        // todos los escáneres vuelven a 0 a la vez.
+        final FirebaseManager fmTeam = FirebaseManager.getInstance(this);
+        if (fmTeam.isTeamActive()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("✅\u00A0Finalizar\u00A0container")
+                    .setMessage("Se\u00A0dará\u00A0por\u00A0terminado\u00A0el\u00A0Container\u00A0"
+                            + fmTeam.getCurrentContainerNumberShared()
+                            + "\u00A0y\u00A0se\u00A0iniciará\u00A0uno\u00A0nuevo\u00A0en\u00A00"
+                            + "\u00A0para\u00A0todo\u00A0el\u00A0equipo.\n\n"
+                            + "Los\u00A0pallets\u00A0ya\u00A0escaneados\u00A0quedan\u00A0guardados.")
+                    .setPositiveButton("Finalizar\u00A0e\u00A0iniciar\u00A0nuevo", (d, w) -> {
+                        fmTeam.startNewContainerShared();
+                        notifHelper.vibrarCorto();
+                        Toast.makeText(this,
+                                "✅\u00A0Container\u00A0finalizado\u00A0—\u00A0nuevo\u00A0en\u00A00",
+                                Toast.LENGTH_SHORT).show();
+                        refrescarDatos();
+                    })
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+            return;
+        }
 
         final List<String> containers = palletRepo.getUniqueContainersToday();
         if (containers.isEmpty()) {

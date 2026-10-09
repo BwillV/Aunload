@@ -96,14 +96,14 @@ public class AjustesFragment extends Fragment {
 
         FirebaseManager fm = FirebaseManager.getInstance(requireContext());
 
-        // Cargar código actual.
-        String currentCode = fm.getContainerCode();
+        // Cargar código de equipo actual (persistente).
+        String currentCode = fm.getTeamCode();
         if (currentCode != null && !currentCode.isEmpty()) {
             editContainerCode.setText(currentCode);
-            txtContainerActual.setText("Container\u00A0actual:\u00A0" + currentCode);
+            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0" + currentCode);
             txtContainerActual.setTextColor(0xFF4CAF50);
         } else {
-            txtContainerActual.setText("Container\u00A0actual:\u00A0Sin\u00A0configurar");
+            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0Sin\u00A0configurar");
             txtContainerActual.setTextColor(0xFFFF9800);
         }
 
@@ -111,31 +111,29 @@ public class AjustesFragment extends Fragment {
             String code = editContainerCode.getText().toString().trim().toUpperCase();
             if (code.isEmpty()) {
                 Toast.makeText(requireContext(),
-                        "❌\u00A0Ingresa\u00A0un\u00A0código\u00A0de\u00A0container",
+                        "❌\u00A0Ingresa\u00A0un\u00A0código\u00A0de\u00A0equipo",
                         Toast.LENGTH_SHORT).show();
                 return;
             }
-            fm.setContainerCode(code);
-            txtContainerActual.setText("Container\u00A0actual:\u00A0" + code);
+            // v4.9 — Unirse al equipo. El código es PERSISTENTE: quien se une
+            // adopta el container que ya estaba en curso, sin borrar nada.
+            fm.joinTeam(code);
+            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0" + code);
             txtContainerActual.setTextColor(0xFF4CAF50);
 
-            // Si sync está habilitado, intentar unirse al container.
-            if (fm.isSyncEnabled()) {
-                fm.joinContainerSession(code);
-            }
-
             Toast.makeText(requireContext(),
-                    "✅\u00A0Container\u00A0guardado:\u00A0" + code,
+                    "✅\u00A0Te\u00A0uniste\u00A0al\u00A0equipo:\u00A0" + code,
                     Toast.LENGTH_SHORT).show();
         });
 
         btnLimpiarContainer.setOnClickListener(b -> {
+            // v4.9 — Salir del equipo (única forma de borrar el código).
             editContainerCode.setText("");
-            fm.setContainerCode("");
-            txtContainerActual.setText("Container\u00A0actual:\u00A0Sin\u00A0configurar");
+            fm.leaveTeam();
+            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0Sin\u00A0configurar");
             txtContainerActual.setTextColor(0xFFFF9800);
             Toast.makeText(requireContext(),
-                    "🗑\u00A0Código\u00A0de\u00A0container\u00A0eliminado",
+                    "👋\u00A0Saliste\u00A0del\u00A0equipo",
                     Toast.LENGTH_SHORT).show();
         });
 
@@ -391,14 +389,14 @@ public class AjustesFragment extends Fragment {
             txtDeviceCount.setText("📱\u00A0Dispositivos\u00A0activos:\u00A0" + deviceCount);
         }
 
-        // Refrescar container code.
-        String code = fm.getContainerCode();
+        // Refrescar código de equipo (persistente).
+        String code = fm.getTeamCode();
         if (txtContainerActual != null) {
             if (code != null && !code.isEmpty()) {
-                txtContainerActual.setText("Container\u00A0actual:\u00A0" + code);
+                txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0" + code);
                 txtContainerActual.setTextColor(0xFF4CAF50);
             } else {
-                txtContainerActual.setText("Container\u00A0actual:\u00A0Sin\u00A0configurar");
+                txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0Sin\u00A0configurar");
                 txtContainerActual.setTextColor(0xFFFF9800);
             }
         }
