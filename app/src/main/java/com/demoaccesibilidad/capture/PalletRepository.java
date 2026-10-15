@@ -71,9 +71,17 @@ public class PalletRepository {
 
         List<Pallet> all = getAllPallets();
 
-        // Verificar duplicado por palletCode.
+        // v5.3: DEDUPE por palletCode + CONTAINER (no solo por palletCode).
+        // Antes se rechazaba cualquier pallet cuyo ILP ya existiera en CUALQUIER
+        // container, de modo que el MISMO ILP puesto en un container nuevo NO se
+        // contaba (síntoma "a veces no cuenta los pallets"). Ahora solo se
+        // considera duplicado si coincide el ILP Y el container (taskId), que es
+        // la unidad real de agrupación (igual que la clave en Firebase:
+        // containers/{id}/pallets/{ilp}).
+        String nuevoCont = pallet.taskId != null ? pallet.taskId : "";
         for (Pallet p : all) {
-            if (pallet.palletCode.equals(p.palletCode)) {
+            String pCont = p.taskId != null ? p.taskId : "";
+            if (pallet.palletCode.equals(p.palletCode) && nuevoCont.equals(pCont)) {
                 return false;
             }
         }

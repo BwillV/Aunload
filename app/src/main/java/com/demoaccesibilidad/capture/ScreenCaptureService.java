@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,7 +74,27 @@ public class ScreenCaptureService extends AccessibilityService {
     private String cachedLocation = null;
 
     // Pallets ya guardados (evita duplicados en la sesión).
-    private final Set<String> savedPalletCodes = new HashSet<>();
+    // v5.3: la clave ahora es "container|ILP" (antes solo el ILP). Así el MISMO
+    // ILP puesto en un container distinto SÍ se cuenta y no se descarta.
+    // Thread-safe: se lee en el hilo principal y se modifica desde ioExecutor.
+    private final Set<String> savedPalletCodes =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    // v5.3: ejecutor único para TODA la E/S de disco/Firebase del guardado de
+    // pallets. El guardado antes se hacía en el hilo de accesibilidad (main):
+    // leer+serializar hasta 2000 pallets en JSON y escribir SharedPreferences en
+    // cada "Put away success" congelaba la pantalla (ANR / "app bugueada"). Con
+    // un solo hilo las escrituras quedan SERIALIZADAS (sin condiciones de
+    // carrera) y fuera del hilo principal.
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    // v5.3: claves ILP↔ubicación ya aplicadas, para no re-parsear todos los
+    // pallets en cada lectura de pantalla (ahorro de CPU) ni repetir trabajo.
+    private final Set<String> appliedLocationKeys =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private long lastMapApply = 0L;
+    private static final long MAP_APPLY_MIN_MS = 1500;
 
     // ====================== PATRONES REGEX ======================
     // v4.0: PAT_TASK eliminado — ya no se extrae Task ID.
@@ -506,19 +528,58 @@ public class ScreenCaptureService extends AccessibilityService {
      */
     private void aplicarMapaAPendientes() {
         if (ilpLocationMap.isEmpty()) return;
-        PalletRepository repo = new PalletRepository(this);
+
+        // v5.3: esta rutina se llamaba en CADA lectura de pantalla (cada ~300 ms)
+        // y, por cada entrada del mapa (hasta 500), leía+serializaba TODOS los
+        // pallets en disco — en el hilo principal. Era una fuente grave de
+        // "congelones". Ahora:
+        //   • se limita la frecuencia (throttle),
+        //   • se saltan las claves ya aplicadas (no re-parsear),
+        //   • el trabajo de disco va al ejecutor de fondo.
+        long ahora = System.currentTimeMillis();
+        if (ahora - lastMapApply < MAP_APPLY_MIN_MS) return;
+        lastMapApply = ahora;
+
+        // Copia de las entradas aún NO aplicadas (se recorre en el hilo principal,
+        // es solo lectura de memoria).
+        final Map<String, String> pendientes = new HashMap<>();
         for (Map.Entry<String, String> e : ilpLocationMap.entrySet()) {
-            boolean ok = repo.completarUbicacionSiHoy(e.getKey(), e.getValue());
-            if (ok) {
-                PalletTrackerApp.logEvento(this, "Ubicación completada",
-                        "Pallet " + e.getKey() + " → " + e.getValue()
-                                + " (fuente: pantalla Progress/Location View)");
-                notificarPalletGuardado();
-                if (e.getKey().equals(pendingLocPalletCode)) {
-                    finalizarPendienteSinUbicacion();
-                }
+            String key = e.getKey() + "|" + e.getValue();
+            if (!appliedLocationKeys.contains(key)) {
+                pendientes.put(e.getKey(), e.getValue());
             }
         }
+        if (pendientes.isEmpty()) return;
+
+        ioExecutor.submit(() -> {
+            PalletRepository repo = new PalletRepository(getApplicationContext());
+            for (Map.Entry<String, String> e : pendientes.entrySet()) {
+                boolean ok;
+                try {
+                    ok = repo.completarUbicacionSiHoy(e.getKey(), e.getValue());
+                } catch (Throwable t) {
+                    ok = false;
+                }
+                if (ok) {
+                    // Solo marcamos como aplicada cuando SÍ se completó, para no
+                    // perder la oportunidad de rellenar una pallet que aún no
+                    // existía cuando se leyó la ubicación. El throttle evita que
+                    // reintentar las no completadas sea costoso.
+                    appliedLocationKeys.add(e.getKey() + "|" + e.getValue());
+                    final String ilp = e.getKey();
+                    final String loc = e.getValue();
+                    mainHandler.post(() -> {
+                        PalletTrackerApp.logEvento(this, "Ubicación completada",
+                                "Pallet " + ilp + " → " + loc
+                                        + " (fuente: pantalla Progress/Location View)");
+                        notificarPalletGuardado();
+                        if (ilp.equals(pendingLocPalletCode)) {
+                            finalizarPendienteSinUbicacion();
+                        }
+                    });
+                }
+            }
+        });
     }
 
     protected void procesarTextos(List<String> textos) {
@@ -650,9 +711,6 @@ public class ScreenCaptureService extends AccessibilityService {
      */
     private void guardarPalletSiNuevo() {
         if (cachedPalletCode == null) return;
-        if (savedPalletCodes.contains(cachedPalletCode)) return;
-
-        PalletRepository repo = new PalletRepository(this);
 
         // v4.0: SIEMPRE se agrupa por container secuencial simple
         // ("Container 1", "Container 2", ...). No hay Task ID.
@@ -661,18 +719,28 @@ public class ScreenCaptureService extends AccessibilityService {
         // "yyyy-MM-dd#N") para que el pallet se guarde SIEMPRE en el container
         // vigente del equipo, incluso si el listener aún no sincronizó el
         // puntero local. Así se elimina el bug de "sigue metiendo en el viejo".
-        String containerParaGuardar;
+        final PalletRepository repo = new PalletRepository(getApplicationContext());
+
+        String containerTmp;
         try {
             FirebaseManager fm = FirebaseManager.getInstance(this);
             String sharedId = fm.getCurrentContainerId();
             if (fm.isTeamActive() && sharedId != null && !sharedId.isEmpty()) {
-                containerParaGuardar = sharedId;
+                containerTmp = sharedId;
             } else {
-                containerParaGuardar = repo.getCurrentContainerCode();
+                containerTmp = repo.getCurrentContainerCode();
             }
         } catch (Throwable t) {
-            containerParaGuardar = repo.getCurrentContainerCode();
+            containerTmp = repo.getCurrentContainerCode();
         }
+        final String containerParaGuardar = containerTmp;
+
+        // v5.3: dedupe en memoria por CONTAINER + ILP (no solo ILP). Evita que un
+        // mismo ILP legítimo en otro container se descarte, y a la vez impide
+        // doble inserción del mismo pallet mientras la escritura va en segundo
+        // plano. La comprobación va DESPUÉS de conocer el container.
+        final String dedupKey = containerParaGuardar + "|" + cachedPalletCode;
+        if (savedPalletCodes.contains(dedupKey)) return;
 
         // Si el success NO mostró ubicación, intentar completarla antes de guardar
         // para que el pallet pueda nacer ya con su ubicación de destino.
@@ -710,7 +778,7 @@ public class ScreenCaptureService extends AccessibilityService {
             }
         }
 
-        Pallet p = new Pallet(
+        final Pallet p = new Pallet(
                 containerParaGuardar,
                 cachedPalletCode,
                 cachedSku != null ? cachedSku : "",
@@ -718,48 +786,69 @@ public class ScreenCaptureService extends AccessibilityService {
                 locParaGuardar != null ? locParaGuardar : ""
         );
 
-        boolean inserted = repo.insertPallet(p);
+        // Capturar en finales todo lo necesario ANTES de limpiar la caché.
+        final String guardado = cachedPalletCode;
+        final boolean sinUbicacion = (locParaGuardar == null || locParaGuardar.trim().isEmpty());
+        final String locFinal = locParaGuardar;
+        final String fuenteLocFinal = fuenteLoc;
 
-        if (inserted) {
-            savedPalletCodes.add(cachedPalletCode);
-            String guardado = cachedPalletCode;
-            boolean sinUbicacion = (locParaGuardar == null || locParaGuardar.trim().isEmpty());
+        // v5.3: marca optimista en memoria para que eventos repetidos del mismo
+        // "success" no reintenten mientras la escritura va en segundo plano.
+        savedPalletCodes.add(dedupKey);
 
-            // v4.6: si la ubicación vino de un fallback (no estaba en el success),
-            // registrarlo en el diagnóstico.
-            if (!sinUbicacion && fuenteLoc != null) {
-                PalletTrackerApp.logEvento(this, "Ubicación completada",
-                        "Pallet " + guardado + " → " + locParaGuardar.trim()
-                                + " (fuente: " + fuenteLoc + ")");
+        // v5.3: limpiar la caché AHORA (ya guardamos todo en 'p'), en el hilo
+        // principal, para no perder datos de la siguiente pallet y evitar
+        // condiciones de carrera con el guardado en segundo plano.
+        cachedPalletCode = null;
+        cachedSku = null;
+        cachedQuantity = 0.0;
+        cachedLocation = null;
+        recentLocation = null;
+        recentLocationTs = 0L;
+        limpiarCachePutAway();
+        // v4.0: el container actual se mantiene hasta que el usuario inicie uno nuevo.
+
+        // v5.3: la E/S pesada (leer+serializar hasta 2000 pallets y escribir
+        // SharedPreferences + reportar a Firebase) se ejecuta en el ejecutor de
+        // fondo para NO congelar la pantalla (antes era la causa principal de los
+        // "congelones" / ANR). Las escrituras quedan serializadas en un solo hilo.
+        ioExecutor.submit(() -> {
+            boolean ok;
+            try {
+                ok = repo.insertPallet(p);
+            } catch (Throwable t) {
+                ok = false;
+                // Nunca perder el pallet en silencio: dejar constancia y permitir
+                // un reintento posterior quitando la marca optimista.
+                PalletTrackerApp.logException(getApplicationContext(),
+                        "guardarPalletSiNuevo.insertPallet", t);
+                savedPalletCodes.remove(dedupKey);
             }
-            Log.d(TAG, "✅\u00A0Pallet\u00A0guardado:\u00A0" + guardado
-                    + "\u00A0container=" + containerParaGuardar
-                    + "\u00A0qty=" + cachedQuantity
-                    + "\u00A0loc=" + cachedLocation);
+            final boolean inserted = ok;
+            mainHandler.post(() -> {
+                if (inserted) {
+                    if (!sinUbicacion && fuenteLocFinal != null) {
+                        PalletTrackerApp.logEvento(this, "Ubicación completada",
+                                "Pallet " + guardado + " → "
+                                        + (locFinal != null ? locFinal.trim() : "")
+                                        + " (fuente: " + fuenteLocFinal + ")");
+                    }
+                    Log.d(TAG, "✅\u00A0Pallet\u00A0guardado:\u00A0" + guardado
+                            + "\u00A0container=" + containerParaGuardar
+                            + "\u00A0qty=" + p.quantity
+                            + "\u00A0loc=" + (locFinal != null ? locFinal : ""));
 
-            // Notificar a la UI (MainActivity).
-            notificarPalletGuardado();
+                    // Notificar a la UI (MainActivity) y al overlay.
+                    notificarPalletGuardado();
 
-            // Limpiar caché para el siguiente pallet.
-            cachedPalletCode = null;
-            cachedSku = null;
-            cachedQuantity = 0.0;
-            cachedLocation = null;
-            // v4.6: la ubicación reciente pertenecía a ESTA pallet; se descarta
-            // para que no se arrastre a la siguiente.
-            recentLocation = null;
-            recentLocationTs = 0L;
-            // v4.7: la instantánea y la caché del campo de put away ya se usaron
-            // para esta pallet; se limpian para no arrastrarlas a la siguiente.
-            limpiarCachePutAway();
-            // v4.0: el container actual se mantiene hasta que el usuario inicie uno nuevo.
-
-            // v4.4: si se guardó SIN ubicación, dejar diagnóstico y reintentar leerla.
-            if (sinUbicacion) {
-                volcarDiagnosticoSinUbicacion(guardado);
-                iniciarReintentosUbicacion(guardado);
-            }
-        }
+                    // v4.4: si se guardó SIN ubicación, diagnóstico y reintentos.
+                    if (sinUbicacion) {
+                        volcarDiagnosticoSinUbicacion(guardado);
+                        iniciarReintentosUbicacion(guardado);
+                    }
+                }
+            });
+        });
     }
 
     /** Avisa a MainActivity y al overlay flotante de que cambió algo. */
@@ -1225,5 +1314,26 @@ public class ScreenCaptureService extends AccessibilityService {
         } catch (Exception ignored) { }
         pendingLocPalletCode = null;
         return super.onUnbind(intent);
+    }
+
+    @Override
+    public void onDestroy() {
+        // Limpieza de recursos para evitar fugas de memoria y Runnables huérfanos
+        // cuando el sistema reinicia el servicio de accesibilidad.
+        try {
+            if (locRunnable != null) locHandler.removeCallbacks(locRunnable);
+        } catch (Exception ignored) { }
+        try {
+            if (debounceRunnable != null) debounceHandler.removeCallbacks(debounceRunnable);
+        } catch (Exception ignored) { }
+        try {
+            mainHandler.removeCallbacksAndMessages(null);
+        } catch (Exception ignored) { }
+        try {
+            // Apaga el hilo de I/O en segundo plano; las tareas ya encoladas
+            // terminan, pero no se aceptan nuevas.
+            ioExecutor.shutdown();
+        } catch (Exception ignored) { }
+        super.onDestroy();
     }
 }

@@ -190,6 +190,22 @@ public class FirebaseManager {
                 firebaseApp = FirebaseApp.initializeApp(appContext, options, FB_APP_NAME);
             }
 
+            // Persistencia offline: encola las escrituras en disco y las reintenta
+            // cuando vuelve la conexión, evitando perder pallets si el proceso
+            // muere sin red. DEBE llamarse ANTES de obtener cualquier referencia
+            // (getReference) y solo UNA vez; por eso se protege con try/catch,
+            // ya que una llamada tardía lanzaría IllegalStateException.
+            try {
+                FirebaseDatabase db = (firebaseApp != null)
+                        ? FirebaseDatabase.getInstance(firebaseApp, FB_DATABASE_URL)
+                        : FirebaseDatabase.getInstance(FB_DATABASE_URL);
+                db.setPersistenceEnabled(true);
+                Log.d(TAG, "Persistencia\u00A0offline\u00A0de\u00A0Firebase\u00A0activada");
+            } catch (Throwable persistT) {
+                // Ya estaba configurada o se pidió una referencia antes: no es fatal.
+                Log.w(TAG, "No\u00A0se\u00A0pudo\u00A0activar\u00A0persistencia\u00A0offline", persistT);
+            }
+
             firebaseAvailable = true;
             lastInitError = null;
             Log.d(TAG, "Firebase\u00A0inicializado\u00A0correctamente\u00A0(URL="
