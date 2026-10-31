@@ -52,6 +52,9 @@ public class AjustesFragment extends Fragment {
     private SeekBar seekOpacidad;
     private TextView txtOpacidadVal;
 
+    // Modo copiar texto (v5.4).
+    private SwitchCompat switchCopiarTexto;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -229,6 +232,19 @@ public class AjustesFragment extends Fragment {
             @Override public void onStartTrackingTouch(SeekBar bar) { }
             @Override public void onStopTrackingTouch(SeekBar bar) { }
         });
+
+        // ═══════ MODO COPIAR TEXTO (v5.4) ═══════
+        switchCopiarTexto = v.findViewById(R.id.switch_copiar_texto);
+        if (switchCopiarTexto != null) {
+            switchCopiarTexto.setChecked(CopyTextHelper.isEnabled(requireContext()));
+            switchCopiarTexto.setOnCheckedChangeListener((btn, isChecked) -> {
+                CopyTextHelper.setEnabled(requireContext(), isChecked);
+                Toast.makeText(requireContext(),
+                        isChecked ? "📋\u00A0Modo\u00A0copiar\u00A0texto\u00A0activado"
+                                  : "📴\u00A0Modo\u00A0copiar\u00A0texto\u00A0desactivado",
+                        Toast.LENGTH_SHORT).show();
+            });
+        }
 
         // ═══════ IDIOMA ═══════
         TextView txtIdioma = v.findViewById(R.id.txt_idioma_actual);

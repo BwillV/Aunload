@@ -1906,6 +1906,7 @@ id stop
 id stretch
 id submenuarrow
 id submit_area
+id switch_copiar_texto
 id switch_overlay
 id switch_sonido
 id switch_sync

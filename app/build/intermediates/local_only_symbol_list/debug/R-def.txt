@@ -46,6 +46,7 @@ id option_update_container
 id recycler_pallets
 id recycler_tasks
 id seek_opacidad
+id switch_copiar_texto
 id switch_overlay
 id switch_sonido
 id switch_sync

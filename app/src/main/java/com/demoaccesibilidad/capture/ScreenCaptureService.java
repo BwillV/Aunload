@@ -53,6 +53,16 @@ public class ScreenCaptureService extends AccessibilityService {
 
     private static final String TAG = "PalletTracker";
 
+    // ====================== INSTANCIA (para "Copiar texto") ======================
+    // Referencia a la instancia viva del servicio de accesibilidad. La función
+    // "Copiar texto" la usa para leer los textos de la pantalla del WMS desde
+    // el botón flotante. Es el único punto con acceso a getRootInActiveWindow().
+    private static volatile ScreenCaptureService instance;
+
+    public static ScreenCaptureService getInstance() {
+        return instance;
+    }
+
     // ====================== BROADCAST ======================
     public static final String ACTION_PALLET_SAVED =
             "com.demoaccesibilidad.capture.PALLET_SAVED";
@@ -192,6 +202,7 @@ public class ScreenCaptureService extends AccessibilityService {
     @Override
     public void onServiceConnected() {
         super.onServiceConnected();
+        instance = this;
         Log.d(TAG, "✅\u00A0Servicio\u00A0de\u00A0accesibilidad\u00A0conectado");
 
         // Auto-iniciar overlay flotante si tiene permiso.
@@ -1304,6 +1315,75 @@ public class ScreenCaptureService extends AccessibilityService {
     @Override
     public void onInterrupt() { }
 
+    // =============================================================
+    //            "COPIAR TEXTO" — textos visibles del WMS
+    // =============================================================
+
+    /**
+     * Devuelve TODOS los textos visibles de la ventana activa (y demás ventanas
+     * accesibles), sin duplicados y en orden de pantalla, excluyendo los textos
+     * de la propia app PalletTracker. Lo usa la función "Copiar texto" del botón
+     * flotante para que el operario pueda copiar datos del WMS que no son
+     * seleccionables dentro del propio WMS.
+     */
+    public java.util.ArrayList<String> getVisibleTextsForCopy() {
+        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        try {
+            List<String> textos = recolectarTodo(getRootInActiveWindow());
+            if (textos != null) {
+                for (String s : textos) {
+                    if (s == null) continue;
+                    String t = s.trim();
+                    if (!t.isEmpty()) set.add(t);
+                }
+            }
+        } catch (Throwable ignored) { }
+        return new java.util.ArrayList<>(set);
+    }
+
+    /**
+     * Busca en la pantalla actual el primer texto que coincida con un ILP
+     * (patrón ILP-#####). Devuelve "ILP-#####" normalizado o null si no hay.
+     */
+    public String findFirstIlpOnScreen() {
+        try {
+            for (String s : getVisibleTextsForCopy()) {
+                Matcher m = PAT_PALLET.matcher(s);
+                if (m.find()) return "ILP-" + m.group(1);
+            }
+        } catch (Throwable ignored) { }
+        return null;
+    }
+
+    // Patrón ESTRICTO de ubicación tipo "A03-198-2" / "B03-033-4" para la copia
+    // directa (evita falsos positivos). Si no coincide, se cae al PAT_LOCATION
+    // flexible que ya usa el servicio para extraer ubicaciones.
+    private static final Pattern PAT_LOCATION_COPY =
+            Pattern.compile("\\b[A-Z]\\d{2}-\\d{3}-\\d\\b");
+
+    /**
+     * Busca en la pantalla actual el primer texto que coincida con una ubicación.
+     * Prefiere el formato estricto (A03-198-2); si no, usa el patrón flexible.
+     * Devuelve la ubicación o null si no hay.
+     */
+    public String findFirstLocationOnScreen() {
+        try {
+            List<String> textos = getVisibleTextsForCopy();
+            // 1) formato estricto conocido del WMS.
+            for (String s : textos) {
+                Matcher m = PAT_LOCATION_COPY.matcher(s);
+                if (m.find()) return m.group();
+            }
+            // 2) fallback: patrón flexible ya existente.
+            for (String s : textos) {
+                if (PAT_PALLET.matcher(s).find()) continue; // no confundir con ILP
+                Matcher m = PAT_LOCATION.matcher(s);
+                if (m.find()) return m.group();
+            }
+        } catch (Throwable ignored) { }
+        return null;
+    }
+
     @Override
     public boolean onUnbind(Intent intent) {
         try {
@@ -1313,6 +1393,7 @@ public class ScreenCaptureService extends AccessibilityService {
             if (debounceRunnable != null) debounceHandler.removeCallbacks(debounceRunnable);
         } catch (Exception ignored) { }
         pendingLocPalletCode = null;
+        if (instance == this) instance = null;
         return super.onUnbind(intent);
     }
 
@@ -1334,6 +1415,7 @@ public class ScreenCaptureService extends AccessibilityService {
             // terminan, pero no se aceptan nuevas.
             ioExecutor.shutdown();
         } catch (Exception ignored) { }
+        if (instance == this) instance = null;
         super.onDestroy();
     }
 }

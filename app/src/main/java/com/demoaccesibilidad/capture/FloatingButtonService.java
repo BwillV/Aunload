@@ -388,7 +388,7 @@ public class FloatingButtonService extends Service {
         });
     }
 
-    // ─── 1 TAP: alternar entre "Yo" y "Total" ───
+    // ─── 1 TAP: menú de copiar texto (si está activo) o alternar "Yo"/"Total" ───
     private void onSingleTapFab() {
         // v4.3 — Si la accesibilidad está OFF, el tap abre directamente los
         // Ajustes de accesibilidad para reactivarla (no alterna el modo).
@@ -397,6 +397,26 @@ public class FloatingButtonService extends Service {
             return;
         }
 
+        // v5.4 — Si el "Modo copiar texto" está activo (por defecto sí), el
+        // toque abre un menú con las opciones de copiado. El menú conserva
+        // "Alternar Yo/Total" para no perder la acción original del toque.
+        // Si el modo está apagado, el toque alterna Yo/Total como siempre.
+        if (CopyTextHelper.isEnabled(this)) {
+            try {
+                CopyTextHelper.showActionMenu(this, windowManager, this::alternarModoConteo);
+            } catch (Throwable t) {
+                PalletTrackerApp.logException(getApplicationContext(),
+                        "FloatingButtonService.showCopyMenu", t);
+                alternarModoConteo();
+            }
+            return;
+        }
+
+        alternarModoConteo();
+    }
+
+    // ─── Alterna el conteo mostrado entre "Yo" y "Total" ───
+    private void alternarModoConteo() {
         fabDisplayMode = (fabDisplayMode == MODE_SELF) ? MODE_TOTAL : MODE_SELF;
         fabPrefs.edit().putInt(KEY_FAB_MODE, fabDisplayMode).apply();
 

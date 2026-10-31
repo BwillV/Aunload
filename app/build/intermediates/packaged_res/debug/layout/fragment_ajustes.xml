@@ -251,6 +251,37 @@
                 android:gravity="end" />
         </LinearLayout>
 
+        <!-- Modo copiar texto (v5.4) -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Modo copiar texto"
+                android:textColor="#DDDDDD"
+                android:textSize="15sp" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switch_copiar_texto"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Al tocar el botón flotante aparece el menú para copiar textos del WMS (ILP, ubicación o lista)."
+            android:textColor="#AAAAAA"
+            android:textSize="13sp"
+            android:layout_marginBottom="16dp" />
+
         <!-- Separador -->
         <View
             android:layout_width="match_parent"
