@@ -1384,6 +1384,41 @@ public class ScreenCaptureService extends AccessibilityService {
         return null;
     }
 
+    // Patrón de SKU tipo "PHK_33YJ3X88": prefijo de 2+ letras + "_" + alfanumérico.
+    // El "_" evita confundirlo con "TASK-2693" (que usa guion) y con ubicaciones.
+    private static final Pattern PAT_SKU_COPY =
+            Pattern.compile("\\b[A-Z]{2,}_[A-Z0-9]{4,}\\b");
+
+    /**
+     * Busca en la pantalla actual el primer SKU. Reutiliza la lógica existente:
+     *   1) Estructural: el nodo de texto que aparece JUSTO DESPUÉS del ILP
+     *      (igual que al extraer el SKU en "Put away success").
+     *   2) Patrón: formato conocido del WMS (PHK_XXXXXXXX).
+     * Nunca devuelve un ILP, una ubicación, un "TASK-..." ni una cantidad pura.
+     * Devuelve el SKU o null si no hay.
+     */
+    public String findFirstSkuOnScreen() {
+        try {
+            List<String> textos = getVisibleTextsForCopy();
+            // 1) Estructural: SKU inmediatamente después del ILP.
+            for (int i = 0; i < textos.size(); i++) {
+                if (PAT_PALLET.matcher(textos.get(i)).find()) {
+                    String sku = buscarSkuDespuesDeIlp(textos, i);
+                    if (sku != null && esCandidatoSku(sku)) return sku;
+                }
+            }
+            // 2) Patrón conocido PHK_XXXXXXXX.
+            for (String s : textos) {
+                Matcher m = PAT_SKU_COPY.matcher(s);
+                if (m.find()) {
+                    String cand = m.group();
+                    if (esCandidatoSku(cand)) return cand;
+                }
+            }
+        } catch (Throwable ignored) { }
+        return null;
+    }
+
     @Override
     public boolean onUnbind(Intent intent) {
         try {
