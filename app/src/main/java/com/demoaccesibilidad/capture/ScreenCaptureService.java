@@ -1419,6 +1419,68 @@ public class ScreenCaptureService extends AccessibilityService {
         return null;
     }
 
+    // =============================================================
+    //   VARIANTES "TODOS": devuelven TODAS las coincidencias de la
+    //   pantalla, sin duplicados y en orden de aparición. Usan los
+    //   mismos patrones/lógica que los findFirst*.
+    // =============================================================
+
+    /** Todos los ILP de la pantalla (ILP-#####), sin duplicados, en orden. */
+    public java.util.ArrayList<String> findAllIlpsOnScreen() {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        try {
+            for (String s : getVisibleTextsForCopy()) {
+                Matcher m = PAT_PALLET.matcher(s);
+                while (m.find()) out.add("ILP-" + m.group(1));
+            }
+        } catch (Throwable ignored) { }
+        return new java.util.ArrayList<>(out);
+    }
+
+    /** Todas las ubicaciones de la pantalla, sin duplicados, en orden. */
+    public java.util.ArrayList<String> findAllLocationsOnScreen() {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        try {
+            List<String> textos = getVisibleTextsForCopy();
+            // 1) formato estricto conocido del WMS.
+            for (String s : textos) {
+                Matcher m = PAT_LOCATION_COPY.matcher(s);
+                while (m.find()) out.add(m.group());
+            }
+            // 2) fallback: patrón flexible ya existente.
+            for (String s : textos) {
+                if (PAT_PALLET.matcher(s).find()) continue; // no confundir con ILP
+                Matcher m = PAT_LOCATION.matcher(s);
+                while (m.find()) out.add(m.group());
+            }
+        } catch (Throwable ignored) { }
+        return new java.util.ArrayList<>(out);
+    }
+
+    /** Todos los SKU de la pantalla, sin duplicados, en orden. */
+    public java.util.ArrayList<String> findAllSkusOnScreen() {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        try {
+            List<String> textos = getVisibleTextsForCopy();
+            // 1) Estructural: SKU inmediatamente después de cada ILP.
+            for (int i = 0; i < textos.size(); i++) {
+                if (PAT_PALLET.matcher(textos.get(i)).find()) {
+                    String sku = buscarSkuDespuesDeIlp(textos, i);
+                    if (sku != null && esCandidatoSku(sku)) out.add(sku);
+                }
+            }
+            // 2) Patrón conocido PHK_XXXXXXXX.
+            for (String s : textos) {
+                Matcher m = PAT_SKU_COPY.matcher(s);
+                while (m.find()) {
+                    String cand = m.group();
+                    if (esCandidatoSku(cand)) out.add(cand);
+                }
+            }
+        } catch (Throwable ignored) { }
+        return new java.util.ArrayList<>(out);
+    }
+
     @Override
     public boolean onUnbind(Intent intent) {
         try {

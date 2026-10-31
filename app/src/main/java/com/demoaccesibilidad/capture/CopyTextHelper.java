@@ -182,7 +182,7 @@ public class CopyTextHelper {
         Button btnIlp = crearBoton(context, "🏷\u00A0Copiar\u00A0ILP", COLOR_GREEN);
         btnIlp.setOnClickListener(v -> {
             removerOverlay(wm, root);
-            copiarDirecto(context, true);
+            copiarDirecto(context, wm, true);
         });
         root.addView(btnIlp);
         addSpacer(context, root, 8);
@@ -191,7 +191,7 @@ public class CopyTextHelper {
         Button btnSku = crearBoton(context, "📦\u00A0Copiar\u00A0SKU", COLOR_GREEN);
         btnSku.setOnClickListener(v -> {
             removerOverlay(wm, root);
-            copiarSku(context);
+            copiarSku(context, wm);
         });
         root.addView(btnSku);
         addSpacer(context, root, 8);
@@ -200,7 +200,7 @@ public class CopyTextHelper {
         Button btnLoc = crearBoton(context, "📍\u00A0Copiar\u00A0ubicación", COLOR_GREEN);
         btnLoc.setOnClickListener(v -> {
             removerOverlay(wm, root);
-            copiarDirecto(context, false);
+            copiarDirecto(context, wm, false);
         });
         root.addView(btnLoc);
         addSpacer(context, root, 8);
@@ -446,10 +446,11 @@ public class CopyTextHelper {
     }
 
     // =============================================================
-    //        VARIANTE 2: COPIADO DIRECTO (ILP / UBICACIÓN)
+    //        VARIANTE 2: COPIADO DIRECTO (ILP / SKU / UBICACIÓN)
+    //   0 resultados → Toast · 1 → copia directa · 2+ → lista overlay
     // =============================================================
 
-    private static void copiarDirecto(Context context, boolean ilp) {
+    private static void copiarDirecto(Context context, WindowManager wm, boolean ilp) {
         ScreenCaptureService svc = ScreenCaptureService.getInstance();
         if (svc == null) {
             Toast.makeText(context,
@@ -457,18 +458,15 @@ public class CopyTextHelper {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        String valor = ilp ? svc.findFirstIlpOnScreen() : svc.findFirstLocationOnScreen();
-        if (valor == null || valor.trim().isEmpty()) {
-            Toast.makeText(context,
-                    ilp ? "No\u00A0se\u00A0encontró\u00A0ILP\u00A0en\u00A0esta\u00A0pantalla"
-                        : "No\u00A0se\u00A0encontró\u00A0ubicación\u00A0en\u00A0esta\u00A0pantalla",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-        copyToClipboard(context, valor);
+        java.util.ArrayList<String> valores =
+                ilp ? svc.findAllIlpsOnScreen() : svc.findAllLocationsOnScreen();
+        manejarResultados(context, wm, valores,
+                ilp ? "ILP\u00A0detectados" : "Ubicaciones\u00A0detectadas",
+                ilp ? "No\u00A0se\u00A0encontró\u00A0ILP\u00A0en\u00A0esta\u00A0pantalla"
+                    : "No\u00A0se\u00A0encontró\u00A0ubicación\u00A0en\u00A0esta\u00A0pantalla");
     }
 
-    private static void copiarSku(Context context) {
+    private static void copiarSku(Context context, WindowManager wm) {
         ScreenCaptureService svc = ScreenCaptureService.getInstance();
         if (svc == null) {
             Toast.makeText(context,
@@ -476,14 +474,112 @@ public class CopyTextHelper {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        String sku = svc.findFirstSkuOnScreen();
-        if (sku == null || sku.trim().isEmpty()) {
-            Toast.makeText(context,
-                    "No\u00A0se\u00A0encontró\u00A0SKU\u00A0en\u00A0esta\u00A0pantalla",
-                    Toast.LENGTH_SHORT).show();
+        manejarResultados(context, wm, svc.findAllSkusOnScreen(),
+                "SKU\u00A0detectados",
+                "No\u00A0se\u00A0encontró\u00A0SKU\u00A0en\u00A0esta\u00A0pantalla");
+    }
+
+    /** 0 → Toast; 1 → copia directa; 2+ → overlay con la lista. */
+    private static void manejarResultados(Context context, WindowManager wm,
+                                          java.util.ArrayList<String> valores,
+                                          String tituloBase, String msgVacio) {
+        if (valores == null || valores.isEmpty()) {
+            Toast.makeText(context, msgVacio, Toast.LENGTH_SHORT).show();
             return;
         }
-        copyToClipboard(context, sku);
+        if (valores.size() == 1) {
+            copyToClipboard(context, valores.get(0));
+            return;
+        }
+        abrirListaResultados(context, wm, valores, tituloBase);
+    }
+
+    /**
+     * Overlay con TODAS las coincidencias detectadas (2+). Mismo estilo y tipo
+     * de ventana que "Elegir texto de la lista". Al tocar un valor se copia y se
+     * cierra. "Copiar todos" une los valores con salto de línea.
+     */
+    private static void abrirListaResultados(final Context context, final WindowManager wm,
+                                             final java.util.ArrayList<String> valores,
+                                             final String tituloBase) {
+        final LinearLayout root = crearRoot(context);
+
+        TextView titulo = crearTexto(context,
+                tituloBase + "\u00A0(" + valores.size() + ")", 16, true);
+        titulo.setPadding(0, 0, 0, dp(context, 4));
+        root.addView(titulo);
+
+        TextView sub = crearTexto(context,
+                "Toca\u00A0un\u00A0valor\u00A0para\u00A0copiarlo", 12, false);
+        sub.setTextColor(COLOR_HINT);
+        sub.setPadding(0, 0, 0, dp(context, 10));
+        root.addView(sub);
+
+        // Lista desplazable.
+        ScrollView scroll = new ScrollView(context);
+        int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.5f);
+        scroll.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, maxH));
+        LinearLayout lista = new LinearLayout(context);
+        lista.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(lista);
+
+        final WindowManager.LayoutParams params = crearParams(false);
+
+        for (final String valor : valores) {
+            TextView item = new TextView(context);
+            item.setText(valor);
+            item.setTextColor(COLOR_TEXT);
+            item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            item.setBackgroundColor(COLOR_CARD);
+            item.setPadding(dp(context, 12), dp(context, 12),
+                    dp(context, 12), dp(context, 12));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.bottomMargin = dp(context, 6);
+            item.setLayoutParams(lp);
+            item.setOnClickListener(v -> {
+                copyToClipboard(context, valor);
+                removerOverlay(wm, root);
+            });
+            lista.addView(item);
+        }
+
+        root.addView(scroll);
+        addSpacer(context, root, 12);
+
+        // Botones Copiar todos / Cerrar.
+        LinearLayout fila = new LinearLayout(context);
+        fila.setOrientation(LinearLayout.HORIZONTAL);
+
+        Button btnTodos = crearBoton(context, "Copiar\u00A0todos", COLOR_BLUE);
+        btnTodos.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        btnTodos.setOnClickListener(v -> {
+            StringBuilder sb = new StringBuilder();
+            for (String s : valores) sb.append(s).append("\n");
+            copyToClipboard(context, sb.toString().trim());
+            removerOverlay(wm, root);
+        });
+        fila.addView(btnTodos);
+
+        addSpacerH(context, fila, 8);
+
+        Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
+        btnCerrar.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
+        fila.addView(btnCerrar);
+
+        root.addView(fila);
+
+        try {
+            wm.addView(root, params);
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(context.getApplicationContext(),
+                    "CopyTextHelper.abrirListaResultados", t);
+        }
     }
 
     // =============================================================
