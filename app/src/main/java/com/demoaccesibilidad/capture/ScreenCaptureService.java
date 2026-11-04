@@ -68,9 +68,13 @@ public class ScreenCaptureService extends AccessibilityService {
             "com.demoaccesibilidad.capture.PALLET_SAVED";
 
     // ====================== ANTI-DUPLICADOS ======================
-    private String ultimaFirmaPantalla = "";
-    private String ultimaFirmaDiag = "";
-    private long ultimaLectura = 0L;
+    private volatile String ultimaFirmaPantalla = "";
+    private volatile String ultimaFirmaDiag = "";
+    private volatile long ultimaLectura = 0L;
+    // v5.9: coalescing — evita encolar más de una lectura de pantalla pendiente
+    // en el ejecutor de fondo durante tormentas de eventos (scroll/escaneo).
+    private final java.util.concurrent.atomic.AtomicBoolean lecturaEncolada =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     private static final long INTERVALO_MIN_MS = 300;
     private static final int MAX_PROFUNDIDAD = 40;
@@ -78,10 +82,12 @@ public class ScreenCaptureService extends AccessibilityService {
 
     // ====================== CACHE DE DATOS ACTUALES ======================
     // v4.0: cachedTaskId eliminado — ya no se maneja Task ID.
-    private String cachedPalletCode = null;
-    private String cachedSku = null;
-    private double cachedQuantity = 0.0;
-    private String cachedLocation = null;
+    // v5.9: volatile — ahora se leen/escriben desde el ejecutor de fondo
+    // (lectura de pantalla fuera del hilo principal) además del hilo main.
+    private volatile String cachedPalletCode = null;
+    private volatile String cachedSku = null;
+    private volatile double cachedQuantity = 0.0;
+    private volatile String cachedLocation = null;
 
     // Pallets ya guardados (evita duplicados en la sesión).
     // v5.3: la clave ahora es "container|ILP" (antes solo el ILP). Así el MISMO
@@ -141,10 +147,10 @@ public class ScreenCaptureService extends AccessibilityService {
     // varias veces durante ~1.5 s y se ACTUALIZA la misma pallet (sin duplicar).
     private final Handler locHandler = new Handler(Looper.getMainLooper());
     private Runnable locRunnable = null;
-    private String pendingLocPalletCode = null;   // pallet a completar
+    private volatile String pendingLocPalletCode = null;   // pallet a completar
     // v4.6: ventana de reintentos AMPLIADA. Se sondea la pantalla hasta que
     // aparezca la ubicación o llegue el siguiente ILP, con tope de 60 s.
-    private long locDeadline = 0L;
+    private volatile long locDeadline = 0L;
     private static final long LOC_WINDOW_MS = 60000;  // 60 s máximo
     private static final long LOC_RETRY_MS = 500;     // sondeo cada 0.5 s
 
@@ -153,8 +159,8 @@ public class ScreenCaptureService extends AccessibilityService {
     // pantalla "Put away success" la muestre, se guarda aquí con su timestamp y
     // se usa para la pallet en curso. No se limpia hasta guardar la pallet o
     // hasta que llega un ILP distinto.
-    private String recentLocation = null;
-    private long recentLocationTs = 0L;
+    private volatile String recentLocation = null;
+    private volatile long recentLocationTs = 0L;
     private static final long RECENT_LOC_TTL_MS = 120000; // ~2 min
 
     // ====================== MAPA ILP → UBICACIÓN ======================
@@ -175,12 +181,12 @@ public class ScreenCaptureService extends AccessibilityService {
     //  2) CACHÉ CONTINUA: mientras se vea el botón PUT AWAY o GET SUGGESTION se
     //     cachea el valor del campo con timestamp (TTL 5 min). Tiene prioridad
     //     sobre la "ubicación reciente" de v4.6.
-    private String putAwaySnapshotLocation = null;
-    private String putAwaySnapshotIlp = null;
-    private long putAwaySnapshotTs = 0L;
+    private volatile String putAwaySnapshotLocation = null;
+    private volatile String putAwaySnapshotIlp = null;
+    private volatile long putAwaySnapshotTs = 0L;
     private static final long PUTAWAY_SNAPSHOT_TTL_MS = 120000; // ~2 min
-    private String putAwayFieldLocation = null;
-    private long putAwayFieldTs = 0L;
+    private volatile String putAwayFieldLocation = null;
+    private volatile long putAwayFieldTs = 0L;
     private static final long PUTAWAY_FIELD_TTL_MS = 300000; // 5 min
 
     // ====================== v4.7 — DEBOUNCE CON LECTURA FINAL ======================
@@ -319,6 +325,18 @@ public class ScreenCaptureService extends AccessibilityService {
      * completa en el acto.
      */
     private void tomarInstantaneaPutAway() {
+        // v5.9: la lectura del árbol (getRootInActiveWindow + recorrido) es pesada;
+        // se ejecuta en el hilo de fondo para no congelar el hilo de accesibilidad.
+        ioExecutor.submit(() -> {
+            try { tomarInstantaneaPutAwayBg(); }
+            catch (Throwable t) {
+                PalletTrackerApp.logException(getApplicationContext(),
+                        "tomarInstantaneaPutAway", t);
+            }
+        });
+    }
+
+    private void tomarInstantaneaPutAwayBg() {
         try {
             List<String> textos = recolectarTodo(getRootInActiveWindow());
             if (textos.isEmpty()) return;
@@ -379,6 +397,27 @@ public class ScreenCaptureService extends AccessibilityService {
     // =============================================================
 
     private void leerPantallaCompleta() {
+        // v5.9: TODA la lectura de pantalla (getRootInActiveWindow + recorrido de
+        // hasta 600 nodos + E/S de diagnóstico + procesarTextos) se ejecuta en el
+        // ejecutor de fondo. Antes corría en el hilo de accesibilidad (main) en cada
+        // evento de cambio de contenido (~cada 300 ms durante scroll/escaneo), lo
+        // que congelaba la UI y disparaba el "PalletTracker no responde" (ANR).
+        // Coalescing: si ya hay una lectura encolada sin empezar, no encolamos otra.
+        if (!lecturaEncolada.compareAndSet(false, true)) return;
+        ioExecutor.submit(() -> {
+            // Liberamos el cerrojo al empezar: así se puede encolar la SIGUIENTE
+            // lectura (capturará el estado más reciente) mientras ésta corre, pero
+            // nunca se acumulan varias esperando.
+            lecturaEncolada.set(false);
+            try { leerPantallaCompletaBg(); }
+            catch (Throwable t) {
+                PalletTrackerApp.logException(getApplicationContext(),
+                        "leerPantallaCompleta", t);
+            }
+        });
+    }
+
+    private void leerPantallaCompletaBg() {
         AccessibilityNodeInfo root = null;
         try {
             root = getRootInActiveWindow();
@@ -421,6 +460,21 @@ public class ScreenCaptureService extends AccessibilityService {
     // =============================================================
 
     protected void onTextoIndividualCapturado(String texto) {
+        // v5.9: el cuerpo (regex + E/S de completar ubicación) se ejecuta en el
+        // ejecutor de fondo, nunca en el hilo principal. Esto, junto con serializar
+        // TODO el trabajo del servicio en un único hilo, elimina las condiciones de
+        // carrera y evita que el hilo de accesibilidad (main) se congele → ANR.
+        if (texto == null) return;
+        ioExecutor.submit(() -> {
+            try { onTextoIndividualCapturadoBg(texto); }
+            catch (Throwable t) {
+                PalletTrackerApp.logException(getApplicationContext(),
+                        "onTextoIndividualCapturado", t);
+            }
+        });
+    }
+
+    private void onTextoIndividualCapturadoBg(String texto) {
         // Texto escrito en un campo — podría ser un scan.
         if (texto == null) return;
         Matcher m = PAT_PALLET.matcher(texto);
@@ -894,6 +948,28 @@ public class ScreenCaptureService extends AccessibilityService {
         locRunnable = new Runnable() {
             @Override
             public void run() {
+                // v5.9: cada reintento lee TODA la pantalla + E/S; eso corría en el
+                // hilo principal (locHandler) cada 500 ms hasta 60 s por pallet sin
+                // ubicación — una fuente continua de "congelones"/ANR. Ahora el
+                // trabajo pesado va al ejecutor de fondo y la reprogramación vuelve
+                // al locHandler.
+                if (pendingLocPalletCode == null) return;
+                ioExecutor.submit(() -> {
+                    try { intentarCompletarUbicacion(this); }
+                    catch (Throwable t) {
+                        PalletTrackerApp.logException(getApplicationContext(),
+                                "locRunnable", t);
+                    }
+                });
+            }
+        };
+        locHandler.postDelayed(locRunnable, LOC_RETRY_MS);
+    }
+
+    /** Un intento de completar la ubicación pendiente (se ejecuta en ioExecutor). */
+    private void intentarCompletarUbicacion(Runnable reintento) {
+        {
+            {
                 if (pendingLocPalletCode == null) return;
 
                 // 1) Intentar por lectura directa de la pantalla.
@@ -937,14 +1013,14 @@ public class ScreenCaptureService extends AccessibilityService {
                     return;
                 }
                 if (System.currentTimeMillis() < locDeadline) {
-                    locHandler.postDelayed(this, LOC_RETRY_MS);
+                    // Reprogramar el siguiente intento en el locHandler (main).
+                    locHandler.postDelayed(reintento, LOC_RETRY_MS);
                 } else {
                     // Se agotó la ventana: queda "Sin ubicación".
                     pendingLocPalletCode = null;
                 }
             }
-        };
-        locHandler.postDelayed(locRunnable, LOC_RETRY_MS);
+        }
     }
 
     /**
