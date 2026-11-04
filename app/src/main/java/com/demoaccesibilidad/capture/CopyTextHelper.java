@@ -169,11 +169,11 @@ public class CopyTextHelper {
 
         final WindowManager.LayoutParams params = crearParams(false);
 
-        // Lista de todos los textos.
-        Button btnLista = crearBoton(context, "📝\u00A0Elegir\u00A0texto\u00A0de\u00A0la\u00A0lista", COLOR_BLUE);
+        // Ubicaciones en pantalla (ordenadas y con checkbox).
+        Button btnLista = crearBoton(context, "📍\u00A0Ubicaciones\u00A0en\u00A0pantalla", COLOR_BLUE);
         btnLista.setOnClickListener(v -> {
             removerOverlay(wm, root);
-            abrirListaTextos(context, wm);
+            abrirListaUbicaciones(context, wm, true);
         });
         root.addView(btnLista);
         addSpacer(context, root, 8);
@@ -442,6 +442,215 @@ public class CopyTextHelper {
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.abrirHistorial", t);
+        }
+    }
+
+    // =============================================================
+    //   UBICACIONES EN PANTALLA — vista ordenada con checkboxes
+    //   (reemplaza "Elegir texto de la lista")
+    // =============================================================
+
+    /**
+     * Muestra TODAS las ubicaciones detectadas en la pantalla, ordenadas por:
+     *   1) Primer segmento (ej. C15) — agrupa letras + número.
+     *   2) Segundo segmento / número de en medio (ej. 071) — orden principal.
+     *   3) Tercer segmento (ej. 2) — orden secundario.
+     * Cada fila tiene un CheckBox a la derecha (solo visual, sin acción de copia).
+     * Un botón permite alternar entre orden ascendente y descendente.
+     *
+     * Optimización: se obtiene la lista UNA sola vez desde el servicio; al
+     * cambiar de orden se recicla la misma lista (solo se reordena en memoria)
+     * en vez de recorrer otra vez el árbol de accesibilidad.
+     */
+    private static void abrirListaUbicaciones(final Context context,
+                                               final WindowManager wm,
+                                               final boolean ascending) {
+        abrirListaUbicaciones(context, wm, ascending, null, null);
+    }
+
+    /**
+     * Variante interna: si {@code cached} no es null se reutiliza (evita
+     * re-recorrer el árbol de accesibilidad al cambiar de orden).
+     * {@code checked} conserva las ubicaciones marcadas al alternar el orden.
+     */
+    private static void abrirListaUbicaciones(final Context context,
+                                               final WindowManager wm,
+                                               final boolean ascending,
+                                               java.util.ArrayList<String> cached,
+                                               final java.util.Set<String> checked) {
+        // Conjunto de ubicaciones marcadas (se conserva entre reordenamientos).
+        final java.util.Set<String> seleccionadas =
+                (checked != null) ? checked : new java.util.HashSet<>();
+        // ── Obtener ubicaciones (una sola lectura del árbol) ──
+        final java.util.ArrayList<String> ubicaciones;
+        if (cached != null && !cached.isEmpty()) {
+            ubicaciones = cached;  // reutilizar sin releer
+        } else {
+            ScreenCaptureService svc = ScreenCaptureService.getInstance();
+            if (svc == null) {
+                Toast.makeText(context,
+                        "Activa\u00A0el\u00A0servicio\u00A0de\u00A0Accesibilidad",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+            ubicaciones = svc.findAllLocationsOnScreen();
+        }
+        if (ubicaciones == null || ubicaciones.isEmpty()) {
+            Toast.makeText(context,
+                    "No\u00A0se\u00A0encontraron\u00A0ubicaciones\u00A0en\u00A0esta\u00A0pantalla",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // ── Ordenar en memoria (ligero, sin I/O) ──
+        java.util.Collections.sort(ubicaciones,
+                (a, b) -> compararUbicaciones(a, b, ascending));
+
+        // ── Construir overlay ──
+        final LinearLayout root = crearRoot(context);
+
+        TextView titulo = crearTexto(context,
+                "📍\u00A0Ubicaciones\u00A0en\u00A0pantalla", 16, true);
+        titulo.setPadding(0, 0, 0, dp(context, 4));
+        root.addView(titulo);
+
+        TextView sub = crearTexto(context,
+                ubicaciones.size()
+                        + (ubicaciones.size() == 1
+                        ? "\u00A0ubicación\u00A0detectada"
+                        : "\u00A0ubicaciones\u00A0detectadas"),
+                12, false);
+        sub.setTextColor(COLOR_HINT);
+        sub.setPadding(0, 0, 0, dp(context, 8));
+        root.addView(sub);
+
+        // Botón de orden (toggle asc / desc).
+        String sortLabel = ascending
+                ? "↑\u00A0Menor\u00A0a\u00A0mayor"
+                : "↓\u00A0Mayor\u00A0a\u00A0menor";
+        Button btnSort = crearBoton(context, sortLabel, COLOR_INDIGO);
+        btnSort.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        btnSort.setPadding(dp(context, 12), dp(context, 8),
+                dp(context, 12), dp(context, 8));
+        btnSort.setOnClickListener(v -> {
+            removerOverlay(wm, root);
+            // Reutilizar la misma lista y conservar los checks marcados.
+            abrirListaUbicaciones(context, wm, !ascending, ubicaciones, seleccionadas);
+        });
+        root.addView(btnSort);
+        addSpacer(context, root, 8);
+
+        // ── Lista desplazable ──
+        ScrollView scroll = new ScrollView(context);
+        int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.5f);
+        scroll.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, maxH));
+        LinearLayout lista = new LinearLayout(context);
+        lista.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(lista);
+
+        final WindowManager.LayoutParams params = crearParams(false);
+
+        for (final String ubicacion : ubicaciones) {
+            // Fila: [texto ───────── ☐]
+            LinearLayout fila = new LinearLayout(context);
+            fila.setOrientation(LinearLayout.HORIZONTAL);
+            fila.setGravity(Gravity.CENTER_VERTICAL);
+            fila.setBackgroundColor(COLOR_CARD);
+            fila.setPadding(dp(context, 12), dp(context, 10),
+                    dp(context, 8), dp(context, 10));
+            LinearLayout.LayoutParams lpFila = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            lpFila.bottomMargin = dp(context, 5);
+            fila.setLayoutParams(lpFila);
+
+            // Texto de la ubicación (peso = 1, ocupa el espacio restante).
+            TextView item = new TextView(context);
+            item.setText(ubicacion);
+            item.setTextColor(COLOR_TEXT);
+            item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            item.setLayoutParams(new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            fila.addView(item);
+
+            // CheckBox a la derecha (solo visual / seleccionable).
+            final android.widget.CheckBox check = new android.widget.CheckBox(context);
+            check.setChecked(seleccionadas.contains(ubicacion));
+            check.setButtonTintList(
+                    android.content.res.ColorStateList.valueOf(COLOR_BLUE));
+            check.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            // Mantener el conjunto de seleccionadas al marcar/desmarcar.
+            check.setOnCheckedChangeListener((btn, isChecked) -> {
+                if (isChecked) seleccionadas.add(ubicacion);
+                else seleccionadas.remove(ubicacion);
+            });
+            fila.addView(check);
+
+            // Tocar la fila alterna el check.
+            fila.setOnClickListener(v -> check.setChecked(!check.isChecked()));
+
+            lista.addView(fila);
+        }
+
+        root.addView(scroll);
+        addSpacer(context, root, 12);
+
+        // Botón Cerrar.
+        Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
+        btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
+        root.addView(btnCerrar);
+
+        try {
+            wm.addView(root, params);
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(context.getApplicationContext(),
+                    "CopyTextHelper.abrirListaUbicaciones", t);
+        }
+    }
+
+    // ── Comparador de ubicaciones ──────────────────────────────────
+    // Orden: 1º primer segmento (C15 < C16 < D01), 2º número de en
+    // medio (071 < 072), 3º tercer número (2 < 4).
+    // Si ascending=false se invierte todo el orden.
+
+    private static int compararUbicaciones(String a, String b, boolean asc) {
+        String[] pa = a.split("[-.]");
+        String[] pb = b.split("[-.]");
+
+        // Primer segmento (ej. "C15"): 1º la(s) letra(s) como texto,
+        // 2º el número como ENTERO (así C2 va antes que C15).
+        String s0a = pa.length > 0 ? pa[0] : "";
+        String s0b = pb.length > 0 ? pb[0] : "";
+        String letraA = s0a.replaceAll("[0-9].*$", "");  // letras iniciales
+        String letraB = s0b.replaceAll("[0-9].*$", "");
+        int cmp = letraA.compareToIgnoreCase(letraB);
+        if (cmp != 0) return asc ? cmp : -cmp;
+        cmp = Integer.compare(extraerNumero(s0a), extraerNumero(s0b));
+        if (cmp != 0) return asc ? cmp : -cmp;
+
+        // Segundo segmento (número de en medio) — orden principal.
+        int midA = pa.length > 1 ? extraerNumero(pa[1]) : 0;
+        int midB = pb.length > 1 ? extraerNumero(pb[1]) : 0;
+        cmp = Integer.compare(midA, midB);
+        if (cmp != 0) return asc ? cmp : -cmp;
+
+        // Tercer segmento — orden secundario.
+        int t3A = pa.length > 2 ? extraerNumero(pa[2]) : 0;
+        int t3B = pb.length > 2 ? extraerNumero(pb[2]) : 0;
+        cmp = Integer.compare(t3A, t3B);
+        return asc ? cmp : -cmp;
+    }
+
+    /** Extrae la parte numérica de un segmento (ej. "033" → 33, "A2" → 2). */
+    private static int extraerNumero(String s) {
+        if (s == null || s.isEmpty()) return 0;
+        try {
+            return Integer.parseInt(s.replaceAll("[^0-9]", ""));
+        } catch (Exception e) {
+            return 0;
         }
     }
 

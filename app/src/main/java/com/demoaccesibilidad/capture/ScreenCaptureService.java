@@ -1037,9 +1037,20 @@ public class ScreenCaptureService extends AccessibilityService {
                 if (hint != null && hint.length() > 0) out.add(hint.toString().trim());
             }
         } catch (Throwable ignored) { }
+        // Corte temprano: si ya alcanzamos el máximo, no seguir descendiendo.
+        if (out.size() > MAX_TEXTOS) return;
         int n = node.getChildCount();
         for (int i = 0; i < n; i++) {
-            recolectarTextos(node.getChild(i), out, prof + 1);
+            if (out.size() > MAX_TEXTOS) break;
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child == null) continue;
+            try {
+                recolectarTextos(child, out, prof + 1);
+            } finally {
+                // Reciclar el nodo hijo para liberar memoria nativa (evita
+                // fugas que degradan el rendimiento tras muchos escaneos).
+                try { child.recycle(); } catch (Throwable ignored) { }
+            }
         }
     }
 
@@ -1061,12 +1072,15 @@ public class ScreenCaptureService extends AccessibilityService {
                     AccessibilityNodeInfo r = null;
                     try { r = w.getRoot(); } catch (Exception ignored) { }
                     if (r == null) continue;
-                    // Saltar nuestra propia app (overlay flotante).
                     try {
+                        // Saltar nuestra propia app (overlay flotante).
                         CharSequence pkg = r.getPackageName();
                         if (pkg != null && getPackageName().contentEquals(pkg)) continue;
-                    } catch (Exception ignored) { }
-                    try { recolectarTextos(r, textos, 0); } catch (Exception ignored) { }
+                        recolectarTextos(r, textos, 0);
+                    } catch (Exception ignored) {
+                    } finally {
+                        try { r.recycle(); } catch (Throwable ignored) { }
+                    }
                 }
             }
         } catch (Exception ignored) { }

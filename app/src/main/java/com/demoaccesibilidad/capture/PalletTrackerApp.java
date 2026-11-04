@@ -12,6 +12,8 @@ import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * PalletTrackerApp — clase Application con logger de crashes persistente.
@@ -35,6 +37,13 @@ public class PalletTrackerApp extends Application {
 
     private static final String TAG = "PalletTrackerApp";
     private static final String CRASH_FILE = "crash_log.txt";
+
+    // v5.7: el log de eventos (logEvento) se escribía a disco de forma SÍNCRONA
+    // en el hilo que lo llamara (a veces el principal, durante el escaneo) y
+    // crecía sin límite. Ahora se escribe en SEGUNDO PLANO y con TOPE de tamaño.
+    private static final long MAX_LOG_BYTES = 256 * 1024; // 256 KB
+    private static final ExecutorService logExec =
+            Executors.newSingleThreadExecutor();
 
     @Override
     public void onCreate() {
@@ -96,23 +105,46 @@ public class PalletTrackerApp extends Application {
             sb.append("------------------------------------------------------\n");
             if (detalle != null) sb.append(detalle).append('\n');
             sb.append("======================================================\n\n");
-            String contenido = sb.toString();
+            final String contenido = sb.toString();
 
             Log.d(TAG, "Evento diagnóstico: " + titulo);
 
-            try {
-                File dir = ctx.getExternalFilesDir(null);
-                if (dir != null) {
-                    FileWriter fw = new FileWriter(new File(dir, CRASH_FILE), true);
-                    fw.write(contenido);
-                    fw.close();
+            // Escritura en SEGUNDO PLANO (no bloquea el hilo que escanea) y con
+            // rotación por tamaño para que el archivo no crezca indefinidamente.
+            final File extDir = ctx.getExternalFilesDir(null);
+            final File intFile = new File(ctx.getFilesDir(), CRASH_FILE);
+            logExec.execute(() -> {
+                if (extDir != null) {
+                    escribirConTope(new File(extDir, CRASH_FILE), contenido);
                 }
-            } catch (Throwable ignored) { }
-            try {
-                FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), CRASH_FILE), true);
+                escribirConTope(intFile, contenido);
+            });
+        } catch (Throwable ignored) { }
+    }
+
+    /**
+     * Añade {@code contenido} al archivo; si supera MAX_LOG_BYTES, primero lo
+     * recorta dejando solo la mitad más reciente (rotación simple sin dependencias).
+     */
+    private static void escribirConTope(File f, String contenido) {
+        try {
+            if (f.exists() && f.length() > MAX_LOG_BYTES) {
+                try {
+                    byte[] all = new byte[(int) f.length()];
+                    try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+                        int n = in.read(all);
+                        if (n < 0) n = 0;
+                    }
+                    int keepFrom = all.length / 2;  // conservar la mitad más reciente
+                    try (FileWriter fw = new FileWriter(f, false)) {
+                        fw.write("…(registro recortado por tamaño)…\n");
+                        fw.write(new String(all, keepFrom, all.length - keepFrom));
+                    }
+                } catch (Throwable ignored) { }
+            }
+            try (FileWriter fw = new FileWriter(f, true)) {
                 fw.write(contenido);
-                fw.close();
-            } catch (Throwable ignored) { }
+            }
         } catch (Throwable ignored) { }
     }
 

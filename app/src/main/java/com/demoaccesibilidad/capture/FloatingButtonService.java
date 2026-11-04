@@ -105,6 +105,9 @@ public class FloatingButtonService extends Service {
     // ═══ Refresh periódico ═══
     private Handler refreshHandler = new Handler(Looper.getMainLooper());
     private Runnable refreshRunnable;
+    // v5.7: último texto pintado en el badge. Evita re-escribir la vista cada 2s
+    // cuando el valor no cambió (menos trabajo de layout en el hilo principal).
+    private String ultimoDisplayText = null;
 
     // ═══ Broadcast receiver ═══
     private final BroadcastReceiver updateReceiver = new BroadcastReceiver() {
@@ -493,6 +496,7 @@ public class FloatingButtonService extends Service {
             if (fabBadge != null) {
                 fabBadge.setText("!");
                 fabBadge.setTextSize(22);
+                ultimoDisplayText = "!";
             }
             if (fab != null && currentColor != COLOR_ALERT) {
                 fab.setBackgroundTintList(ColorStateList.valueOf(COLOR_ALERT));
@@ -549,8 +553,9 @@ public class FloatingButtonService extends Service {
 
         String displayText = String.valueOf(shown);
 
-        // Actualizar badge.
-        if (fabBadge != null) {
+        // Actualizar badge SOLO si el valor cambió (evita re-layout innecesario).
+        if (fabBadge != null && !displayText.equals(ultimoDisplayText)) {
+            ultimoDisplayText = displayText;
             fabBadge.setText(displayText);
             if (displayText.length() > 4) {
                 fabBadge.setTextSize(14);

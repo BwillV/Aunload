@@ -16,6 +16,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Repositorio de pallets — almacena datos usando SharedPreferences + JSON.
@@ -51,6 +53,19 @@ public class PalletRepository {
 
     private final SharedPreferences prefs;
     private final Context context;
+
+    // ── v5.7: CACHÉ EN MEMORIA + ESCRITURA EN SEGUNDO PLANO ──
+    // El cuello de botella del "se pega y traba": getAllPallets() re-parseaba
+    // todo el JSON (hasta 2000 registros) y savePallets() lo re-serializaba, en
+    // el HILO PRINCIPAL, en cada escaneo. Ahora:
+    //   • sCache mantiene la lista ya parseada (se comparte entre instancias).
+    //   • getAllPallets() devuelve una copia de la caché sin tocar disco.
+    //   • savePallets() actualiza la caché al instante y serializa/escribe el
+    //     JSON en un hilo de fondo (writeExec de un solo hilo = orden garantizado).
+    private static final Object CACHE_LOCK = new Object();
+    private static List<Pallet> sCache = null;           // orden: 0 = más reciente
+    private static final ExecutorService writeExec =
+            Executors.newSingleThreadExecutor();
 
     public PalletRepository(Context ctx) {
         this.context = ctx.getApplicationContext();
@@ -205,6 +220,17 @@ public class PalletRepository {
     // ====================== CONSULTAS ======================
 
     public List<Pallet> getAllPallets() {
+        synchronized (CACHE_LOCK) {
+            if (sCache == null) {
+                sCache = parsearDesdePrefs();
+            }
+            // Copia defensiva: quien llama puede modificar/ordenar sin afectar la caché.
+            return new ArrayList<>(sCache);
+        }
+    }
+
+    /** Parsea el JSON de SharedPreferences a una lista de Pallet (solo una vez). */
+    private List<Pallet> parsearDesdePrefs() {
         List<Pallet> out = new ArrayList<>();
         String json = prefs.getString(KEY_PALLETS, "");
         if (TextUtils.isEmpty(json)) return out;
@@ -773,15 +799,32 @@ public class PalletRepository {
                 .putString(KEY_CONTAINER_DATE, hoy)
                 .putInt(KEY_CONTAINER_SEQ, seq)
                 .apply();
+        // Invalidar la caché en memoria (se borró KEY_PALLETS directamente).
+        synchronized (CACHE_LOCK) {
+            sCache = new ArrayList<>();
+        }
     }
 
     // ====================== INTERNO ======================
 
     private void savePallets(List<Pallet> pallets) {
-        JSONArray arr = new JSONArray();
-        for (Pallet p : pallets) {
-            arr.put(p.toJson());
+        // 1) Actualizar la caché en memoria AL INSTANTE (lecturas ven lo nuevo ya).
+        final List<Pallet> snapshot = new ArrayList<>(pallets);
+        synchronized (CACHE_LOCK) {
+            sCache = snapshot;
         }
-        prefs.edit().putString(KEY_PALLETS, arr.toString()).apply();
+        // 2) Serializar y escribir el JSON en SEGUNDO PLANO (no bloquea la UI).
+        //    Un solo hilo garantiza que las escrituras se apliquen en orden.
+        writeExec.execute(() -> {
+            try {
+                JSONArray arr = new JSONArray();
+                for (Pallet p : snapshot) {
+                    arr.put(p.toJson());
+                }
+                prefs.edit().putString(KEY_PALLETS, arr.toString()).apply();
+            } catch (Throwable t) {
+                Log.w(TAG, "Error\u00A0guardando\u00A0pallets\u00A0en\u00A0segundo\u00A0plano", t);
+            }
+        });
     }
 }
