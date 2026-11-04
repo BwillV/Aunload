@@ -524,6 +524,32 @@ public class CopyTextHelper {
         sub.setPadding(0, 0, 0, dp(context, 8));
         root.addView(sub);
 
+        // ── v5.8: bloque Artículo (SKU) + Total Qty (EN/ES) ──
+        String sku = null, total = null;
+        try {
+            ScreenCaptureService svcInfo = ScreenCaptureService.getInstance();
+            if (svcInfo != null) {
+                sku = svcInfo.findItemSkuOnScreen();
+                total = svcInfo.findTotalQtyOnScreen();
+            }
+        } catch (Throwable ignored) { }
+        TextView infoSku = crearTexto(context,
+                "Artículo\u00A0(SKU):\u00A0"
+                        + ((sku != null && !sku.isEmpty())
+                        ? sku.replace(' ', '\u00A0') : "—"),
+                14, true);
+        infoSku.setTextColor(COLOR_TEXT);
+        infoSku.setPadding(0, 0, 0, dp(context, 2));
+        root.addView(infoSku);
+        TextView infoTotal = crearTexto(context,
+                "Total\u00A0Qty:\u00A0"
+                        + ((total != null && !total.isEmpty())
+                        ? total.replace(' ', '\u00A0') : "—"),
+                14, true);
+        infoTotal.setTextColor(COLOR_TEXT);
+        infoTotal.setPadding(0, 0, 0, dp(context, 8));
+        root.addView(infoTotal);
+
         // Botón de orden (toggle asc / desc).
         String sortLabel = ascending
                 ? "↑\u00A0Menor\u00A0a\u00A0mayor"

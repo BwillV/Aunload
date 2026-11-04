@@ -1375,24 +1375,28 @@ public class ScreenCaptureService extends AccessibilityService {
     private static final Pattern PAT_LOCATION_COPY =
             Pattern.compile("\\b[A-Z]\\d{2}-\\d{3}-\\d\\b");
 
+    // v5.8: patrón ESTRICTO de ubicación para la lista de copiado / overlay
+    // "Ubicaciones en pantalla". Formato: letra(s)+número, guion, número,
+    // guion, número (ej. A07-197-3, C15-047-2, B03-033-4, A03-198-2).
+    // Solo usa guiones (no puntos), así NUNCA acepta decimales como "8.0",
+    // "63.5", ni fechas "2026-11-04", ni ILP-/PHK_/TASK-.
+    private static final Pattern PAT_LOCATION_STRICT =
+            Pattern.compile("\\b[A-Z]{1,3}\\d{1,3}-\\d{1,4}-\\d{1,3}\\b",
+                    Pattern.CASE_INSENSITIVE);
+
     /**
      * Busca en la pantalla actual el primer texto que coincida con una ubicación.
-     * Prefiere el formato estricto (A03-198-2); si no, usa el patrón flexible.
-     * Devuelve la ubicación o null si no hay.
+     * Usa SOLO el formato estricto (A03-198-2 / C15-047-2) para no capturar
+     * decimales, fechas ni cantidades. Devuelve la ubicación o null si no hay.
      */
     public String findFirstLocationOnScreen() {
         try {
             List<String> textos = getVisibleTextsForCopy();
-            // 1) formato estricto conocido del WMS.
             for (String s : textos) {
-                Matcher m = PAT_LOCATION_COPY.matcher(s);
-                if (m.find()) return m.group();
-            }
-            // 2) fallback: patrón flexible ya existente.
-            for (String s : textos) {
+                if (s == null) continue;
                 if (PAT_PALLET.matcher(s).find()) continue; // no confundir con ILP
-                Matcher m = PAT_LOCATION.matcher(s);
-                if (m.find()) return m.group();
+                Matcher m = PAT_LOCATION_STRICT.matcher(s.trim());
+                if (m.find()) return m.group().toUpperCase(Locale.ROOT);
             }
         } catch (Throwable ignored) { }
         return null;
@@ -1451,21 +1455,20 @@ public class ScreenCaptureService extends AccessibilityService {
         return new java.util.ArrayList<>(out);
     }
 
-    /** Todas las ubicaciones de la pantalla, sin duplicados, en orden. */
+    /**
+     * Todas las ubicaciones de la pantalla, sin duplicados, en orden.
+     * v5.8: usa SOLO el patrón estricto letra(s)+número-número-número, para
+     * no capturar decimales ("8.0", "63.5"), fechas, cantidades ni ILP/SKU.
+     */
     public java.util.ArrayList<String> findAllLocationsOnScreen() {
         java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
         try {
             List<String> textos = getVisibleTextsForCopy();
-            // 1) formato estricto conocido del WMS.
             for (String s : textos) {
-                Matcher m = PAT_LOCATION_COPY.matcher(s);
-                while (m.find()) out.add(m.group());
-            }
-            // 2) fallback: patrón flexible ya existente.
-            for (String s : textos) {
+                if (s == null) continue;
                 if (PAT_PALLET.matcher(s).find()) continue; // no confundir con ILP
-                Matcher m = PAT_LOCATION.matcher(s);
-                while (m.find()) out.add(m.group());
+                Matcher m = PAT_LOCATION_STRICT.matcher(s.trim());
+                while (m.find()) out.add(m.group().toUpperCase(Locale.ROOT));
             }
         } catch (Throwable ignored) { }
         return new java.util.ArrayList<>(out);
@@ -1493,6 +1496,107 @@ public class ScreenCaptureService extends AccessibilityService {
             }
         } catch (Throwable ignored) { }
         return new java.util.ArrayList<>(out);
+    }
+
+    // =============================================================
+    //   v5.8: ARTÍCULO (SKU) y TOTAL QTY por etiqueta (EN / ES)
+    //   Para el bloque superior del overlay "Ubicaciones en pantalla".
+    // =============================================================
+
+    // Etiquetas de SKU / artículo (de la más específica a la más general).
+    private static final String[] ETIQUETAS_SKU = {
+            "Item Name", "Item Code", "Nombre del articulo", "Codigo de articulo",
+            "SKU", "Item", "Articulo", "Producto"
+    };
+    // Etiquetas de total de cajas (de la más específica a la más general;
+    // "Total" va al final para no ganarle a "Total Qty").
+    private static final String[] ETIQUETAS_TOTAL = {
+            "Total Qty", "Total Quantity", "Qty Total",
+            "Cantidad total", "Cant. total", "Cant total", "Total"
+    };
+
+    /** Quita acentos/diacríticos para comparar etiquetas ES/EN sin tildes. */
+    private static String sinAcentos(String s) {
+        if (s == null) return "";
+        String n = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD);
+        return n.replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+    }
+
+    /**
+     * Busca el valor asociado a la primera etiqueta que coincida (en orden),
+     * sin distinguir mayúsculas ni acentos. Admite dos formatos:
+     *   (a) "Etiqueta: valor" en el mismo nodo.
+     *   (b) nodo "Etiqueta" y el valor en uno de los 1-3 nodos siguientes.
+     */
+    private static String valorPorEtiquetasFlex(List<String> textos,
+                                                String[] etiquetas,
+                                                boolean soloNumero) {
+        if (textos == null) return null;
+        for (String et : etiquetas) {
+            String etNorm = sinAcentos(et).toLowerCase(Locale.ROOT)
+                    .replaceAll("[*:#]", "").trim();
+            for (int i = 0; i < textos.size(); i++) {
+                String s = textos.get(i) == null ? "" : textos.get(i).trim();
+                if (s.isEmpty()) continue;
+
+                // (a) mismo nodo "Etiqueta: valor".
+                int colon = s.indexOf(':');
+                if (colon > 0) {
+                    String before = sinAcentos(s.substring(0, colon))
+                            .toLowerCase(Locale.ROOT).replaceAll("[*#]", "").trim();
+                    if (before.equals(etNorm)) {
+                        String val = s.substring(colon + 1).trim();
+                        if (!val.isEmpty()) {
+                            String r = soloNumero ? extraerPrimerNumeroDecimal(val) : val;
+                            if (r != null && !r.isEmpty()) return r;
+                        }
+                    }
+                }
+
+                // (b) nodo con solo la etiqueta; valor en el siguiente nodo.
+                String norm = sinAcentos(s).toLowerCase(Locale.ROOT)
+                        .replaceAll("[*:#]", "").trim();
+                if (norm.equals(etNorm)) {
+                    for (int j = i + 1; j < textos.size() && j <= i + 3; j++) {
+                        String sig = textos.get(j) == null ? "" : textos.get(j).trim();
+                        if (sig.isEmpty()) continue;
+                        String r = soloNumero ? extraerPrimerNumeroDecimal(sig) : sig;
+                        if (r != null && !r.isEmpty()) return r;
+                        break;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Artículo (SKU) de la pantalla: primero por etiqueta (SKU/Item/Artículo…),
+     * y si no hay etiqueta, cae al patrón conocido PHK_ (findAllSkusOnScreen).
+     * Devuelve null si no se encuentra.
+     */
+    public String findItemSkuOnScreen() {
+        try {
+            List<String> textos = getVisibleTextsForCopy();
+            String v = valorPorEtiquetasFlex(textos, ETIQUETAS_SKU, false);
+            if (v != null && !v.trim().isEmpty()) return v.trim();
+            java.util.ArrayList<String> skus = findAllSkusOnScreen();
+            if (!skus.isEmpty()) return skus.get(0);
+        } catch (Throwable ignored) { }
+        return null;
+    }
+
+    /**
+     * Total de cajas (Total Qty / Cantidad total…) de la pantalla, por etiqueta.
+     * Devuelve solo el número, o null si no se encuentra.
+     */
+    public String findTotalQtyOnScreen() {
+        try {
+            List<String> textos = getVisibleTextsForCopy();
+            String v = valorPorEtiquetasFlex(textos, ETIQUETAS_TOTAL, true);
+            if (v != null && !v.trim().isEmpty()) return v.trim();
+        } catch (Throwable ignored) { }
+        return null;
     }
 
     @Override
