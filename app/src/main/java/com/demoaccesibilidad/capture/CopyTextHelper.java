@@ -42,11 +42,6 @@ public class CopyTextHelper {
     private static final String PREFS = "copy_prefs";
     private static final String KEY_COPY_MODE = "copy_mode_enabled";
 
-    // ═══ Historial de portapapeles (lo que el usuario ha copiado) ═══
-    private static final String KEY_HISTORY = "copy_history";
-    private static final int MAX_HISTORY = 50;          // tope de elementos
-    private static final String HIST_SEP = "\u001F";    // separador interno (unit separator)
-
     // Colores (mismo tema oscuro que los demás overlays).
     private static final int COLOR_BG = 0xFF1a1a2e;
     private static final int COLOR_CARD = 0xFF2a2a4a;
@@ -82,7 +77,7 @@ public class CopyTextHelper {
     //                 PORTAPAPELES
     // =============================================================
 
-    /** Copia al portapapeles, registra en el historial y muestra un Toast. */
+    /** Copia al portapapeles y muestra un Toast. */
     public static void copyToClipboard(Context context, String text) {
         if (text == null || text.trim().isEmpty()) return;
         final String value = text.trim();
@@ -92,57 +87,12 @@ public class CopyTextHelper {
             if (clip != null) {
                 clip.setPrimaryClip(ClipData.newPlainText("PalletTracker", value));
             }
-            addToHistory(context, value);
             String preview = value.length() > 40 ? value.substring(0, 40) + "…" : value;
             Toast.makeText(context, "Copiado:\u00A0" + preview, Toast.LENGTH_SHORT).show();
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.copyToClipboard", t);
         }
-    }
-
-    // =============================================================
-    //            HISTORIAL DE PORTAPAPELES
-    // =============================================================
-
-    /** Devuelve el historial de copiados, del más reciente al más antiguo. */
-    public static java.util.ArrayList<String> getHistory(Context context) {
-        java.util.ArrayList<String> out = new java.util.ArrayList<>();
-        try {
-            String raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .getString(KEY_HISTORY, "");
-            if (raw != null && !raw.isEmpty()) {
-                for (String s : raw.split(HIST_SEP)) {
-                    if (s != null && !s.isEmpty()) out.add(s);
-                }
-            }
-        } catch (Exception ignored) { }
-        return out;
-    }
-
-    /** Añade un elemento al historial (sin duplicados, el más reciente primero). */
-    private static void addToHistory(Context context, String value) {
-        try {
-            java.util.ArrayList<String> hist = getHistory(context);
-            hist.remove(value);               // evitar duplicados
-            hist.add(0, value);               // más reciente primero
-            while (hist.size() > MAX_HISTORY) hist.remove(hist.size() - 1);
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < hist.size(); i++) {
-                if (i > 0) sb.append(HIST_SEP);
-                sb.append(hist.get(i));
-            }
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .edit().putString(KEY_HISTORY, sb.toString()).apply();
-        } catch (Exception ignored) { }
-    }
-
-    /** Borra todo el historial de copiados. */
-    public static void clearHistory(Context context) {
-        try {
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .edit().remove(KEY_HISTORY).apply();
-        } catch (Exception ignored) { }
     }
 
     // =============================================================
@@ -178,14 +128,16 @@ public class CopyTextHelper {
         root.addView(btnLista);
         addSpacer(context, root, 8);
 
-        // Copiar ILP directo.
-        Button btnIlp = crearBoton(context, "🏷\u00A0Copiar\u00A0ILP", COLOR_GREEN);
-        btnIlp.setOnClickListener(v -> {
-            removerOverlay(wm, root);
-            copiarDirecto(context, wm, true);
-        });
-        root.addView(btnIlp);
-        addSpacer(context, root, 8);
+        // Copiar ILP directo. (Solo en modo Inbound: en Inventario no hay ILP.)
+        if (!AppMode.isInventario(context)) {
+            Button btnIlp = crearBoton(context, "🏷\u00A0Copiar\u00A0ILP", COLOR_GREEN);
+            btnIlp.setOnClickListener(v -> {
+                removerOverlay(wm, root);
+                copiarDirecto(context, wm, true);
+            });
+            root.addView(btnIlp);
+            addSpacer(context, root, 8);
+        }
 
         // Copiar SKU directo.
         Button btnSku = crearBoton(context, "📦\u00A0Copiar\u00A0SKU", COLOR_GREEN);
@@ -205,17 +157,9 @@ public class CopyTextHelper {
         root.addView(btnLoc);
         addSpacer(context, root, 8);
 
-        // Portapapeles: historial de lo que el usuario ha copiado.
-        Button btnHist = crearBoton(context, "🗒\u00A0Portapapeles", COLOR_INDIGO);
-        btnHist.setOnClickListener(v -> {
-            removerOverlay(wm, root);
-            abrirHistorial(context, wm);
-        });
-        root.addView(btnHist);
-        addSpacer(context, root, 8);
-
-        // Alternar Yo / Total (acción original del toque del FAB, preservada).
-        if (onToggleYoTotal != null) {
+        // Alternar Yo / Total (acción original del toque del FAB).
+        // En modo Inventario no aplica (no se cuentan pallets), así que se oculta.
+        if (onToggleYoTotal != null && !AppMode.isInventario(context)) {
             Button btnModo = crearBoton(context, "🔁\u00A0Alternar\u00A0Yo\u00A0/\u00A0Total", COLOR_INDIGO);
             btnModo.setOnClickListener(v -> {
                 removerOverlay(wm, root);
@@ -224,6 +168,22 @@ public class CopyTextHelper {
             root.addView(btnModo);
             addSpacer(context, root, 8);
         }
+
+        // Cambiar de modo (Inbound / Inventario). También disponible en la
+        // pantalla principal de la app. Toca para alternar.
+        Button btnCambioModo = crearBoton(context,
+                "🔀\u00A0Modo:\u00A0" + (AppMode.isInventario(context) ? "Inventario" : "Inbound"),
+                COLOR_INDIGO);
+        btnCambioModo.setOnClickListener(v -> {
+            boolean inv = !AppMode.isInventario(context);
+            AppMode.setInventario(context, inv);
+            removerOverlay(wm, root);
+            Toast.makeText(context,
+                    "Modo:\u00A0" + (inv ? "Inventario" : "Inbound"),
+                    Toast.LENGTH_SHORT).show();
+        });
+        root.addView(btnCambioModo);
+        addSpacer(context, root, 8);
 
         // Cerrar.
         Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
@@ -235,213 +195,6 @@ public class CopyTextHelper {
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.showActionMenu", t);
-        }
-    }
-
-    // =============================================================
-    //        VARIANTE 1: LISTA DE TEXTOS PARA ELEGIR
-    // =============================================================
-
-    private static void abrirListaTextos(final Context context, final WindowManager wm) {
-        ScreenCaptureService svc = ScreenCaptureService.getInstance();
-        if (svc == null) {
-            Toast.makeText(context,
-                    "Activa\u00A0el\u00A0servicio\u00A0de\u00A0Accesibilidad\u00A0para\u00A0copiar",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-        final List<String> textos = svc.getVisibleTextsForCopy();
-        if (textos == null || textos.isEmpty()) {
-            Toast.makeText(context,
-                    "No\u00A0se\u00A0encontraron\u00A0textos\u00A0en\u00A0esta\u00A0pantalla",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        final LinearLayout root = crearRoot(context);
-
-        TextView titulo = crearTexto(context,
-                "📝\u00A0Toca\u00A0un\u00A0texto\u00A0para\u00A0copiarlo", 16, true);
-        titulo.setPadding(0, 0, 0, dp(context, 4));
-        root.addView(titulo);
-
-        TextView sub = crearTexto(context,
-                textos.size() + "\u00A0textos\u00A0en\u00A0pantalla", 12, false);
-        sub.setTextColor(COLOR_HINT);
-        sub.setPadding(0, 0, 0, dp(context, 10));
-        root.addView(sub);
-
-        // Lista desplazable.
-        ScrollView scroll = new ScrollView(context);
-        int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.5f);
-        scroll.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, maxH));
-        LinearLayout lista = new LinearLayout(context);
-        lista.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(lista);
-
-        final WindowManager.LayoutParams params = crearParams(false);
-
-        for (final String texto : textos) {
-            TextView item = new TextView(context);
-            item.setText(texto);
-            item.setTextColor(COLOR_TEXT);
-            item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            item.setBackgroundColor(COLOR_CARD);
-            item.setPadding(dp(context, 12), dp(context, 12),
-                    dp(context, 12), dp(context, 12));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.bottomMargin = dp(context, 6);
-            item.setLayoutParams(lp);
-            item.setOnClickListener(v -> {
-                copyToClipboard(context, texto);
-                removerOverlay(wm, root);
-            });
-            lista.addView(item);
-        }
-
-        root.addView(scroll);
-        addSpacer(context, root, 12);
-
-        // Botones Copiar todo / Cerrar.
-        LinearLayout fila = new LinearLayout(context);
-        fila.setOrientation(LinearLayout.HORIZONTAL);
-
-        Button btnTodo = crearBoton(context, "Copiar\u00A0todo", COLOR_BLUE);
-        btnTodo.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        btnTodo.setOnClickListener(v -> {
-            StringBuilder sb = new StringBuilder();
-            for (String s : textos) sb.append(s).append("\n");
-            copyToClipboard(context, sb.toString().trim());
-            removerOverlay(wm, root);
-        });
-        fila.addView(btnTodo);
-
-        addSpacerH(context, fila, 8);
-
-        Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
-        btnCerrar.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
-        fila.addView(btnCerrar);
-
-        root.addView(fila);
-
-        try {
-            wm.addView(root, params);
-        } catch (Throwable t) {
-            PalletTrackerApp.logException(context.getApplicationContext(),
-                    "CopyTextHelper.abrirListaTextos", t);
-        }
-    }
-
-    // =============================================================
-    //        PORTAPAPELES: HISTORIAL DE COPIADOS
-    // =============================================================
-
-    private static void abrirHistorial(final Context context, final WindowManager wm) {
-        final java.util.ArrayList<String> hist = getHistory(context);
-
-        final LinearLayout root = crearRoot(context);
-
-        TextView titulo = crearTexto(context,
-                "🗒\u00A0Portapapeles", 16, true);
-        titulo.setPadding(0, 0, 0, dp(context, 4));
-        root.addView(titulo);
-
-        if (hist.isEmpty()) {
-            TextView vacio = crearTexto(context,
-                    "Todavía\u00A0no\u00A0has\u00A0copiado\u00A0nada.", 13, false);
-            vacio.setTextColor(COLOR_HINT);
-            vacio.setPadding(0, 0, 0, dp(context, 12));
-            root.addView(vacio);
-
-            final WindowManager.LayoutParams paramsVacio = crearParams(false);
-            Button btnCerrarV = crearBoton(context, "Cerrar", COLOR_GRAY);
-            btnCerrarV.setOnClickListener(v -> removerOverlay(wm, root));
-            root.addView(btnCerrarV);
-            try {
-                wm.addView(root, paramsVacio);
-            } catch (Throwable t) {
-                PalletTrackerApp.logException(context.getApplicationContext(),
-                        "CopyTextHelper.abrirHistorial(vacio)", t);
-            }
-            return;
-        }
-
-        TextView sub = crearTexto(context,
-                "Toca\u00A0para\u00A0copiar\u00A0de\u00A0nuevo\u00A0·\u00A0" + hist.size()
-                        + "\u00A0elementos", 12, false);
-        sub.setTextColor(COLOR_HINT);
-        sub.setPadding(0, 0, 0, dp(context, 10));
-        root.addView(sub);
-
-        // Lista desplazable.
-        ScrollView scroll = new ScrollView(context);
-        int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.5f);
-        scroll.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, maxH));
-        LinearLayout lista = new LinearLayout(context);
-        lista.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(lista);
-
-        final WindowManager.LayoutParams params = crearParams(false);
-
-        for (final String texto : hist) {
-            TextView item = new TextView(context);
-            item.setText(texto);
-            item.setTextColor(COLOR_TEXT);
-            item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            item.setBackgroundColor(COLOR_CARD);
-            item.setPadding(dp(context, 12), dp(context, 12),
-                    dp(context, 12), dp(context, 12));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.bottomMargin = dp(context, 6);
-            item.setLayoutParams(lp);
-            item.setOnClickListener(v -> {
-                copyToClipboard(context, texto);
-                removerOverlay(wm, root);
-            });
-            lista.addView(item);
-        }
-
-        root.addView(scroll);
-        addSpacer(context, root, 12);
-
-        // Botones Limpiar / Cerrar.
-        LinearLayout fila = new LinearLayout(context);
-        fila.setOrientation(LinearLayout.HORIZONTAL);
-
-        Button btnLimpiar = crearBoton(context, "Limpiar", COLOR_GRAY);
-        btnLimpiar.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        btnLimpiar.setOnClickListener(v -> {
-            clearHistory(context);
-            removerOverlay(wm, root);
-            Toast.makeText(context, "Portapapeles\u00A0limpiado", Toast.LENGTH_SHORT).show();
-        });
-        fila.addView(btnLimpiar);
-
-        addSpacerH(context, fila, 8);
-
-        Button btnCerrar = crearBoton(context, "Cerrar", COLOR_BLUE);
-        btnCerrar.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
-        fila.addView(btnCerrar);
-
-        root.addView(fila);
-
-        try {
-            wm.addView(root, params);
-        } catch (Throwable t) {
-            PalletTrackerApp.logException(context.getApplicationContext(),
-                    "CopyTextHelper.abrirHistorial", t);
         }
     }
 
@@ -465,7 +218,20 @@ public class CopyTextHelper {
     private static void abrirListaUbicaciones(final Context context,
                                                final WindowManager wm,
                                                final boolean ascending) {
-        abrirListaUbicaciones(context, wm, ascending, null, null);
+        ScreenCaptureService svc = ScreenCaptureService.getInstance();
+        if (svc == null) {
+            Toast.makeText(context,
+                    "Activa\u00A0el\u00A0servicio\u00A0de\u00A0Accesibilidad",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        // Aviso breve: la recolección puede desplazar la lista para capturar
+        // TODAS las ubicaciones cuando hay muchas (más de las que caben en
+        // pantalla). El resultado se abre al terminar (callback en hilo UI).
+        Toast.makeText(context,
+                "Buscando\u00A0todas\u00A0las\u00A0ubicaciones…", Toast.LENGTH_SHORT).show();
+        svc.collectAllLocationsScrolling(result ->
+                abrirListaUbicaciones(context, wm, ascending, result, null));
     }
 
     /**

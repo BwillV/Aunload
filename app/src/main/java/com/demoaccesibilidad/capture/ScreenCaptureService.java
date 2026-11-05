@@ -1550,6 +1550,92 @@ public class ScreenCaptureService extends AccessibilityService {
         return new java.util.ArrayList<>(out);
     }
 
+    // =============================================================
+    //   RECOLECCIÓN CON SCROLL — captura TODAS las ubicaciones
+    //   cuando la lista del WMS tiene más filas de las que caben en
+    //   pantalla (la accesibilidad solo "ve" lo renderizado).
+    // =============================================================
+
+    /** Callback con el resultado final (se invoca en el hilo principal). */
+    public interface LocationsCallback {
+        void onResult(java.util.ArrayList<String> locations);
+    }
+
+    /**
+     * Recolecta TODAS las ubicaciones desplazando la lista desplazable del WMS
+     * de arriba a abajo y acumulando los resultados (sin duplicados). Corre en
+     * un hilo aparte para no bloquear la UI. Al terminar vuelve a desplazar la
+     * lista al inicio (best-effort) y entrega el resultado por el callback en
+     * el hilo principal.
+     */
+    public void collectAllLocationsScrolling(final LocationsCallback cb) {
+        if (cb == null) return;
+        final Runnable job = () -> {
+            final java.util.LinkedHashSet<String> acc = new java.util.LinkedHashSet<>();
+            try {
+                acc.addAll(findAllLocationsOnScreen());
+                int sinCambios = 0;
+                for (int i = 0; i < 30 && sinCambios < 2; i++) {
+                    if (!desplazarLista(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break;
+                    try { Thread.sleep(300); } catch (InterruptedException ie) { break; }
+                    int antes = acc.size();
+                    acc.addAll(findAllLocationsOnScreen());
+                    if (acc.size() == antes) sinCambios++; else sinCambios = 0;
+                }
+                // Volver al inicio para no dejar la lista desplazada.
+                for (int i = 0; i < 30; i++) {
+                    if (!desplazarLista(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)) break;
+                    try { Thread.sleep(120); } catch (InterruptedException ie) { break; }
+                }
+            } catch (Throwable ignored) { }
+            final java.util.ArrayList<String> res = new java.util.ArrayList<>(acc);
+            try { mainHandler.post(() -> cb.onResult(res)); } catch (Throwable ignored) { }
+        };
+        try {
+            new Thread(job, "loc-scroll").start();
+        } catch (Throwable t) {
+            // Fallback síncrono si no se pudo lanzar el hilo.
+            cb.onResult(findAllLocationsOnScreen());
+        }
+    }
+
+    /** Ejecuta una acción de scroll en la primera lista desplazable visible. */
+    private boolean desplazarLista(int accion) {
+        AccessibilityNodeInfo root = null;
+        AccessibilityNodeInfo scroll = null;
+        try {
+            root = getRootInActiveWindow();
+            scroll = buscarScrollable(root, 0);
+            if (scroll == null) return false;
+            return scroll.performAction(accion);
+        } catch (Throwable t) {
+            return false;
+        } finally {
+            try { if (scroll != null && scroll != root) scroll.recycle(); } catch (Throwable ignored) { }
+            try { if (root != null) root.recycle(); } catch (Throwable ignored) { }
+        }
+    }
+
+    /** Busca el primer nodo desplazable (DFS). No recicla el nodo devuelto. */
+    private AccessibilityNodeInfo buscarScrollable(AccessibilityNodeInfo node, int prof) {
+        if (node == null || prof > MAX_PROFUNDIDAD) return null;
+        try { if (node.isScrollable()) return node; } catch (Throwable ignored) { }
+        int n = 0;
+        try { n = node.getChildCount(); } catch (Throwable ignored) { }
+        for (int i = 0; i < n; i++) {
+            AccessibilityNodeInfo child = null;
+            try { child = node.getChild(i); } catch (Throwable ignored) { }
+            if (child == null) continue;
+            AccessibilityNodeInfo r = buscarScrollable(child, prof + 1);
+            if (r != null) {
+                if (r != child) { try { child.recycle(); } catch (Throwable ignored) { } }
+                return r;
+            }
+            try { child.recycle(); } catch (Throwable ignored) { }
+        }
+        return null;
+    }
+
     /** Todos los SKU de la pantalla, sin duplicados, en orden. */
     public java.util.ArrayList<String> findAllSkusOnScreen() {
         java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();

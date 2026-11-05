@@ -31,6 +31,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.appcompat.widget.Toolbar;
 import androidx.cardview.widget.CardView;
 import androidx.core.view.GravityCompat;
@@ -88,6 +89,8 @@ public class MainActivity extends AppCompatActivity
     private FloatingActionButton fab;
     private FloatingActionButton fabRefresh; // v5.0: botón Actualizar/Sincronizar
     private TextView fabBadge;
+    private SwitchCompat switchMode;         // v5.10: switch de modo Inbound/Inventario
+    private TextView txtModeLabel;
     private View homeContainer;
     private View fragmentContainer;
 
@@ -222,6 +225,24 @@ public class MainActivity extends AppCompatActivity
             fabRefresh.setOnClickListener(v -> actualizarYSincronizar());
         }
 
+        // ═══════════ SWITCH DE MODO (v5.10) — Inbound / Inventario ═══════════
+        // También está disponible dentro del menú del FAB flotante. Guarda el
+        // modo en SharedPreferences (AppMode) para que ambos queden iguales.
+        switchMode = findViewById(R.id.switch_mode);
+        txtModeLabel = findViewById(R.id.txt_mode_label);
+        if (switchMode != null) {
+            sincronizarSwitchModo();   // estado inicial (sin disparar Toast)
+            switchMode.setOnCheckedChangeListener((btn, checked) -> {
+                AppMode.setInventario(this, checked);
+                if (txtModeLabel != null) {
+                    txtModeLabel.setText(checked ? "Modo: Inventario" : "Modo: Inbound");
+                }
+                Toast.makeText(this,
+                        "Modo:\u00A0" + (checked ? "Inventario" : "Inbound"),
+                        Toast.LENGTH_SHORT).show();
+            });
+        }
+
         // Refresh periódico.
         refreshHandler = new Handler();
         refreshRunnable = () -> {
@@ -284,11 +305,35 @@ public class MainActivity extends AppCompatActivity
         } catch (Exception ignored) { }
         refrescarDatos();
         refreshHandler.postDelayed(refreshRunnable, 3000);
+        // El modo pudo cambiarse desde el menú del FAB; refrescar el switch.
+        sincronizarSwitchModo();
 
         // v4.3 — Si la accesibilidad está desactivada (ocurre al apagar el
         // escáner de un día para otro), avisar de inmediato y llevar directo
         // a los Ajustes para reactivarla.
         verificarAccesibilidad();
+    }
+
+    /** Pone el switch de modo acorde a AppMode sin disparar el Toast del listener. */
+    private void sincronizarSwitchModo() {
+        if (switchMode == null) return;
+        boolean inv = AppMode.isInventario(this);
+        if (switchMode.isChecked() != inv) {
+            switchMode.setOnCheckedChangeListener(null);
+            switchMode.setChecked(inv);
+            switchMode.setOnCheckedChangeListener((btn, checked) -> {
+                AppMode.setInventario(this, checked);
+                if (txtModeLabel != null) {
+                    txtModeLabel.setText(checked ? "Modo: Inventario" : "Modo: Inbound");
+                }
+                Toast.makeText(this,
+                        "Modo:\u00A0" + (checked ? "Inventario" : "Inbound"),
+                        Toast.LENGTH_SHORT).show();
+            });
+        }
+        if (txtModeLabel != null) {
+            txtModeLabel.setText(inv ? "Modo: Inventario" : "Modo: Inbound");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════

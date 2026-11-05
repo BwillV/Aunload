@@ -34,6 +34,42 @@
                 android:layout_height="match_parent"
                 android:orientation="vertical">
 
+                <!-- ═══ SWITCH DE MODO (v5.10): Inbound / Inventario ═══ -->
+                <LinearLayout
+                    android:id="@+id/mode_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:background="#0d2137"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🔀"
+                        android:textSize="18sp"
+                        android:paddingEnd="8dp" />
+
+                    <TextView
+                        android:id="@+id/txt_mode_label"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Modo: Inbound"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switch_mode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Inventario"
+                        android:textColor="#AAAAAA"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
                 <!-- ═══ HEADER DEL CONTAINER (v2.3) ═══ -->
                 <LinearLayout
                     android:id="@+id/container_header"
