@@ -79,6 +79,7 @@ public class FloatingButtonService extends Service {
     private static final int COLOR_SELF = 0xFF2196F3;   // azul  → "Yo"
     private static final int COLOR_TOTAL = 0xFF3F51B5;  // índigo → "Total"
     private static final int COLOR_ALERT = 0xFFD32F2F;  // rojo  → accesibilidad OFF
+    private static final int COLOR_INV = 0xFFF57C00;    // ámbar → modo Inventario
 
     // ═══ Vistas ═══
     private WindowManager windowManager;
@@ -506,6 +507,30 @@ public class FloatingButtonService extends Service {
             return;
         }
 
+        // v5.11 — Modo Inventario: no se cuentan pallets. El FAB muestra un icono
+        // de inventario (ámbar) y oculta el número; en Inbound vuelve al conteo.
+        if (AppMode.isInventario(this)) {
+            if (currentColor != COLOR_INV) {
+                if (fab != null) {
+                    fab.setImageResource(R.drawable.ic_inventory_white);
+                    fab.setBackgroundTintList(ColorStateList.valueOf(COLOR_INV));
+                }
+                currentColor = COLOR_INV;
+            }
+            if (fabBadge != null && !"".equals(ultimoDisplayText)) {
+                fabBadge.setText("");
+                ultimoDisplayText = "";
+            }
+            actualizarNotificacionInventario();
+            return;
+        }
+        // Al volver de Inventario a Inbound: quitar el icono y forzar re-aplicar
+        // el color del conteo más abajo.
+        if (currentColor == COLOR_INV && fab != null) {
+            fab.setImageDrawable(null);
+            currentColor = 0;
+        }
+
         // Re-leer el modo (puede haber cambiado).
         fabDisplayMode = fabPrefs.getInt(KEY_FAB_MODE, MODE_SELF);
 
@@ -644,6 +669,31 @@ public class FloatingButtonService extends Service {
 
                 nm.notify(NOTIF_ID, notif);
             }
+        } catch (Exception ignored) { }
+    }
+
+    // v5.11 — Notificación cuando el FAB está en modo Inventario.
+    private void actualizarNotificacionInventario() {
+        try {
+            NotificationManager nm = (NotificationManager)
+                    getSystemService(NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            Intent openApp = new Intent(this, MainActivity.class);
+            openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent pi = PendingIntent.getActivity(this, 0, openApp,
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Notification notif = new NotificationCompat.Builder(this, CHANNEL_OVERLAY)
+                    .setContentTitle("📋\u00A0PalletTracker\u00A0—\u00A0Inventario")
+                    .setContentText("Modo\u00A0Inventario\u00A0activo")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentIntent(pi)
+                    .setOngoing(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build();
+
+            nm.notify(NOTIF_ID, notif);
         } catch (Exception ignored) { }
     }
 }

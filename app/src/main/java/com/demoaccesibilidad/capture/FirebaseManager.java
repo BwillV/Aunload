@@ -135,6 +135,24 @@ public class FirebaseManager {
     private int teamPalletCount = 0;
     private int myTeamPalletCount = 0;   // v5.1 — pallets de ESTE dispositivo en el container del equipo
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  v5.11 — MODO INVENTARIO: recogidas compartidas del equipo.
+    //  El escáner que RECOGE publica cada ubicación recogida en
+    //  equipos/{código}/inventario/recogidas. El escáner que BUSCA escucha
+    //  esta rama y marca solo las ubicaciones ya recogidas en la vista
+    //  "Ubicaciones en pantalla".
+    // ══════════════════════════════════════════════════════════════════════
+    private DatabaseReference invRecogidasRef;
+    private ValueEventListener invRecogidasListener;
+    private final java.util.Set<String> recogidasInventario =
+            java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
+
+    /** Observador para que la UI (overlay) refresque el marcado automático. */
+    public interface RecogidasObserver {
+        void onRecogidas(java.util.Set<String> recogidas);
+    }
+    private RecogidasObserver recogidasObserver;
+
     // ====================== SINGLETON ======================
 
     private FirebaseManager(Context ctx) {
@@ -1189,7 +1207,98 @@ public class FirebaseManager {
                 startContenedorListener(teamKey);
             }
         });
+        // v5.11 — escuchar también las recogidas de inventario del equipo.
+        attachInventarioListener(teamKey);
         Log.d(TAG, "Conectado\u00A0al\u00A0equipo:\u00A0" + code);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  v5.11 — INVENTARIO: publicar recogidas y escucharlas en tiempo real
+    // ══════════════════════════════════════════════════════════════════════
+
+    /**
+     * El escáner que RECOGE publica una ubicación recogida. Clave =
+     * ubicación saneada (anti-duplicados: recoger dos veces la misma ubicación
+     * no crea dos entradas). NO toca containers ni el conteo de pallets.
+     */
+    public void publicarRecogida(String ubicacion, String sku, String cantidad) {
+        if (!syncEnabled || !firebaseAvailable || !hasTeam()
+                || ubicacion == null || ubicacion.trim().isEmpty()) {
+            return;
+        }
+        final String teamKey = sanitizeKey(getTeamCode().trim());
+        final String ub = ubicacion.trim().toUpperCase(Locale.US);
+        Map<String, Object> map = new HashMap<>();
+        map.put("ubicacion", ub);
+        map.put("sku", sku != null ? sku : "");
+        map.put("cantidad", cantidad != null ? cantidad : "");
+        map.put("dispositivo", deviceName != null ? deviceName : deviceId);
+        map.put("hora", ServerValue.TIMESTAMP);
+        try {
+            getDatabase().child("equipos").child(teamKey)
+                    .child("inventario").child("recogidas").child(sanitizeKey(ub))
+                    .setValue(map)
+                    .addOnFailureListener(e ->
+                            Log.e(TAG, "Error\u00A0publicando\u00A0recogida", e));
+        } catch (Throwable t) {
+            Log.e(TAG, "Error\u00A0publicando\u00A0recogida", t);
+        }
+    }
+
+    /** Escucha equipos/{código}/inventario/recogidas y mantiene el conjunto vivo. */
+    private void attachInventarioListener(final String teamKey) {
+        if (teamKey == null || !firebaseAvailable) return;
+        if (invRecogidasRef != null && invRecogidasListener != null) {
+            try { invRecogidasRef.removeEventListener(invRecogidasListener); }
+            catch (Throwable ignored) { }
+        }
+        invRecogidasRef = getDatabase().child("equipos").child(teamKey)
+                .child("inventario").child("recogidas");
+        invRecogidasListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                java.util.LinkedHashSet<String> nuevo = new java.util.LinkedHashSet<>();
+                for (DataSnapshot c : snapshot.getChildren()) {
+                    String ub = c.child("ubicacion").getValue(String.class);
+                    if (ub == null || ub.trim().isEmpty()) ub = c.getKey();
+                    if (ub != null && !ub.trim().isEmpty()) {
+                        nuevo.add(ub.trim().toUpperCase(Locale.US));
+                    }
+                }
+                synchronized (recogidasInventario) {
+                    recogidasInventario.clear();
+                    recogidasInventario.addAll(nuevo);
+                }
+                RecogidasObserver obs = recogidasObserver;
+                if (obs != null) {
+                    try { obs.onRecogidas(getRecogidas()); } catch (Throwable ignored) { }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e(TAG, "Error\u00A0escuchando\u00A0recogidas:\u00A0" + error.getMessage());
+            }
+        };
+        invRecogidasRef.addValueEventListener(invRecogidasListener);
+    }
+
+    /** Copia del conjunto de ubicaciones ya recogidas por el equipo. */
+    public java.util.Set<String> getRecogidas() {
+        synchronized (recogidasInventario) {
+            return new java.util.LinkedHashSet<>(recogidasInventario);
+        }
+    }
+
+    /**
+     * Registra (o quita, con null) el observador de recogidas. Al registrar, se
+     * notifica de inmediato con el estado actual para pintar el marcado inicial.
+     */
+    public void setRecogidasObserver(RecogidasObserver o) {
+        this.recogidasObserver = o;
+        if (o != null) {
+            try { o.onRecogidas(getRecogidas()); } catch (Throwable ignored) { }
+        }
     }
 
     /**
@@ -1476,10 +1585,17 @@ public class FirebaseManager {
         if (teamPalletsRef != null && teamPalletsListener != null) {
             teamPalletsRef.removeEventListener(teamPalletsListener);
         }
+        if (invRecogidasRef != null && invRecogidasListener != null) {
+            try { invRecogidasRef.removeEventListener(invRecogidasListener); }
+            catch (Throwable ignored) { }
+        }
         teamContenedorListener = null;
         teamPalletsListener = null;
         teamContenedorRef = null;
         teamPalletsRef = null;
+        invRecogidasListener = null;
+        invRecogidasRef = null;
+        synchronized (recogidasInventario) { recogidasInventario.clear(); }
     }
 
     /** Avisa al botón flotante (y a la UI) para que refresque el conteo. */

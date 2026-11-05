@@ -452,6 +452,77 @@ public class ScreenCaptureService extends AccessibilityService {
         // Lógica de negocio: detección de pallets.
         if (!esAppPropia) {
             procesarTextos(textos);
+            // v5.11 — en modo Inventario, detectar recogidas (Inventory Collect)
+            // y publicarlas al equipo para el marcado automático del que busca.
+            procesarInventarioSiAplica(textos);
+        }
+    }
+
+    // =============================================================
+    //   v5.11 — MODO INVENTARIO: detección de recogidas (Collect)
+    //   El escáner que RECOGE usa la pantalla "Inventory Collect".
+    //   Se cachean "Collect From :" (ubicación) y "Collect Item :" (SKU)
+    //   conforme aparecen, y al ver "inventory collect success" se publica
+    //   la recogida al equipo (patrón Señal vs Dato, igual que los pallets).
+    // =============================================================
+
+    private static final String[] ETIQUETAS_COLLECT_FROM = { "Collect From", "From" };
+    private static final String[] ETIQUETAS_COLLECT_ITEM = { "Collect Item", "Item" };
+    private static final String[] ETIQUETAS_COLLECT_QTY = {
+            "Enter Collect Qty", "Collect Qty", "Available Item QTY", "Qty"
+    };
+
+    private volatile String invCachedFrom = null;
+    private volatile String invCachedItem = null;
+    private volatile String invCachedQty = null;
+    private volatile String ultimaRecogidaFirma = "";
+
+    private void procesarInventarioSiAplica(List<String> textos) {
+        try {
+            if (textos == null || !AppMode.isInventario(this)) return;
+
+            // 1) Cachear datos de la pantalla de recogida conforme aparecen.
+            String from = valorPorEtiquetasFlex(textos, ETIQUETAS_COLLECT_FROM, false);
+            if (from != null) {
+                Matcher m = PAT_LOCATION_STRICT.matcher(from.trim());
+                if (m.find()) invCachedFrom = m.group().toUpperCase(Locale.ROOT);
+            }
+            String item = valorPorEtiquetasFlex(textos, ETIQUETAS_COLLECT_ITEM, false);
+            if (item != null && !item.trim().isEmpty()) invCachedItem = item.trim();
+            String qty = valorPorEtiquetasFlex(textos, ETIQUETAS_COLLECT_QTY, true);
+            if (qty != null && !qty.trim().isEmpty()) invCachedQty = qty.trim();
+
+            // 2) ¿Señal de recogida exitosa?
+            boolean success = false;
+            for (String s : textos) {
+                if (s == null) continue;
+                String n = sinAcentos(s).toLowerCase(Locale.ROOT);
+                if (n.contains("collect success")) { success = true; break; }
+            }
+            if (!success) return;
+
+            // 3) Resolver la ubicación recogida (cacheada o, si falta, la de pantalla).
+            String ub = invCachedFrom;
+            if (ub == null) {
+                java.util.ArrayList<String> locs = findAllLocationsOnScreen();
+                if (!locs.isEmpty()) ub = locs.get(0);
+            }
+            if (ub == null) return;
+
+            // 4) Anti-duplicado: no re-publicar la misma recogida mientras siga
+            //    visible la pantalla de éxito.
+            String firma = ub + "|" + (invCachedItem == null ? "" : invCachedItem);
+            if (firma.equals(ultimaRecogidaFirma)) return;
+            ultimaRecogidaFirma = firma;
+
+            FirebaseManager.getInstance(this)
+                    .publicarRecogida(ub, invCachedItem, invCachedQty);
+
+            // Preparar la siguiente recogida (la ubicación cambiará).
+            invCachedFrom = null;
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(getApplicationContext(),
+                    "procesarInventarioSiAplica", t);
         }
     }
 

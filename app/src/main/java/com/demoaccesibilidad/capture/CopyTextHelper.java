@@ -225,9 +225,9 @@ public class CopyTextHelper {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        // Aviso breve: la recolección puede desplazar la lista para capturar
-        // TODAS las ubicaciones cuando hay muchas (más de las que caben en
-        // pantalla). El resultado se abre al terminar (callback en hilo UI).
+        // Recolección con scroll: desplaza la lista del WMS para capturar TODAS
+        // las ubicaciones cuando hay más de las que caben en pantalla. El
+        // resultado se abre al terminar (callback en el hilo UI).
         Toast.makeText(context,
                 "Buscando\u00A0todas\u00A0las\u00A0ubicaciones…", Toast.LENGTH_SHORT).show();
         svc.collectAllLocationsScrolling(result ->
@@ -247,6 +247,17 @@ public class CopyTextHelper {
         // Conjunto de ubicaciones marcadas (se conserva entre reordenamientos).
         final java.util.Set<String> seleccionadas =
                 (checked != null) ? checked : new java.util.HashSet<>();
+        // v5.11 — Modo Inventario: el que busca ve marcarse solo las ubicaciones
+        // que el compañero ya recogió (vienen del equipo por Firebase).
+        final boolean inventario = AppMode.isInventario(context);
+        final FirebaseManager fmInv = inventario
+                ? FirebaseManager.getInstance(context) : null;
+        if (fmInv != null) {
+            try { fmInv.ensureListeningIfEnabled(); } catch (Throwable ignored) { }
+        }
+        // Mapa ubicación → checkbox (para el marcado automático).
+        final java.util.Map<String, android.widget.CheckBox> checksPorUb =
+                new java.util.HashMap<>();
         // ── Obtener ubicaciones (una sola lectura del árbol) ──
         final java.util.ArrayList<String> ubicaciones;
         if (cached != null && !cached.isEmpty()) {
@@ -290,6 +301,17 @@ public class CopyTextHelper {
         sub.setPadding(0, 0, 0, dp(context, 8));
         root.addView(sub);
 
+        // ── v5.11: en Inventario, línea "Siguiente ubicación" / "SKU completo" ──
+        final TextView txtSiguiente;
+        if (inventario) {
+            txtSiguiente = crearTexto(context, "", 15, true);
+            txtSiguiente.setTextColor(COLOR_GREEN);
+            txtSiguiente.setPadding(0, 0, 0, dp(context, 8));
+            root.addView(txtSiguiente);
+        } else {
+            txtSiguiente = null;
+        }
+
         // ── v5.8: bloque Artículo (SKU) + Total Qty (EN/ES) ──
         String sku = null, total = null;
         try {
@@ -325,6 +347,7 @@ public class CopyTextHelper {
         btnSort.setPadding(dp(context, 12), dp(context, 8),
                 dp(context, 12), dp(context, 8));
         btnSort.setOnClickListener(v -> {
+            if (fmInv != null) { try { fmInv.setRecogidasObserver(null); } catch (Throwable ignored) { } }
             removerOverlay(wm, root);
             // Reutilizar la misma lista y conservar los checks marcados.
             abrirListaUbicaciones(context, wm, !ascending, ubicaciones, seleccionadas);
@@ -384,6 +407,9 @@ public class CopyTextHelper {
             // Tocar la fila alterna el check.
             fila.setOnClickListener(v -> check.setChecked(!check.isChecked()));
 
+            // v5.11 — registrar para el marcado automático en Inventario.
+            checksPorUb.put(ubicacion, check);
+
             lista.addView(fila);
         }
 
@@ -392,7 +418,10 @@ public class CopyTextHelper {
 
         // Botón Cerrar.
         Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
-        btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
+        btnCerrar.setOnClickListener(v -> {
+            if (fmInv != null) { try { fmInv.setRecogidasObserver(null); } catch (Throwable ignored) { } }
+            removerOverlay(wm, root);
+        });
         root.addView(btnCerrar);
 
         try {
@@ -400,6 +429,47 @@ public class CopyTextHelper {
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.abrirListaUbicaciones", t);
+        }
+
+        // ── v5.11: marcado automático en Inventario ──
+        // Marca solo las ubicaciones que el equipo ya recogió y muestra la
+        // "Siguiente ubicación" (primera sin recoger según el orden actual) o
+        // "SKU completo ✅" cuando ya están todas. Se refresca en vivo cuando
+        // el compañero recoge (Firebase → observador).
+        if (inventario && fmInv != null && txtSiguiente != null) {
+            final Runnable updater = () -> {
+                try {
+                    java.util.Set<String> recogidas = fmInv.getRecogidas();
+                    String siguiente = null;
+                    boolean todas = true;
+                    for (String u : ubicaciones) {
+                        boolean done = recogidas.contains(u);
+                        android.widget.CheckBox cb = checksPorUb.get(u);
+                        if (cb != null && cb.isChecked() != done) cb.setChecked(done);
+                        if (done) {
+                            seleccionadas.add(u);
+                        } else {
+                            todas = false;
+                            if (siguiente == null) siguiente = u;
+                        }
+                    }
+                    if (ubicaciones.isEmpty()) {
+                        txtSiguiente.setText("");
+                    } else if (todas) {
+                        txtSiguiente.setText("SKU\u00A0completo\u00A0✅");
+                    } else {
+                        txtSiguiente.setText("Siguiente\u00A0ubicación:\u00A0"
+                                + (siguiente == null ? "—" : siguiente.replace(' ', '\u00A0')));
+                    }
+                } catch (Throwable ignored) { }
+            };
+            // El observador llega en el hilo de Firebase/UI; lo encolamos en la
+            // vista para tocar los checkboxes siempre en el hilo principal.
+            fmInv.setRecogidasObserver(set -> {
+                try { txtSiguiente.post(updater); } catch (Throwable ignored) { }
+            });
+            // Estado inicial inmediato.
+            updater.run();
         }
     }
 
