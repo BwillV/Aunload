@@ -7,6 +7,7 @@ import android.graphics.PixelFormat;
 import android.os.Build;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -105,7 +106,7 @@ public class CopyTextHelper {
      */
     public static void showActionMenu(final Context context, final WindowManager wm,
                                       final Runnable onToggleYoTotal) {
-        final LinearLayout root = crearRoot(context);
+        final OverlayRoot root = crearRoot(context);
 
         TextView titulo = crearTexto(context, "📋\u00A0Copiar\u00A0texto", 18, true);
         titulo.setPadding(0, 0, 0, dp(context, 4));
@@ -186,12 +187,15 @@ public class CopyTextHelper {
         addSpacer(context, root, 8);
 
         // Cerrar.
-        Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
+        Button btnCerrar = crearBoton(context, "✕\u00A0Cerrar", COLOR_GRAY);
         btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
         root.addView(btnCerrar);
 
+        // Tecla Atrás del PDA cierra el menú.
+        setOnBack(root, () -> removerOverlay(wm, root));
+
         try {
-            wm.addView(root, params);
+            mostrarOverlay(wm, root, params);
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.showActionMenu", t);
@@ -287,7 +291,7 @@ public class CopyTextHelper {
                 (a, b) -> compararUbicaciones(a, b, ascending));
 
         // ── Construir overlay ──
-        final LinearLayout root = crearRoot(context);
+        final OverlayRoot root = crearRoot(context);
 
         TextView titulo = crearTexto(context,
                 "📍\u00A0Ubicaciones\u00A0en\u00A0pantalla", 16, true);
@@ -316,20 +320,20 @@ public class CopyTextHelper {
             siguienteCard.setOrientation(LinearLayout.VERTICAL);
             siguienteCard.setBackgroundColor(COLOR_GREEN);
             siguienteCard.setGravity(Gravity.CENTER_HORIZONTAL);
-            siguienteCard.setPadding(dp(context, 16), dp(context, 14),
-                    dp(context, 16), dp(context, 16));
+            siguienteCard.setPadding(dp(context, 12), dp(context, 9),
+                    dp(context, 12), dp(context, 10));
             LinearLayout.LayoutParams lpCard = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT);
-            lpCard.topMargin = dp(context, 4);
-            lpCard.bottomMargin = dp(context, 10);
+            lpCard.topMargin = dp(context, 2);
+            lpCard.bottomMargin = dp(context, 8);
             siguienteCard.setLayoutParams(lpCard);
 
             // Etiqueta pequeña ("Siguiente ubicación").
             txtSigLabel = new TextView(context);
             txtSigLabel.setText("Siguiente\u00A0ubicación");
             txtSigLabel.setTextColor(COLOR_TEXT);
-            txtSigLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            txtSigLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
             txtSigLabel.setGravity(Gravity.CENTER);
             siguienteCard.addView(txtSigLabel);
 
@@ -338,7 +342,7 @@ public class CopyTextHelper {
             txtSigLoc = new TextView(context);
             txtSigLoc.setText("—");
             txtSigLoc.setTextColor(COLOR_TEXT);
-            txtSigLoc.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
+            txtSigLoc.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
             txtSigLoc.setTypeface(null, android.graphics.Typeface.BOLD);
             txtSigLoc.setGravity(Gravity.CENTER);
             siguienteCard.addView(txtSigLoc);
@@ -398,7 +402,7 @@ public class CopyTextHelper {
 
         // ── Lista desplazable ──
         ScrollView scroll = new ScrollView(context);
-        int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.5f);
+        int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.42f);
         scroll.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, maxH));
         LinearLayout lista = new LinearLayout(context);
@@ -459,16 +463,23 @@ public class CopyTextHelper {
         root.addView(scroll);
         addSpacer(context, root, 12);
 
-        // Botón Cerrar.
-        Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
-        btnCerrar.setOnClickListener(v -> {
+        // Cierre compartido: libera el observador de Firebase (evita fugas) y
+        // quita el overlay. Lo usan tanto el botón "Cerrar" como la tecla Atrás.
+        final Runnable cerrar = () -> {
             if (fmInv != null) { try { fmInv.setRecogidasObserver(null); } catch (Throwable ignored) { } }
             removerOverlay(wm, root);
-        });
+        };
+
+        // Botón Cerrar.
+        Button btnCerrar = crearBoton(context, "✕\u00A0Cerrar", COLOR_GRAY);
+        btnCerrar.setOnClickListener(v -> cerrar.run());
         root.addView(btnCerrar);
 
+        // Tecla Atrás del PDA cierra la pantalla (mismo cierre que el botón).
+        setOnBack(root, cerrar);
+
         try {
-            wm.addView(root, params);
+            mostrarOverlay(wm, root, params);
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.abrirListaUbicaciones", t);
@@ -656,7 +667,7 @@ public class CopyTextHelper {
     private static void abrirListaResultados(final Context context, final WindowManager wm,
                                              final java.util.ArrayList<String> valores,
                                              final String tituloBase) {
-        final LinearLayout root = crearRoot(context);
+        final OverlayRoot root = crearRoot(context);
 
         TextView titulo = crearTexto(context,
                 tituloBase + "\u00A0(" + valores.size() + ")", 16, true);
@@ -720,7 +731,7 @@ public class CopyTextHelper {
 
         addSpacerH(context, fila, 8);
 
-        Button btnCerrar = crearBoton(context, "Cerrar", COLOR_GRAY);
+        Button btnCerrar = crearBoton(context, "✕\u00A0Cerrar", COLOR_GRAY);
         btnCerrar.setLayoutParams(new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
@@ -728,8 +739,11 @@ public class CopyTextHelper {
 
         root.addView(fila);
 
+        // Tecla Atrás del PDA cierra la lista.
+        setOnBack(root, () -> removerOverlay(wm, root));
+
         try {
-            wm.addView(root, params);
+            mostrarOverlay(wm, root, params);
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.abrirListaResultados", t);
@@ -740,8 +754,71 @@ public class CopyTextHelper {
     //                 HELPERS DE UI
     // =============================================================
 
-    private static LinearLayout crearRoot(Context context) {
-        LinearLayout root = new LinearLayout(context);
+    // ── v5.13: control de overlay abierto + cierre con tecla Atrás ──
+    // Referencia a la ÚNICA ventana de copiado abierta (para no apilar dos
+    // overlays y poder cerrarla desde fuera, p.ej. al cambiar de app).
+    private static OverlayRoot sOverlayActual;
+    private static WindowManager sWmActual;
+
+    /**
+     * Raíz de los overlays del botón flotante. Es focusable y captura la tecla
+     * de retroceso física del PDA (KEYCODE_BACK): al pulsarla ejecuta la acción
+     * de cierre/volver de esa pantalla, igual que el botón "Cerrar".
+     */
+    private static class OverlayRoot extends LinearLayout {
+        Runnable onBack;
+        OverlayRoot(Context c) {
+            super(c);
+            setFocusable(true);
+            setFocusableInTouchMode(true);
+        }
+        @Override
+        public boolean dispatchKeyEvent(KeyEvent event) {
+            if (event != null
+                    && event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                    && event.getAction() == KeyEvent.ACTION_UP) {
+                if (onBack != null) {
+                    try { onBack.run(); } catch (Throwable ignored) { }
+                    return true;
+                }
+            }
+            return super.dispatchKeyEvent(event);
+        }
+    }
+
+    /** Asigna la acción de la tecla Atrás a un overlay creado con crearRoot. */
+    private static void setOnBack(View root, Runnable action) {
+        if (root instanceof OverlayRoot) ((OverlayRoot) root).onBack = action;
+    }
+
+    /**
+     * Añade el overlay a la ventana cerrando antes cualquier otro overlay de
+     * copiado abierto (evita que se apilen dos). Guarda la referencia activa y
+     * pide el foco para recibir la tecla Atrás.
+     */
+    private static void mostrarOverlay(WindowManager wm, OverlayRoot root,
+                                       WindowManager.LayoutParams params) {
+        cerrarOverlayActual();
+        wm.addView(root, params);
+        sOverlayActual = root;
+        sWmActual = wm;
+        try { root.requestFocus(); } catch (Throwable ignored) { }
+    }
+
+    /**
+     * Cierra el overlay de copiado que esté abierto (si lo hay). Público para
+     * poder cerrarlo desde ScreenCaptureService cuando el usuario sale del WMS.
+     */
+    public static void cerrarOverlayActual() {
+        if (sOverlayActual != null && sWmActual != null) {
+            try { sWmActual.removeView(sOverlayActual); } catch (Throwable ignored) { }
+        }
+        sOverlayActual = null;
+        sWmActual = null;
+    }
+
+    private static OverlayRoot crearRoot(Context context) {
+        OverlayRoot root = new OverlayRoot(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(COLOR_BG);
         root.setPadding(dp(context, 20), dp(context, 18),
@@ -785,17 +862,21 @@ public class CopyTextHelper {
         parent.addView(spacer);
     }
 
-    private static WindowManager.LayoutParams crearParams(boolean focusable) {
+    /**
+     * v5.13: la ventana es SIEMPRE focusable (sin FLAG_NOT_FOCUSABLE) para
+     * recibir la tecla Atrás del PDA. Mantiene FLAG_NOT_TOUCH_MODAL para que los
+     * toques fuera del overlay sigan pasando al WMS. {@code dimBehind} oscurece
+     * el fondo (no se usa por defecto).
+     */
+    private static WindowManager.LayoutParams crearParams(boolean dimBehind) {
         int overlayType;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             overlayType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
         } else {
             overlayType = WindowManager.LayoutParams.TYPE_PHONE;
         }
-        int flags = focusable
-                ? WindowManager.LayoutParams.FLAG_DIM_BEHIND
-                : (WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
+        int flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+        if (dimBehind) flags |= WindowManager.LayoutParams.FLAG_DIM_BEHIND;
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -806,7 +887,7 @@ public class CopyTextHelper {
         params.gravity = Gravity.CENTER;
         params.width = (int) (340 * android.content.res.Resources.getSystem()
                 .getDisplayMetrics().density);
-        if (focusable) params.dimAmount = 0.5f;
+        if (dimBehind) params.dimAmount = 0.5f;
         return params;
     }
 
@@ -814,6 +895,11 @@ public class CopyTextHelper {
         try {
             wm.removeView(view);
         } catch (Exception ignored) { }
+        // Limpiar la referencia activa si es la que se está cerrando.
+        if (view == sOverlayActual) {
+            sOverlayActual = null;
+            sWmActual = null;
+        }
     }
 
     private static int dp(Context context, int dp) {

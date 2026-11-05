@@ -8,6 +8,7 @@ import android.os.Build;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -51,7 +52,7 @@ public class FloatingDialogHelper {
     public static void showContainerDialog(Context context, WindowManager wm,
                                            Runnable onDismiss) {
         // Layout principal.
-        LinearLayout root = crearRootLayout(context);
+        final DialogRoot root = crearRootLayout(context);
 
         // Título.
         TextView titulo = crearTexto(context, "📦\u00A0Container", 20, true);
@@ -109,8 +110,15 @@ public class FloatingDialogHelper {
         });
         root.addView(btnCerrar);
 
+        // Tecla Atrás del PDA cierra el diálogo (igual que "Cerrar").
+        setOnBack(root, () -> {
+            removerOverlay(wm, root);
+            if (onDismiss != null) onDismiss.run();
+        });
+
         // Mostrar.
         wm.addView(root, params);
+        try { root.requestFocus(); } catch (Throwable ignored) { }
     }
 
     // =============================================================
@@ -119,7 +127,7 @@ public class FloatingDialogHelper {
 
     private static void showNuevoContainerDialog(Context context, WindowManager wm,
                                                   Runnable onDismiss) {
-        LinearLayout root = crearRootLayout(context);
+        final DialogRoot root = crearRootLayout(context);
 
         TextView titulo = crearTexto(context, "🆕\u00A0Nuevo\u00A0Container", 18, true);
         titulo.setPadding(0, 0, 0, dp(context, 8));
@@ -219,6 +227,13 @@ public class FloatingDialogHelper {
 
         root.addView(btnRow);
 
+        // Tecla Atrás del PDA cancela el diálogo (igual que "Cancelar"). No se
+        // pide foco al root para no quitárselo al EditText (teclado).
+        setOnBack(root, () -> {
+            removerOverlay(wm, root);
+            if (onDismiss != null) onDismiss.run();
+        });
+
         wm.addView(root, params);
     }
 
@@ -228,7 +243,7 @@ public class FloatingDialogHelper {
 
     private static void showActualizarMetaDialog(Context context, WindowManager wm,
                                                   Runnable onDismiss) {
-        LinearLayout root = crearRootLayout(context);
+        final DialogRoot root = crearRootLayout(context);
 
         PalletRepository repo = new PalletRepository(context);
         SharedPreferences fabPrefs = context.getSharedPreferences(PREFS_FAB, Context.MODE_PRIVATE);
@@ -332,6 +347,13 @@ public class FloatingDialogHelper {
 
         root.addView(btnRow);
 
+        // Tecla Atrás del PDA cancela el diálogo (igual que "Cancelar"). No se
+        // pide foco al root para no quitárselo al EditText (teclado).
+        setOnBack(root, () -> {
+            removerOverlay(wm, root);
+            if (onDismiss != null) onDismiss.run();
+        });
+
         wm.addView(root, params);
     }
 
@@ -341,7 +363,7 @@ public class FloatingDialogHelper {
 
     public static void showResetDialog(Context context, WindowManager wm,
                                        Runnable onDismiss) {
-        LinearLayout root = crearRootLayout(context);
+        final DialogRoot root = crearRootLayout(context);
 
         PalletRepository repo = new PalletRepository(context);
         SharedPreferences fabPrefs = context.getSharedPreferences(PREFS_FAB, Context.MODE_PRIVATE);
@@ -390,15 +412,52 @@ public class FloatingDialogHelper {
 
         root.addView(btnRow);
 
+        // Tecla Atrás del PDA cancela el diálogo (igual que "Cancelar").
+        setOnBack(root, () -> {
+            removerOverlay(wm, root);
+            if (onDismiss != null) onDismiss.run();
+        });
+
         wm.addView(root, params);
+        try { root.requestFocus(); } catch (Throwable ignored) { }
     }
 
     // =============================================================
     //              HELPERS DE UI
     // =============================================================
 
-    private static LinearLayout crearRootLayout(Context context) {
-        LinearLayout root = new LinearLayout(context);
+    /**
+     * v5.13: raíz focusable que cierra el diálogo con la tecla de retroceso
+     * física del PDA (KEYCODE_BACK), igual que el botón "Cancelar"/"Cerrar".
+     */
+    private static class DialogRoot extends LinearLayout {
+        Runnable onBack;
+        DialogRoot(Context c) {
+            super(c);
+            setFocusable(true);
+            setFocusableInTouchMode(true);
+        }
+        @Override
+        public boolean dispatchKeyEvent(KeyEvent event) {
+            if (event != null
+                    && event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                    && event.getAction() == KeyEvent.ACTION_UP) {
+                if (onBack != null) {
+                    try { onBack.run(); } catch (Throwable ignored) { }
+                    return true;
+                }
+            }
+            return super.dispatchKeyEvent(event);
+        }
+    }
+
+    /** Asigna la acción de la tecla Atrás a un diálogo creado con crearRootLayout. */
+    private static void setOnBack(View root, Runnable action) {
+        if (root instanceof DialogRoot) ((DialogRoot) root).onBack = action;
+    }
+
+    private static DialogRoot crearRootLayout(Context context) {
+        DialogRoot root = new DialogRoot(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(COLOR_BG);
         root.setPadding(dp(context, 24), dp(context, 20),
@@ -465,11 +524,13 @@ public class FloatingDialogHelper {
             overlayType = WindowManager.LayoutParams.TYPE_PHONE;
         }
 
+        // v5.13: SIN FLAG_NOT_FOCUSABLE para recibir la tecla Atrás del PDA;
+        // FLAG_NOT_TOUCH_MODAL deja pasar los toques fuera del diálogo al WMS.
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 overlayType,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
         );
         params.gravity = Gravity.CENTER;
