@@ -258,6 +258,9 @@ public class CopyTextHelper {
         // Mapa ubicación → checkbox (para el marcado automático).
         final java.util.Map<String, android.widget.CheckBox> checksPorUb =
                 new java.util.HashMap<>();
+        // v5.12 — ubicación → fila (para auto-scroll a la siguiente ubicación).
+        final java.util.Map<String, View> filasPorUb =
+                new java.util.HashMap<>();
         // ── Obtener ubicaciones (una sola lectura del árbol) ──
         final java.util.ArrayList<String> ubicaciones;
         if (cached != null && !cached.isEmpty()) {
@@ -301,15 +304,48 @@ public class CopyTextHelper {
         sub.setPadding(0, 0, 0, dp(context, 8));
         root.addView(sub);
 
-        // ── v5.11: en Inventario, línea "Siguiente ubicación" / "SKU completo" ──
-        final TextView txtSiguiente;
+        // ── v5.12: en Inventario, RECUADRO VERDE "Siguiente ubicación" ──
+        // Se construye aquí pero se agrega al root DEBAJO del botón de orden
+        // (ver más abajo). La etiqueta va pequeña y la ubicación grande; el
+        // recuadro es más grande que el botón de orden.
+        final LinearLayout siguienteCard;
+        final TextView txtSigLabel;
+        final TextView txtSigLoc;
         if (inventario) {
-            txtSiguiente = crearTexto(context, "", 15, true);
-            txtSiguiente.setTextColor(COLOR_GREEN);
-            txtSiguiente.setPadding(0, 0, 0, dp(context, 8));
-            root.addView(txtSiguiente);
+            siguienteCard = new LinearLayout(context);
+            siguienteCard.setOrientation(LinearLayout.VERTICAL);
+            siguienteCard.setBackgroundColor(COLOR_GREEN);
+            siguienteCard.setGravity(Gravity.CENTER_HORIZONTAL);
+            siguienteCard.setPadding(dp(context, 16), dp(context, 14),
+                    dp(context, 16), dp(context, 16));
+            LinearLayout.LayoutParams lpCard = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            lpCard.topMargin = dp(context, 4);
+            lpCard.bottomMargin = dp(context, 10);
+            siguienteCard.setLayoutParams(lpCard);
+
+            // Etiqueta pequeña ("Siguiente ubicación").
+            txtSigLabel = new TextView(context);
+            txtSigLabel.setText("Siguiente\u00A0ubicación");
+            txtSigLabel.setTextColor(COLOR_TEXT);
+            txtSigLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            txtSigLabel.setGravity(Gravity.CENTER);
+            siguienteCard.addView(txtSigLabel);
+
+            // Ubicación grande (más grande que el texto de la etiqueta y que
+            // el botón de orden).
+            txtSigLoc = new TextView(context);
+            txtSigLoc.setText("—");
+            txtSigLoc.setTextColor(COLOR_TEXT);
+            txtSigLoc.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
+            txtSigLoc.setTypeface(null, android.graphics.Typeface.BOLD);
+            txtSigLoc.setGravity(Gravity.CENTER);
+            siguienteCard.addView(txtSigLoc);
         } else {
-            txtSiguiente = null;
+            siguienteCard = null;
+            txtSigLabel = null;
+            txtSigLoc = null;
         }
 
         // ── v5.8: bloque Artículo (SKU) + Total Qty (EN/ES) ──
@@ -354,6 +390,11 @@ public class CopyTextHelper {
         });
         root.addView(btnSort);
         addSpacer(context, root, 8);
+
+        // ── v5.12: recuadro verde "Siguiente ubicación" DEBAJO del botón de orden ──
+        if (siguienteCard != null) {
+            root.addView(siguienteCard);
+        }
 
         // ── Lista desplazable ──
         ScrollView scroll = new ScrollView(context);
@@ -409,6 +450,8 @@ public class CopyTextHelper {
 
             // v5.11 — registrar para el marcado automático en Inventario.
             checksPorUb.put(ubicacion, check);
+            // v5.12 — registrar la fila para el auto-scroll a la siguiente.
+            filasPorUb.put(ubicacion, fila);
 
             lista.addView(fila);
         }
@@ -436,37 +479,77 @@ public class CopyTextHelper {
         // "Siguiente ubicación" (primera sin recoger según el orden actual) o
         // "SKU completo ✅" cuando ya están todas. Se refresca en vivo cuando
         // el compañero recoge (Firebase → observador).
-        if (inventario && fmInv != null && txtSiguiente != null) {
+        if (inventario && fmInv != null && siguienteCard != null) {
+            final ScrollView scrollRef = scroll;
             final Runnable updater = () -> {
                 try {
                     java.util.Set<String> recogidas = fmInv.getRecogidas();
-                    String siguiente = null;
+                    // 1) Marcar los checks de lo ya recogido y saber si falta algo.
                     boolean todas = true;
                     for (String u : ubicaciones) {
                         boolean done = recogidas.contains(u);
                         android.widget.CheckBox cb = checksPorUb.get(u);
                         if (cb != null && cb.isChecked() != done) cb.setChecked(done);
-                        if (done) {
-                            seleccionadas.add(u);
-                        } else {
-                            todas = false;
-                            if (siguiente == null) siguiente = u;
+                        if (done) seleccionadas.add(u);
+                        else todas = false;
+                    }
+
+                    // 2) "Siguiente ubicación": la primera SIN recoger DESPUÉS de
+                    //    la última recogida, siguiendo el orden activo (menor o
+                    //    mayor). Si se empieza a la mitad, continúa desde ahí; al
+                    //    llegar al final da la vuelta para tomar las que queden
+                    //    antes (no exige empezar por la primera ni la última).
+                    String siguiente = null;
+                    if (!todas) {
+                        String ultima = fmInv.getUltimaRecogida();
+                        int idxUltima = -1;
+                        if (ultima != null) {
+                            for (int i = 0; i < ubicaciones.size(); i++) {
+                                if (ubicaciones.get(i).equalsIgnoreCase(ultima)) {
+                                    idxUltima = i;
+                                    break;
+                                }
+                            }
+                        }
+                        int n = ubicaciones.size();
+                        for (int off = 1; off <= n; off++) {
+                            int i = ((idxUltima + off) % n + n) % n;
+                            String u = ubicaciones.get(i);
+                            if (!recogidas.contains(u)) { siguiente = u; break; }
                         }
                     }
+
+                    // 3) Pintar el recuadro verde.
                     if (ubicaciones.isEmpty()) {
-                        txtSiguiente.setText("");
+                        siguienteCard.setVisibility(View.GONE);
                     } else if (todas) {
-                        txtSiguiente.setText("SKU\u00A0completo\u00A0✅");
+                        siguienteCard.setVisibility(View.VISIBLE);
+                        txtSigLabel.setText("Inventario");
+                        txtSigLoc.setText("Completo\u00A0✅");
                     } else {
-                        txtSiguiente.setText("Siguiente\u00A0ubicación:\u00A0"
-                                + (siguiente == null ? "—" : siguiente.replace(' ', '\u00A0')));
+                        siguienteCard.setVisibility(View.VISIBLE);
+                        txtSigLabel.setText("Siguiente\u00A0ubicación");
+                        txtSigLoc.setText(siguiente == null
+                                ? "—" : siguiente.replace(' ', '\u00A0'));
+                        // 4) Auto-scroll: llevar la lista hasta la siguiente
+                        //    ubicación a medida que se van marcando los checks.
+                        final View fila = (siguiente != null)
+                                ? filasPorUb.get(siguiente) : null;
+                        if (fila != null && scrollRef != null) {
+                            scrollRef.post(() -> {
+                                try {
+                                    scrollRef.smoothScrollTo(0,
+                                            Math.max(0, fila.getTop() - dp(context, 8)));
+                                } catch (Throwable ignored) { }
+                            });
+                        }
                     }
                 } catch (Throwable ignored) { }
             };
             // El observador llega en el hilo de Firebase/UI; lo encolamos en la
             // vista para tocar los checkboxes siempre en el hilo principal.
             fmInv.setRecogidasObserver(set -> {
-                try { txtSiguiente.post(updater); } catch (Throwable ignored) { }
+                try { siguienteCard.post(updater); } catch (Throwable ignored) { }
             });
             // Estado inicial inmediato.
             updater.run();

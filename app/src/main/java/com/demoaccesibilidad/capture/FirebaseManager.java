@@ -146,6 +146,10 @@ public class FirebaseManager {
     private ValueEventListener invRecogidasListener;
     private final java.util.Set<String> recogidasInventario =
             java.util.Collections.synchronizedSet(new java.util.LinkedHashSet<String>());
+    // v5.12 — última ubicación recogida (la de mayor "hora"): permite calcular
+    // la "siguiente ubicación" desde cualquier punto, aunque se empiece a la
+    // mitad de la lista.
+    private volatile String ultimaRecogida;
 
     /** Observador para que la UI (overlay) refresque el marcado automático. */
     public interface RecogidasObserver {
@@ -1258,17 +1262,27 @@ public class FirebaseManager {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 java.util.LinkedHashSet<String> nuevo = new java.util.LinkedHashSet<>();
+                String ultima = null;
+                long maxHora = Long.MIN_VALUE;
                 for (DataSnapshot c : snapshot.getChildren()) {
                     String ub = c.child("ubicacion").getValue(String.class);
                     if (ub == null || ub.trim().isEmpty()) ub = c.getKey();
                     if (ub != null && !ub.trim().isEmpty()) {
-                        nuevo.add(ub.trim().toUpperCase(Locale.US));
+                        String norm = ub.trim().toUpperCase(Locale.US);
+                        nuevo.add(norm);
+                        // Rastrear la última recogida por su marca de tiempo.
+                        Long hora = null;
+                        try { hora = c.child("hora").getValue(Long.class); }
+                        catch (Throwable ignored) { }
+                        long h = (hora != null) ? hora : 0L;
+                        if (h >= maxHora) { maxHora = h; ultima = norm; }
                     }
                 }
                 synchronized (recogidasInventario) {
                     recogidasInventario.clear();
                     recogidasInventario.addAll(nuevo);
                 }
+                ultimaRecogida = ultima;
                 RecogidasObserver obs = recogidasObserver;
                 if (obs != null) {
                     try { obs.onRecogidas(getRecogidas()); } catch (Throwable ignored) { }
@@ -1288,6 +1302,15 @@ public class FirebaseManager {
         synchronized (recogidasInventario) {
             return new java.util.LinkedHashSet<>(recogidasInventario);
         }
+    }
+
+    /**
+     * v5.12 — Última ubicación recogida por el equipo (la de mayor marca de
+     * tiempo), o null si aún no hay ninguna. Sirve para calcular la "siguiente
+     * ubicación" desde cualquier punto, aunque se empiece a la mitad de la lista.
+     */
+    public String getUltimaRecogida() {
+        return ultimaRecogida;
     }
 
     /**
@@ -1596,6 +1619,7 @@ public class FirebaseManager {
         invRecogidasListener = null;
         invRecogidasRef = null;
         synchronized (recogidasInventario) { recogidasInventario.clear(); }
+        ultimaRecogida = null;
     }
 
     /** Avisa al botón flotante (y a la UI) para que refresque el conteo. */
