@@ -466,10 +466,18 @@ public class ScreenCaptureService extends AccessibilityService {
     //   la recogida al equipo (patrón Señal vs Dato, igual que los pallets).
     // =============================================================
 
-    private static final String[] ETIQUETAS_COLLECT_FROM = { "Collect From", "From" };
-    private static final String[] ETIQUETAS_COLLECT_ITEM = { "Collect Item", "Item" };
+    // v5.14 — Etiquetas bilingües (inglés + español). La comparación en
+    // valorPorEtiquetasFlex ignora mayúsculas, acentos y espacios antes de ":".
+    private static final String[] ETIQUETAS_COLLECT_FROM = {
+            "Collect From", "Recoger de", "Recoger desde", "From"
+    };
+    private static final String[] ETIQUETAS_COLLECT_ITEM = {
+            "Collect Item", "Recoger articulo", "Recoger artículo", "Item"
+    };
     private static final String[] ETIQUETAS_COLLECT_QTY = {
-            "Enter Collect Qty", "Collect Qty", "Available Item QTY", "Qty"
+            "Enter Collect Qty", "Ingrese la cantidad a recoger", "Cantidad a recoger",
+            "Collect Qty", "Available Item QTY", "Cantidad de Articulo Disponible",
+            "Cantidad de Artículo Disponible", "Qty"
     };
 
     private volatile String invCachedFrom = null;
@@ -492,12 +500,18 @@ public class ScreenCaptureService extends AccessibilityService {
             String qty = valorPorEtiquetasFlex(textos, ETIQUETAS_COLLECT_QTY, true);
             if (qty != null && !qty.trim().isEmpty()) invCachedQty = qty.trim();
 
-            // 2) ¿Señal de recogida exitosa?
+            // 2) ¿Señal de recogida exitosa? (bilingüe, tolerante a acentos y
+            //    saltos de línea). EN: "inventory collect success".
+            //    ES: "Éxito\néxito en la recogida de inventario".
             boolean success = false;
             for (String s : textos) {
                 if (s == null) continue;
-                String n = sinAcentos(s).toLowerCase(Locale.ROOT);
+                String n = sinAcentos(s).toLowerCase(Locale.ROOT)
+                        .replaceAll("\\s+", " ").trim();
                 if (n.contains("collect success")) { success = true; break; }
+                if (n.contains("recogida de inventario") && n.contains("xito")) {
+                    success = true; break;
+                }
             }
             if (!success) return;
 
@@ -1365,9 +1379,15 @@ public class ScreenCaptureService extends AccessibilityService {
         if (c.length() < 3) return false;
         // Un decimal puro (32.5) no es ubicación.
         if (c.matches("\\d+\\.\\d+")) return false;
+        // v5.14 — Rechazar IPs (192.168.43.236) y cualquier cadena separada
+        // SOLO por puntos con grupos numéricos (típico de IPs/versiones). Las
+        // ubicaciones reales usan guiones y prefijo de letra (C14-076-4).
+        if (c.matches("\\d{1,3}(?:\\.\\d{1,3}){2,}")) return false;
+        boolean tieneLetra = c.matches(".*[A-Za-z].*");
+        // Sin letra y separada solo por puntos (sin guiones) → no es ubicación.
+        if (!tieneLetra && c.indexOf('-') < 0 && c.indexOf('.') >= 0) return false;
         String[] segs = c.split("[-.]");
         if (segs.length < 2) return false;
-        boolean tieneLetra = c.matches(".*[A-Za-z].*");
         boolean segLargo = false;
         for (String seg : segs) {
             if (seg.replaceAll("[^0-9]", "").length() >= 3) segLargo = true;
