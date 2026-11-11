@@ -60,7 +60,7 @@ public class UpdateChecker {
         if (activity == null) return;
 
         final ProgressDialog progress = new ProgressDialog(activity);
-        progress.setMessage("Buscando\u00A0actualizaciones…");
+        progress.setMessage(activity.getString(R.string.upd_buscando));
         progress.setCancelable(true);
         progress.show();
 
@@ -107,30 +107,27 @@ public class UpdateChecker {
                     if (activity.isFinishing()) return;
 
                     if (apkUrl == null || releaseCode < 0) {
-                        showInfo(activity, "Sin\u00A0actualizaciones",
-                                "No\u00A0se\u00A0encontró\u00A0ningún\u00A0release\u00A0de\u00A0PalletTracker\u00A0en\u00A0GitHub.");
+                        showInfo(activity, activity.getString(R.string.upd_sin_act_titulo),
+                                activity.getString(R.string.upd_sin_release));
                         return;
                     }
 
                     boolean hayNueva = releaseCode > installedCode;
                     if (hayNueva) {
-                        String msg = "Tienes\u00A0la\u00A0versión\u00A0" + installedName
-                                + "\u00A0(" + installedCode + ").\n\n"
-                                + "Nueva\u00A0versión\u00A0disponible:\u00A0"
-                                + (releaseName != null ? releaseName : "?")
-                                + "\u00A0(" + releaseCode + ").\n\n¿Descargar\u00A0e\u00A0instalar?";
+                        String msg = activity.getString(R.string.upd_msg_nueva,
+                                installedName, installedCode,
+                                (releaseName != null ? releaseName : "?"), releaseCode);
                         new AlertDialog.Builder(activity)
-                                .setTitle("🔄\u00A0Actualización\u00A0disponible")
+                                .setTitle(activity.getString(R.string.upd_titulo))
                                 .setMessage(msg)
-                                .setPositiveButton("Descargar\u00A0e\u00A0instalar",
+                                .setPositiveButton(activity.getString(R.string.upd_descargar),
                                         (d, w) -> descargarEInstalar(activity, apkUrl,
                                                 releaseName != null ? releaseName : "nueva"))
-                                .setNegativeButton("Ahora\u00A0no", null)
+                                .setNegativeButton(activity.getString(R.string.upd_ahora_no), null)
                                 .show();
                     } else {
-                        showInfo(activity, "✅\u00A0Todo\u00A0al\u00A0día",
-                                "Ya\u00A0tienes\u00A0la\u00A0última\u00A0versión\u00A0instalada\u00A0("
-                                        + installedName + ").");
+                        showInfo(activity, activity.getString(R.string.upd_al_dia_titulo),
+                                activity.getString(R.string.upd_al_dia_msg, installedName));
                     }
                 });
 
@@ -157,21 +154,20 @@ public class UpdateChecker {
             boolean allowed = activity.getPackageManager().canRequestPackageInstalls();
             if (!allowed) {
                 new AlertDialog.Builder(activity)
-                        .setTitle("Permiso\u00A0necesario")
-                        .setMessage("Para\u00A0instalar\u00A0la\u00A0actualización,\u00A0activa\u00A0"
-                                + "\"Permitir\u00A0de\u00A0esta\u00A0fuente\"\u00A0e\u00A0inténtalo\u00A0de\u00A0nuevo.")
-                        .setPositiveButton("Abrir\u00A0ajustes", (d, w) -> {
+                        .setTitle(activity.getString(R.string.upd_permiso_titulo))
+                        .setMessage(activity.getString(R.string.upd_permiso_mensaje))
+                        .setPositiveButton(activity.getString(R.string.upd_permiso_abrir), (d, w) -> {
                             try {
                                 Intent intent = new Intent(
                                         android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                                         Uri.parse("package:" + activity.getPackageName()));
                                 activity.startActivity(intent);
                             } catch (Throwable t) {
-                                showInfo(activity, "Error",
-                                        "No\u00A0se\u00A0pudo\u00A0abrir\u00A0los\u00A0ajustes:\u00A0" + t);
+                                showInfo(activity, activity.getString(R.string.upd_err_generico_titulo),
+                                        activity.getString(R.string.upd_err_abrir_ajustes, String.valueOf(t)));
                             }
                         })
-                        .setNegativeButton("Cancelar", null)
+                        .setNegativeButton(activity.getString(R.string.btn_cancelar), null)
                         .show();
                 return;
             }
@@ -179,7 +175,7 @@ public class UpdateChecker {
 
         final ProgressDialog progress = new ProgressDialog(activity);
         progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        progress.setMessage("Descargando\u00A0versión\u00A0" + versionName + "…");
+        progress.setMessage(activity.getString(R.string.upd_descargando, versionName));
         progress.setMax(100);
         progress.setCancelable(false);
         progress.show();
@@ -236,8 +232,8 @@ public class UpdateChecker {
                 main.post(() -> {
                     dismiss(progress);
                     if (activity.isFinishing()) return;
-                    showInfo(activity, "❌\u00A0Error\u00A0al\u00A0descargar",
-                            "No\u00A0se\u00A0pudo\u00A0descargar\u00A0la\u00A0actualización.\n\nDetalle:\n" + t);
+                    showInfo(activity, activity.getString(R.string.upd_err_descargar_titulo),
+                            activity.getString(R.string.upd_err_descargar_msg, String.valueOf(t)));
                 });
             }
         }).start();
@@ -257,8 +253,8 @@ public class UpdateChecker {
             Log.e(TAG, "Error instalando APK", t);
             PalletTrackerApp.logException(activity.getApplicationContext(),
                     "UpdateChecker.instalar", t);
-            showInfo(activity, "❌\u00A0Error\u00A0al\u00A0instalar",
-                    "No\u00A0se\u00A0pudo\u00A0iniciar\u00A0la\u00A0instalación.\n\nDetalle:\n" + t);
+            showInfo(activity, activity.getString(R.string.upd_err_instalar_titulo),
+                    activity.getString(R.string.upd_err_instalar_msg, String.valueOf(t)));
         }
     }
 
@@ -366,7 +362,7 @@ public class UpdateChecker {
         new AlertDialog.Builder(activity)
                 .setTitle(title)
                 .setMessage(message)
-                .setPositiveButton("Entendido", null)
+                .setPositiveButton(activity.getString(R.string.upd_entendido), null)
                 .show();
     }
 

@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ===== 通用 ===== -->
+    <string name="app_name">PalletTracker</string>
+    <string name="acc_desc">允许 PalletTracker 读取屏幕上的 WMS 文本以自动登记托盘。</string>
+    <string name="nav_open">打开菜单</string>
+    <string name="nav_close">关闭菜单</string>
+
+    <!-- ===== 常用 ===== -->
+    <string name="btn_cancelar">取消</string>
+    <string name="btn_cerrar">关闭</string>
+    <string name="btn_guardar">保存</string>
+    <string name="btn_crear">创建</string>
+    <string name="btn_entendido">知道了</string>
+    <string name="btn_actualizar_plain">更新</string>
+    <string name="btn_actualizar">🔄 刷新</string>
+    <string name="cd_contador_pallets">托盘计数器</string>
+    <string name="toast_pallet_borrada">托盘已删除：%1$s</string>
+    <string name="cd_cerrar">✕ 关闭</string>
+
+    <!-- ===== 语言 ===== -->
+    <string name="idioma_titulo">🌐 语言</string>
+    <string name="idioma_elige">选择语言</string>
+    <string name="idioma_es">Español 🇪🇸</string>
+    <string name="idioma_en">English 🇬🇧</string>
+    <string name="idioma_zh">中文 🇨🇳</string>
+    <string name="idioma_actual_es">中文 🇨🇳</string>
+    <string name="idioma_cambiado">语言已更改</string>
+
+    <!-- ===== activity_main ===== -->
+    <string name="main_modo_inbound">模式：入库</string>
+    <string name="main_modo_inventario">模式：盘点</string>
+    <string name="main_inventario">盘点</string>
+    <string name="main_container_vacio">集装箱：---</string>
+    <string name="main_boton_activo">✓ 悬浮按钮已启用</string>
+    <string name="main_sin_pallets">📦\n\n尚未登记托盘。\n用扫描枪扫描托盘即可在此显示。</string>
+    <string name="cd_nuevo_finalizar">新建或结束集装箱</string>
+    <string name="cd_actualizar_sync">刷新并同步</string>
+
+    <!-- ===== 模式 ===== -->
+    <string name="appmode_inventario">盘点</string>
+    <string name="appmode_inbound">入库</string>
+    <string name="toast_modo">模式：%1$s</string>
+    <string name="toast_modo_emoji">📊 模式：%1$s</string>
+
+    <!-- ===== 无障碍对话框 ===== -->
+    <string name="dlg_acc_titulo">⚠️ 无障碍服务已关闭</string>
+    <string name="dlg_acc_mensaje">PalletTracker 的无障碍服务已关闭。没有它将无法自动登记托盘。\n\n请开启以继续工作。</string>
+    <string name="dlg_acc_activar">立即开启</string>
+    <string name="dlg_acc_mas_tarde">稍后</string>
+
+    <!-- ===== 摘要 / 标题 ===== -->
+    <string name="main_vas_container">当前集装箱 %1$d</string>
+    <string name="main_equipo_info">团队 %1$s • %2$s</string>
+    <string name="main_hoy_resumen">今天：%1$s • %2$s</string>
+    <string name="main_container_info">集装箱 %1$d • %2$s</string>
+
+    <!-- ===== 新建集装箱 ===== -->
+    <string name="dlg_nuevo_titulo">🆕 新建集装箱</string>
+    <string name="dlg_nuevo_mensaje">将开始一个新集装箱。当前托盘会保存到上一个集装箱。</string>
+    <string name="hint_codigo">编号（例：CNT-001）</string>
+    <string name="hint_pallets_esperadas">预计托盘数（例：20）</string>
+    <string name="toast_pallets_invalido">❌ 托盘数无效</string>
+    <string name="toast_nuevo_container">✅ 已开始新集装箱</string>
+
+    <!-- ===== 集装箱选项 ===== -->
+    <string name="dlg_cont_titulo">📦 设置集装箱</string>
+    <string name="dlg_cont_nuevo_titulo">开始新集装箱</string>
+    <string name="dlg_cont_nuevo_desc">重置计数并创建新会话</string>
+    <string name="dlg_cont_actualizar_titulo">更新当前集装箱</string>
+    <string name="dlg_cont_actualizar_desc">保留已扫描托盘，更改目标</string>
+
+    <!-- ===== 更新目标 ===== -->
+    <string name="hint_nueva_meta">新的托盘目标</string>
+    <string name="dlg_meta_titulo">✏️ 更新目标</string>
+    <string name="btn_quitar_meta">移除目标</string>
+    <string name="dlg_meta_tienes">你有 %1$s。仅更改目标。</string>
+
+    <!-- ===== 排序 ===== -->
+    <string name="dlg_ordenar_titulo">排序托盘</string>
+    <string name="sort_por_sku">按 SKU</string>
+    <string name="sort_por_ilp">按 ILP（从小到大）</string>
+    <string name="sort_orden_entrada">录入顺序</string>
+
+    <!-- ===== 重置 / 结束 / 删除 ===== -->
+    <string name="dlg_reset_titulo">🔄 重置集装箱</string>
+    <string name="dlg_reset_mensaje">删除当前集装箱中的托盘？</string>
+    <string name="toast_actualizado_sync">🔄 已刷新并同步</string>
+    <string name="toast_no_containers">没有可结束的集装箱</string>
+    <string name="dlg_finalizar_titulo">✅ 结束集装箱</string>
+    <string name="dlg_finalizar_mensaje">结束当前集装箱并开始一个新的？</string>
+    <string name="btn_finalizar">结束</string>
+    <string name="dlg_borrar_cont_titulo">🗑 删除集装箱</string>
+    <string name="btn_borrar_seleccionados">删除所选</string>
+    <string name="toast_no_seleccion">你没有选择任何集装箱</string>
+    <string name="dlg_borrar_un_titulo">🗑 删除集装箱</string>
+    <string name="dlg_borrar_un_mensaje">删除此集装箱及其托盘？</string>
+    <string name="btn_borrar">删除</string>
+    <string name="cd_borrar_container">删除集装箱</string>
+    <string name="cd_borrar_pallet">删除托盘</string>
+
+    <!-- ===== TaskDetail ===== -->
+    <string name="detail_titulo">托盘 — %1$s</string>
+    <string name="detail_pallets_escaneados">已扫描 %1$s</string>
+    <string name="detail_container">集装箱</string>
+    <string name="hint_ubicacion">例：A07-197-3</string>
+    <string name="dlg_ubicacion_titulo">%1$s 的位置</string>
+    <string name="dlg_ubicacion_mensaje">输入或扫描位置。</string>
+    <string name="toast_ubicacion_guardada">✅ 位置已保存</string>
+    <string name="toast_ubicacion_vacia">❌ 位置为空</string>
+
+    <!-- ===== 诊断 ===== -->
+    <string name="diag_comenzar">▶ 开始诊断</string>
+    <string name="diag_detener">⏹ 停止诊断</string>
+    <string name="diag_copiar">📋 复制诊断</string>
+    <string name="diag_borrar">🗑 清除诊断</string>
+    <string name="diag_toast_iniciado">已开始记录诊断</string>
+    <string name="diag_toast_detenido">已停止记录诊断</string>
+    <string name="diag_toast_borrado">诊断已清除</string>
+    <string name="diag_toast_copiado">诊断已复制</string>
+    <string name="diag_sin_datos">暂无诊断数据。\n点击"开始诊断"并使用应用。</string>
+    <string name="diag_sin_datos_corto">无诊断数据。</string>
+    <string name="diag_grabando">● 正在记录诊断…</string>
+    <string name="diag_detenido_estado">诊断已停止。</string>
+    <string name="diag_clip_label">诊断</string>
+
+    <!-- ===== 错误 ===== -->
+    <string name="err_titulo">🐞 错误记录</string>
+    <string name="err_desc">如果应用自行关闭，日志会保存在此以便排查。</string>
+    <string name="err_compartir">📤 分享</string>
+    <string name="err_limpiar">🗑 清除</string>
+    <string name="err_sin_errores">没有记录到错误。🎉</string>
+    <string name="err_todo_ok">✅ 一切正常</string>
+    <string name="err_archivo">文件：%1$s</string>
+    <string name="err_nada_compartir">没有可分享的内容</string>
+    <string name="err_chooser">分享日志</string>
+    <string name="err_error_compartir">分享出错</string>
+    <string name="err_borrado">🗑 错误记录已清除</string>
+
+    <!-- ===== 关于 ===== -->
+    <string name="acerca_contenido">📦 PalletTracker\n\n版本 %1$s\n\n通过读取屏幕上的 WMS 自动登记托盘的应用。\n\n适用于 Honeywell / iData 50 系列扫描枪。</string>
+
+    <!-- ===== 抽屉菜单 ===== -->
+    <string name="nav_home">🏠 主页</string>
+    <string name="nav_ajustes">⚙️ 设置</string>
+    <string name="nav_errores">🐞 错误</string>
+    <string name="nav_acerca">ℹ️ 关于</string>
+    <string name="nav_actualizaciones">🔄 检查更新</string>
+    <string name="nav_idioma">🌐 语言</string>
+    <string name="menu_ordenar">排序</string>
+
+    <!-- ===== 设置 ===== -->
+    <string name="aj_diagnostico">🔍 诊断</string>
+    <string name="aj_ver_capturas">📋 查看服务捕获</string>
+    <string name="aj_equipo">👥 团队</string>
+    <string name="aj_equipo_desc">与团队共享编号，以在扫描枪之间同步集装箱和托盘。</string>
+    <string name="aj_codigo_equipo">团队编号</string>
+    <string name="hint_ej_cnt">例：CNT-001</string>
+    <string name="aj_unirse">💾 加入团队</string>
+    <string name="aj_salir">退出</string>
+    <string name="aj_codigo_sin_config">团队编号：未设置</string>
+    <string name="aj_codigo_actual">团队编号：%1$s</string>
+    <string name="aj_unido">✅ 已加入团队 %1$s</string>
+    <string name="aj_salio">你已退出团队</string>
+    <string name="aj_boton_flotante">📱 悬浮按钮</string>
+    <string name="aj_boton_flotante_desc">显示一个悬浮按钮，无需离开 WMS 即可复制文本和切换模式。</string>
+    <string name="aj_mostrar_boton">显示悬浮按钮</string>
+    <string name="aj_verificando">正在检查…</string>
+    <string name="aj_activar_overlay">⚙ 授予悬浮窗权限</string>
+    <string name="aj_forzar_inicio">🚀 强制启动按钮</string>
+    <string name="aj_opacidad">不透明度：</string>
+    <string name="aj_opacidad_valor">%1$d%%</string>
+    <string name="aj_modo_copiar">复制文本模式</string>
+    <string name="aj_modo_copiar_desc">点击悬浮按钮时打开复制菜单，而不是增加一个托盘。</string>
+    <string name="aj_servicio_acc">♿ 无障碍服务</string>
+    <string name="aj_activar_servicio">⚙ 启用服务</string>
+    <string name="aj_sync">🔗 多设备同步</string>
+    <string name="aj_modo_multi">多设备模式</string>
+    <string name="aj_nombre_disp">设备名称</string>
+    <string name="hint_ej_honeywell">例：Honeywell-01</string>
+    <string name="aj_firebase_url">Firebase Realtime DB URL</string>
+    <string name="hint_firebase_url">https://your-project.firebaseio.com</string>
+    <string name="aj_probar_conexion">🔌 测试连接</string>
+    <string name="aj_sin_configurar">未设置</string>
+    <string name="aj_disp_conectados_zero">📱 已连接设备：0</string>
+    <string name="aj_disp_conectados">📱 已连接设备：%1$d</string>
+    <string name="aj_disp_activos">📱 活动设备：%1$d</string>
+    <string name="aj_notificaciones">🔔 通知</string>
+    <string name="aj_sonido">通知声音</string>
+    <string name="aj_vibracion">振动</string>
+    <string name="aj_toast_overlay_on">已启用悬浮按钮</string>
+    <string name="aj_toast_overlay_off">已禁用悬浮按钮</string>
+    <string name="aj_toast_permiso_overlay">请先授予悬浮窗权限</string>
+    <string name="aj_toast_forzar_ok">正在启动悬浮按钮…</string>
+    <string name="aj_toast_forzar_err">无法启动悬浮按钮</string>
+    <string name="aj_toast_modo_copiar_on">已启用复制文本模式</string>
+    <string name="aj_toast_modo_copiar_off">已禁用复制文本模式</string>
+    <string name="aj_toast_sync_on">已启用同步</string>
+    <string name="aj_toast_sync_off">已禁用同步</string>
+    <string name="aj_toast_sync_problema">同步出现问题</string>
+    <string name="aj_firebase_default">aunload-rescue（自动配置）</string>
+    <string name="aj_acc_activa">✅ 服务已启用</string>
+    <string name="aj_acc_inactiva">⚠ 服务未启用</string>
+    <string name="aj_overlay_activo">✅ 已授予权限</string>
+    <string name="aj_overlay_inactivo">⚠ 未授予权限</string>
+    <string name="aj_conexion_ok">✅ 已连接</string>
+    <string name="aj_conexion_err">⚠ 无连接</string>
+    <string name="aj_error_activar">无法打开系统设置</string>
+
+    <!-- ===== nav_header ===== -->
+    <string name="nav_header_version">v%1$s</string>
+
+    <!-- ===== 通知 ===== -->
+    <string name="notif_canal_sync">托盘同步</string>
+    <string name="notif_canal_sync_desc">当队友登记托盘或完成集装箱时提醒。</string>
+    <string name="notif_canal_completo">集装箱已完成</string>
+    <string name="notif_canal_completo_desc">当集装箱达到目标时提醒。</string>
+    <string name="notif_escaneo_titulo">📦 %1$s 已扫描</string>
+    <string name="notif_escaneo_texto">团队中 %1$s</string>
+    <string name="notif_completo_titulo">✅ 集装箱已完成！</string>
+    <string name="notif_completo_texto">已登记 %1$s</string>
+    <string name="notif_conectado">已连接</string>
+    <string name="notif_desconectado">已断开</string>
+    <string name="notif_estado_titulo">%1$s %2$s</string>
+
+    <!-- ===== FloatingButtonService ===== -->
+    <string name="fab_canal">PalletTracker 悬浮</string>
+    <string name="fab_canal_desc">保持 PalletTracker 悬浮按钮处于活动状态。</string>
+    <string name="fab_registrando">正在登记托盘：%1$d</string>
+    <string name="fab_activo_titulo">📦 PalletTracker 已启用</string>
+    <string name="fab_activo_texto">点击悬浮按钮以复制或切换模式。</string>
+    <string name="fab_inventario_titulo">📦 盘点模式</string>
+    <string name="fab_inventario_texto">盘点拣货已启用。</string>
+
+    <!-- ===== BootReceiver ===== -->
+    <string name="boot_canal">无障碍提醒</string>
+    <string name="boot_canal_desc">重启后提醒你启用无障碍服务。</string>
+    <string name="boot_titulo">⚠️ 启用 PalletTracker</string>
+    <string name="boot_texto">点击以启用无障碍服务。</string>
+    <string name="boot_bigtext">无障碍服务已关闭。请开启它，以便 PalletTracker 自动登记托盘。</string>
+
+    <!-- ===== OverlayPermissionHelper ===== -->
+    <string name="dlg_overlay_titulo">📱 悬浮窗权限</string>
+    <string name="dlg_overlay_mensaje">要显示悬浮按钮，请授予"显示在其他应用上层"权限。</string>
+    <string name="dlg_overlay_abrir">打开设置</string>
+    <string name="dlg_overlay_despues">稍后</string>
+
+    <!-- ===== UpdateChecker ===== -->
+    <string name="upd_buscando">正在检查更新…</string>
+    <string name="upd_titulo">🔄 有可用更新</string>
+    <string name="upd_mensaje">有新版本（%1$s）。下载并安装？</string>
+    <string name="upd_descargar">下载并安装</string>
+    <string name="upd_ahora_no">暂不</string>
+    <string name="upd_descargando">正在下载版本 %1$s…</string>
+    <string name="upd_permiso_titulo">安装权限</string>
+    <string name="upd_permiso_mensaje">要安装更新，请允许安装来自未知来源的应用。</string>
+    <string name="upd_sin_actualizacion">你已是最新版本</string>
+
+    <!-- ===== CopyTextHelper（FAB 菜单） ===== -->
+    <string name="copy_toast_copiado">已复制：%1$s</string>
+    <string name="copy_titulo">📋 复制文本</string>
+    <string name="copy_elige">选择要复制的内容…</string>
+    <string name="copy_ubicaciones">📍 屏幕上的位置</string>
+    <string name="copy_ilp">🏷 复制 ILP</string>
+    <string name="copy_sku">📦 复制 SKU</string>
+    <string name="copy_ubicacion">📍 复制位置</string>
+    <string name="copy_alternar">🔁 切换 我 / 总计</string>
+    <string name="copy_modo">🔀 模式：%1$s</string>
+    <string name="copy_siguiente">下一个位置</string>
+    <string name="copy_articulo">物品（SKU）：</string>
+    <string name="copy_total_qty">总数量：</string>
+    <string name="copy_menor_mayor">↑ 从小到大</string>
+    <string name="copy_mayor_menor">↓ 从大到小</string>
+    <string name="copy_completo">完成 ✅</string>
+    <string name="copy_activar_acc">启用无障碍服务以进行复制</string>
+    <string name="copy_ilp_detectados">检测到 ILP</string>
+    <string name="copy_ubicaciones_detectadas">检测到位置</string>
+    <string name="copy_sku_detectados">检测到 SKU</string>
+    <string name="copy_no_ilp">未找到 ILP</string>
+    <string name="copy_no_ubicacion">未找到位置</string>
+    <string name="copy_no_sku">未找到 SKU</string>
+    <string name="copy_toca_valor">点击一个值以复制</string>
+    <string name="copy_copiar_todos">全部复制</string>
+    <string name="copy_titulo_n">%1$s (%2$d)</string>
+    <string name="copy_n_ubicaciones">%1$s</string>
+    <string name="copy_idioma">🌐 语言</string>
+
+    <!-- ===== FloatingDialogHelper ===== -->
+    <string name="fd_container">📦 集装箱</string>
+    <string name="fd_nuevo">🆕 新建集装箱</string>
+    <string name="fd_nuevo_borra">当前托盘将被删除。</string>
+    <string name="fd_codigo">编号：</string>
+    <string name="fd_pallets_esperadas">预计托盘数：</string>
+    <string name="fd_num_invalido">❌ 数字无效</string>
+    <string name="fd_meta">✏️ 更新目标</string>
+    <string name="fd_quitar">移除</string>
+    <string name="fd_completado">已完成！🎉</string>
+    <string name="fd_resetear">🔄 重置</string>
+    <string name="fd_borrar_n">删除 %1$s？</string>
+    <string name="fd_si_borrar">是，删除</string>
+
+    <!-- ===== 复数 ===== -->
+    <plurals name="pallets">
+        <item quantity="other">%d 个托盘</item>
+    </plurals>
+    <plurals name="containers">
+        <item quantity="other">%d 个集装箱</item>
+    </plurals>
+    <plurals name="pallets_escaneados">
+        <item quantity="other">已扫描 %d 个托盘</item>
+    </plurals>
+    <string name="mode_escaneados">已扫描</string>
+    <string name="mode_faltan">剩余</string>
+    <string name="mode_ratio">比率</string>
+    <string name="main_sin_container_cfg">未配置集装箱</string>
+    <string name="reset_label_container">集装箱\u00A0%1$s</string>
+    <string name="reset_label_contador">计数器</string>
+    <string name="reset_titulo">🔄\u00A0重置\u00A0%1$s</string>
+    <string name="reset_msg">删除所有托盘并重置为 0？\n\n（%1$d 个托盘的目标会保留）</string>
+    <string name="toast_reset_hecho">🔄\u00A0已重置为\u00A00</string>
+    <string name="borrar_un_titulo">🗑\u00A0删除\u00A0%1$s</string>
+    <string name="borrar_un_msg">删除 %1$s？其托盘将为整个团队移除。\n\n此操作无法撤销。</string>
+    <string name="toast_container_borrado">🗑\u00A0已删除\u00A0%1$s</string>
+    <string name="finalizar_msg">集装箱 %1$d 将结束，并为整个团队从 0 开始新的集装箱。\n\n已扫描的托盘会保留。</string>
+    <string name="btn_finalizar_iniciar">结束并新建</string>
+    <string name="toast_finalizado">✅\u00A0集装箱已结束\u00A0—\u00A0新的从\u00A00\u00A0开始</string>
+    <string name="toast_no_cont_hoy">🗑\u00A0今天没有可删除的集装箱</string>
+    <string name="confirmar_borrado_titulo">⚠\u00A0确认删除</string>
+    <string name="confirmar_borrado_msg">确定删除 %1$d 个集装箱？\n\n%2$s\n\n此操作无法撤销。</string>
+    <string name="toast_pallets_borrados">🗑\u00A0已删除\u00A0%1$d\u00A0个托盘</string>
+    <string name="toast_doble_tap">💡\u00A0双击以设置集装箱</string>
+    <string name="cont_label_pallets">%1$s\u00A0(%2$d\u00A0个托盘)</string>
+    <string name="meta_actual">\n当前目标：%1$d</string>
+    <string name="meta_completado">\u00A0—\u00A0已完成！🎉</string>
+    <string name="meta_faltan">\u00A0—\u00A0还差\u00A0%1$d</string>
+    <string name="toast_meta_set">✅\u00A0目标：%1$d%2$s</string>
+    <string name="toast_num_invalido">❌\u00A0数字无效</string>
+    <string name="toast_meta_eliminada">🔄\u00A0已移除目标</string>
+    <string name="dlg_nuevo_msg2">当前托盘将被删除并创建新会话。</string>
+    <string name="copy_buscando">正在搜索所有库位…</string>
+    <string name="copy_activa_servicio">请启用无障碍服务</string>
+    <string name="copy_no_ubic_pantalla">此屏幕未找到库位</string>
+    <string name="copy_count_ubic_sing">检测到 %1$d 个库位</string>
+    <string name="copy_count_ubic_plur">检测到 %1$d 个库位</string>
+    <string name="copy_inventario_label">盘点</string>
+    <string name="copy_no_ilp_pant">此屏幕未找到 ILP</string>
+    <string name="copy_no_ubic_pant">此屏幕未找到库位</string>
+    <string name="copy_no_sku_pant">此屏幕未找到 SKU</string>
+    <string name="fab_alerta_titulo">⚠️ 无障碍服务已关闭</string>
+    <string name="fab_alerta_texto">点按悬浮按钮重新启用</string>
+    <string name="upd_sin_act_titulo">无可用更新</string>
+    <string name="upd_sin_release">在 GitHub 上未找到 PalletTracker 版本。</string>
+    <string name="upd_msg_nueva">当前版本 %1$s (%2$d)。\n\n有新版本：%3$s (%4$d)。\n\n要下载并安装吗？</string>
+    <string name="upd_al_dia_titulo">✅ 已是最新</string>
+    <string name="upd_al_dia_msg">您已安装最新版本 (%1$s)。</string>
+    <string name="upd_permiso_abrir">打开设置</string>
+    <string name="upd_err_generico_titulo">错误</string>
+    <string name="upd_err_abrir_ajustes">无法打开设置：%1$s</string>
+    <string name="upd_err_descargar_titulo">❌ 下载出错</string>
+    <string name="upd_err_descargar_msg">无法下载更新。\n\n详情：\n%1$s</string>
+    <string name="upd_err_instalar_titulo">❌ 安装出错</string>
+    <string name="upd_err_instalar_msg">无法开始安装。\n\n详情：\n%1$s</string>
+    <string name="upd_entendido">知道了</string>
+    <string name="aj_err_cargar">⚠ 无法加载设置。\n请查看\"错误\"标签了解详情。</string>
+    <string name="aj_toast_ingresa_codigo">❌ 请输入团队代码</string>
+    <string name="aj_toast_permiso_ya">✅ 已授予权限</string>
+    <string name="aj_toast_forzar_ok2">✅ 悬浮按钮已成功启动</string>
+    <string name="aj_toast_forzar_err2">⚠ 无法启动。请检查权限。</string>
+    <string name="aj_serv_activo">✅ 服务：已开启</string>
+    <string name="aj_serv_inactivo">❌ 服务：已关闭</string>
+    <string name="aj_abrir_ajustes_acc">⚙ 打开无障碍设置</string>
+    <string name="aj_activar_serv_acc">⚙ 启用无障碍服务</string>
+    <string name="aj_sync_no_activar">❌ 无法启用。\n%1$s</string>
+    <string name="aj_sync_err_desconocido">启动 Firebase 时发生未知错误</string>
+    <string name="aj_toast_sync_no_activar">❌ 无法启用同步</string>
+    <string name="aj_probando">⏳ 正在测试连接…</string>
+    <string name="aj_conexion_exitosa">✅ 已成功连接 Firebase</string>
+    <string name="aj_error_fmt">❌ 错误：%1$s</string>
+    <string name="aj_estado_ok">🟢 状态：%1$s</string>
+    <string name="aj_estado_err">🔴 状态：%1$s</string>
+    <string name="aj_overlay_activo2">✅ 悬浮按钮：已开启</string>
+    <string name="aj_overlay_inactivo2">⚪ 悬浮按钮：已关闭</string>
+    <string name="aj_permiso_overlay_ok">✅ 已授予悬浮窗权限</string>
+    <string name="aj_permiso_activa_switch">✅ 已授予权限 — 请打开开关</string>
+    <string name="aj_sin_permiso_overlay">❌ 无悬浮窗权限</string>
+    <string name="aj_err_abrir">⚠ 打开设置时出现问题。详情已保存。</string>
+    <string name="diag_toast_iniciado2">录制已开始。请使用另一个应用，完成后返回这里。</string>
+    <string name="diag_toast_detenido2">录制已停止。已保存 %1$d 个屏幕。</string>
+    <string name="diag_sin_datos2">暂无数据。\n开始录制，使用另一个应用，然后返回这里。</string>
+    <string name="diag_grabando_fmt">🔴 录制中…（已捕获 %1$d 个屏幕）</string>
+    <string name="diag_ultima_captura">\n最近捕获：%1$s</string>
+    <string name="diag_detenido_fmt">已停止 — 已录制 %1$d 个屏幕。点按"复制"并发送。</string>
+    <string name="diag_detenido_vacio">已停止。前往另一个应用前请点按"开始"。</string>
+    <string name="diag_toast_copiado2">诊断已复制到剪贴板</string>
+    <string name="err_no_cargar">无法加载错误屏幕。</string>
+    <string name="err_eventos">⚠ 已记录 %1$d 个事件</string>
+    <string name="err_subject">PalletTracker — 错误日志</string>
+    <string name="pallet_sin_ubicacion">📍 无位置</string>
+</resources>

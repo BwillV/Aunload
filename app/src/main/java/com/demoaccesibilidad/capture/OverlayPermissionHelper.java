@@ -38,16 +38,12 @@ public class OverlayPermissionHelper {
         if (hasOverlayPermission(activity)) return;
 
         new AlertDialog.Builder(activity)
-                .setTitle("📱\u00A0Permiso\u00A0de\u00A0Overlay")
-                .setMessage("PalletTracker necesita mostrar un botón flotante "
-                        + "sobre otras apps para que veas el contador mientras "
-                        + "trabajas en el WMS.\n\n"
-                        + "Se abrirá la configuración de Android. "
-                        + "Busca \"PalletTracker\" y activa el permiso.")
-                .setPositiveButton("Abrir\u00A0Ajustes", (d, w) -> {
+                .setTitle(activity.getString(R.string.dlg_overlay_titulo))
+                .setMessage(activity.getString(R.string.dlg_overlay_mensaje))
+                .setPositiveButton(activity.getString(R.string.dlg_overlay_abrir), (d, w) -> {
                     openOverlaySettings(activity);
                 })
-                .setNegativeButton("Después", null)
+                .setNegativeButton(activity.getString(R.string.dlg_overlay_despues), null)
                 .setCancelable(true)
                 .show();
     }

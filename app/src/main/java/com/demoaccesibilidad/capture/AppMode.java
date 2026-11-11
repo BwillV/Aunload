@@ -43,6 +43,9 @@ public final class AppMode {
     }
 
     public static String nombre(Context c) {
-        return isInventario(c) ? "Inventario" : "Inbound";
+        Context lc = LocaleHelper.wrap(c);
+        return isInventario(c)
+                ? lc.getString(R.string.appmode_inventario)
+                : lc.getString(R.string.appmode_inbound);
     }
 }

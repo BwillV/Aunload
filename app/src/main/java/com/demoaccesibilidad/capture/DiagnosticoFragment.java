@@ -71,13 +71,13 @@ public class DiagnosticoFragment extends Fragment {
             repo.limpiarDiagnostico();
             repo.setDiagGrabando(true);
             Toast.makeText(requireContext(),
-                    "Grabación\u00A0iniciada.\u00A0Usa la otra app y vuelve aquí al terminar.",
+                    getString(R.string.diag_toast_iniciado2),
                     Toast.LENGTH_LONG).show();
         } else {
             repo.setDiagGrabando(false);
             int n = repo.getDumps().size();
             Toast.makeText(requireContext(),
-                    "Grabación\u00A0detenida.\u00A0" + n + "\u00A0pantallas guardadas.",
+                    getString(R.string.diag_toast_detenido2, n),
                     Toast.LENGTH_LONG).show();
         }
         refrescar();
@@ -89,7 +89,7 @@ public class DiagnosticoFragment extends Fragment {
         actualizarEstado();
         List<String> dumps = repo.getDumps();
         if (dumps.isEmpty()) {
-            txtDiag.setText("Todavía\u00A0no\u00A0hay\u00A0datos.\nInicia la grabación, usa la otra app, y vuelve aquí.");
+            txtDiag.setText(getString(R.string.diag_sin_datos2));
             return;
         }
         StringBuilder sb = new StringBuilder();
@@ -107,17 +107,17 @@ public class DiagnosticoFragment extends Fragment {
         String ultimaHora = repo.getUltimaCapturaTexto();
 
         if (grabando) {
-            btnDiagGrabar.setText("⏹\u00A0Detener\u00A0diagnóstico");
+            btnDiagGrabar.setText(getString(R.string.diag_detener));
             btnDiagGrabar.setBackgroundColor(0xFFF44336);
-            String estado = "🔴\u00A0GRABANDO…\u00A0(" + n + "\u00A0pantallas\u00A0capturadas)";
-            if (!ultimaHora.isEmpty()) estado += "\nÚltima\u00A0captura:\u00A0" + ultimaHora;
+            String estado = getString(R.string.diag_grabando_fmt, n);
+            if (!ultimaHora.isEmpty()) estado += getString(R.string.diag_ultima_captura, ultimaHora);
             txtDiagEstado.setText(estado);
         } else {
-            btnDiagGrabar.setText("▶\u00A0Comenzar\u00A0diagnóstico");
+            btnDiagGrabar.setText(getString(R.string.diag_comenzar));
             btnDiagGrabar.setBackgroundColor(0xFF2196F3);
             txtDiagEstado.setText(n > 0
-                    ? "Detenido\u00A0—\u00A0" + n + "\u00A0pantallas\u00A0grabadas.\u00A0Toca\u00A0\"Copiar\"\u00A0y\u00A0envíalas."
-                    : "Detenido.\u00A0Toca\u00A0\"Comenzar\"\u00A0antes\u00A0de\u00A0ir\u00A0a\u00A0la\u00A0otra\u00A0app.");
+                    ? getString(R.string.diag_detenido_fmt, n)
+                    : getString(R.string.diag_detenido_vacio));
         }
     }
 
@@ -125,7 +125,7 @@ public class DiagnosticoFragment extends Fragment {
 
     private void borrar() {
         repo.limpiarDiagnostico();
-        Toast.makeText(requireContext(), "Diagnóstico\u00A0borrado", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), getString(R.string.diag_toast_borrado), Toast.LENGTH_SHORT).show();
         refrescar();
     }
 
@@ -133,7 +133,7 @@ public class DiagnosticoFragment extends Fragment {
         List<String> dumps = repo.getDumps();
         String texto;
         if (dumps.isEmpty()) {
-            texto = "Sin datos de diagnóstico.";
+            texto = getString(R.string.diag_sin_datos_corto);
         } else {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < dumps.size(); i++) {
@@ -145,9 +145,9 @@ public class DiagnosticoFragment extends Fragment {
         ClipboardManager clip = (ClipboardManager)
                 requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
         if (clip != null) {
-            clip.setPrimaryClip(ClipData.newPlainText("Diagnóstico", texto));
+            clip.setPrimaryClip(ClipData.newPlainText(getString(R.string.diag_clip_label), texto));
         }
-        Toast.makeText(requireContext(), "Diagnóstico\u00A0copiado\u00A0al\u00A0portapapeles",
+        Toast.makeText(requireContext(), getString(R.string.diag_toast_copiado2),
                 Toast.LENGTH_SHORT).show();
     }
 }

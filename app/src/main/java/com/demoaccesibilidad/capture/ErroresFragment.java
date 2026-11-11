@@ -38,7 +38,7 @@ public class ErroresFragment extends Fragment {
         } catch (Throwable t) {
             PalletTrackerApp.logException(getContext(), "ErroresFragment.onCreateView", t);
             TextView tv = new TextView(inflater.getContext());
-            tv.setText("No se pudo cargar la pantalla de errores.");
+            tv.setText(inflater.getContext().getString(R.string.err_no_cargar));
             tv.setTextColor(0xFFFFFFFF);
             tv.setBackgroundColor(0xFF1a1a2e);
             tv.setPadding(48, 48, 48, 48);
@@ -59,7 +59,7 @@ public class ErroresFragment extends Fragment {
             TextView btnLimpiar = v.findViewById(R.id.btn_limpiar_log);
 
             if (txtRuta != null && getContext() != null) {
-                txtRuta.setText("Archivo:\u00A0" + PalletTrackerApp.getCrashLogPath(getContext()));
+                txtRuta.setText(getString(R.string.err_archivo, PalletTrackerApp.getCrashLogPath(getContext())));
             }
 
             btnActualizar.setOnClickListener(b -> cargarLog());
@@ -82,16 +82,16 @@ public class ErroresFragment extends Fragment {
         if (getContext() == null || txtContenido == null) return;
         String log = PalletTrackerApp.readCrashLog(getContext());
         if (log == null || log.trim().isEmpty()) {
-            txtContenido.setText("Sin\u00A0errores\u00A0registrados.\u00A0🎉");
+            txtContenido.setText(getString(R.string.err_sin_errores));
             if (txtEstado != null) {
-                txtEstado.setText("✅\u00A0Todo\u00A0en\u00A0orden");
+                txtEstado.setText(getString(R.string.err_todo_ok));
                 txtEstado.setTextColor(0xFF4CAF50);
             }
         } else {
             txtContenido.setText(log);
             if (txtEstado != null) {
                 int errores = contarErrores(log);
-                txtEstado.setText("⚠\u00A0" + errores + "\u00A0evento(s)\u00A0registrado(s)");
+                txtEstado.setText(getString(R.string.err_eventos, errores));
                 txtEstado.setTextColor(0xFFFF9800);
             }
         }
@@ -111,19 +111,19 @@ public class ErroresFragment extends Fragment {
         String log = PalletTrackerApp.readCrashLog(getContext());
         if (log == null || log.trim().isEmpty()) {
             Toast.makeText(getContext(),
-                    "No\u00A0hay\u00A0errores\u00A0que\u00A0compartir",
+                    getString(R.string.err_nada_compartir),
                     Toast.LENGTH_SHORT).show();
             return;
         }
         try {
             Intent share = new Intent(Intent.ACTION_SEND);
             share.setType("text/plain");
-            share.putExtra(Intent.EXTRA_SUBJECT, "PalletTracker\u00A0—\u00A0Registro\u00A0de\u00A0errores");
+            share.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.err_subject));
             share.putExtra(Intent.EXTRA_TEXT, log);
-            startActivity(Intent.createChooser(share, "Compartir\u00A0registro"));
+            startActivity(Intent.createChooser(share, getString(R.string.err_chooser)));
         } catch (Throwable t) {
             Toast.makeText(getContext(),
-                    "No\u00A0se\u00A0pudo\u00A0abrir\u00A0el\u00A0menú\u00A0de\u00A0compartir",
+                    getString(R.string.err_error_compartir),
                     Toast.LENGTH_SHORT).show();
         }
     }
@@ -133,7 +133,7 @@ public class ErroresFragment extends Fragment {
         PalletTrackerApp.clearCrashLog(getContext());
         cargarLog();
         Toast.makeText(getContext(),
-                "🗑\u00A0Registro\u00A0de\u00A0errores\u00A0borrado",
+                getString(R.string.err_borrado),
                 Toast.LENGTH_SHORT).show();
     }
 }

@@ -4,19 +4,22 @@
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/nav_home"
-            android:title="🏠  Home" />
+            android:title="@string/nav_home" />
+        <item
+            android:id="@+id/nav_idioma"
+            android:title="@string/nav_idioma" />
         <item
             android:id="@+id/nav_ajustes"
-            android:title="⚙️  Ajustes" />
+            android:title="@string/nav_ajustes" />
         <item
             android:id="@+id/nav_errores"
-            android:title="🐞  Errores" />
+            android:title="@string/nav_errores" />
         <item
             android:id="@+id/nav_acerca"
-            android:title="ℹ️  Acerca de" />
+            android:title="@string/nav_acerca" />
         <item
             android:id="@+id/nav_actualizar"
-            android:title="🔄  Buscar actualizaciones" />
+            android:title="@string/nav_actualizaciones" />
     </group>
 
 </menu>

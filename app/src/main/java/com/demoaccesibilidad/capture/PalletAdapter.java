@@ -113,7 +113,7 @@ public class PalletAdapter extends RecyclerView.Adapter<PalletAdapter.PalletView
                 txtLocation.setText("📍\u00A0" + p.location);
                 txtLocation.setTextColor(0xFF4CAF50); // verde
             } else {
-                txtLocation.setText("📍\u00A0Sin\u00A0ubicación");
+                txtLocation.setText(itemView.getContext().getString(R.string.pallet_sin_ubicacion));
                 txtLocation.setTextColor(0xFFE53935); // rojo
             }
 

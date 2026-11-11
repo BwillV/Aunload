@@ -251,7 +251,7 @@ public class FloatingButtonService extends Service {
         // de un Service no lo trae, así que envolvemos con ContextThemeWrapper.
         // Sin esto, la inflación lanza excepción, el servicio muere en silencio
         // (por el try/catch de onCreate) y el botón NUNCA aparece.
-        Context themedContext = new ContextThemeWrapper(this, R.style.Theme_DiagnosticoDemo);
+        Context themedContext = LocaleHelper.themedWrap(this);
         floatingView = LayoutInflater.from(themedContext)
                 .inflate(R.layout.layout_floating_fab, null);
 
@@ -608,12 +608,13 @@ public class FloatingButtonService extends Service {
 
     private void crearCanalNotificacion() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Context loc = LocaleHelper.wrap(this);
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_OVERLAY,
-                    "PalletTracker\u00A0Flotante",
+                    loc.getString(R.string.fab_canal),
                     NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Muestra que el botón flotante está activo.");
+            channel.setDescription(loc.getString(R.string.fab_canal_desc));
             channel.setShowBadge(false);
 
             NotificationManager nm = getSystemService(NotificationManager.class);
@@ -622,8 +623,9 @@ public class FloatingButtonService extends Service {
     }
 
     private Notification crearNotificacion() {
+        Context loc = LocaleHelper.wrap(this);
         int scanned = palletRepo.getPalletCountInCurrentContainer();
-        String text = "Registrando\u00A0pallets:\u00A0" + scanned;
+        String text = loc.getString(R.string.fab_registrando, scanned);
 
         Intent openApp = new Intent(this, MainActivity.class);
         openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -631,7 +633,7 @@ public class FloatingButtonService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
         return new NotificationCompat.Builder(this, CHANNEL_OVERLAY)
-                .setContentTitle("📦\u00A0PalletTracker\u00A0Activo")
+                .setContentTitle(loc.getString(R.string.fab_activo_titulo))
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentIntent(pi)
@@ -645,13 +647,14 @@ public class FloatingButtonService extends Service {
             NotificationManager nm = (NotificationManager)
                     getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) {
+                Context loc = LocaleHelper.wrap(this);
                 boolean alerta = (scanned < 0);
                 String title = alerta
-                        ? "⚠️\u00A0Accesibilidad\u00A0desactivada"
-                        : "📦\u00A0PalletTracker\u00A0Activo";
+                        ? loc.getString(R.string.fab_alerta_titulo)
+                        : loc.getString(R.string.fab_activo_titulo);
                 String text = alerta
-                        ? "Toca\u00A0el\u00A0botón\u00A0flotante\u00A0para\u00A0reactivarla"
-                        : "Registrando\u00A0pallets:\u00A0" + scanned;
+                        ? loc.getString(R.string.fab_alerta_texto)
+                        : loc.getString(R.string.fab_registrando, scanned);
 
                 Intent openApp = new Intent(this, MainActivity.class);
                 openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -685,8 +688,8 @@ public class FloatingButtonService extends Service {
                     PendingIntent.FLAG_UPDATE_CURRENT);
 
             Notification notif = new NotificationCompat.Builder(this, CHANNEL_OVERLAY)
-                    .setContentTitle("📋\u00A0PalletTracker\u00A0—\u00A0Inventario")
-                    .setContentText("Modo\u00A0Inventario\u00A0activo")
+                    .setContentTitle(LocaleHelper.wrap(this).getString(R.string.fab_inventario_titulo))
+                    .setContentText(LocaleHelper.wrap(this).getString(R.string.fab_inventario_texto))
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentIntent(pi)
                     .setOngoing(true)

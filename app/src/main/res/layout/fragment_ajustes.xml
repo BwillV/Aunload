@@ -14,7 +14,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🔍  Diagnóstico"
+            android:text="@string/aj_diagnostico"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -25,7 +25,7 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:gravity="center"
-            android:text="📋  Ver capturas del servicio"
+            android:text="@string/aj_ver_capturas"
             android:textColor="#FFFFFF"
             android:textSize="15sp"
             android:background="#2196F3"
@@ -45,7 +45,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="👥  Equipo"
+            android:text="@string/aj_equipo"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -54,7 +54,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Código del equipo para trabajar juntos. Es persistente: no se borra al iniciar un nuevo container."
+            android:text="@string/aj_equipo_desc"
             android:textColor="#AAAAAA"
             android:textSize="13sp"
             android:layout_marginBottom="8dp" />
@@ -63,7 +63,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Código de equipo"
+            android:text="@string/aj_codigo_equipo"
             android:textColor="#AAAAAA"
             android:textSize="12sp"
             android:layout_marginBottom="4dp" />
@@ -72,7 +72,7 @@
             android:id="@+id/edit_container_code"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:hint="Ej: CNT-001, CONT-A, etc."
+            android:hint="@string/hint_ej_cnt"
             android:textColor="#FFFFFF"
             android:textColorHint="#666666"
             android:background="#2a2a4a"
@@ -96,7 +96,7 @@
                 android:layout_height="44dp"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:text="💾  Unirse al equipo"
+                android:text="@string/aj_unirse"
                 android:textColor="#FFFFFF"
                 android:textSize="14sp"
                 android:background="#4CAF50"
@@ -110,7 +110,7 @@
                 android:gravity="center"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
-                android:text="Salir"
+                android:text="@string/aj_salir"
                 android:textColor="#FFFFFF"
                 android:textSize="14sp"
                 android:background="#F44336"
@@ -124,7 +124,7 @@
             android:id="@+id/txt_container_actual"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Código de equipo: Sin configurar"
+            android:text="@string/aj_codigo_sin_config"
             android:textColor="#FF9800"
             android:textSize="14sp"
             android:textStyle="bold"
@@ -141,7 +141,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📱  Botón Flotante"
+            android:text="@string/aj_boton_flotante"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -150,7 +150,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Muestra el contador sobre el WMS y otras apps"
+            android:text="@string/aj_boton_flotante_desc"
             android:textColor="#AAAAAA"
             android:textSize="13sp"
             android:layout_marginBottom="10dp" />
@@ -167,7 +167,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Mostrar botón flotante"
+                android:text="@string/aj_mostrar_boton"
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
@@ -183,7 +183,7 @@
             android:id="@+id/txt_estado_overlay"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Verificando..."
+            android:text="@string/aj_verificando"
             android:textColor="#AAAAAA"
             android:textSize="14sp"
             android:layout_marginBottom="8dp" />
@@ -194,7 +194,7 @@
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:gravity="center"
-            android:text="⚙  Activar permiso de overlay"
+            android:text="@string/aj_activar_overlay"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:background="#607D8B"
@@ -208,7 +208,7 @@
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:gravity="center"
-            android:text="🚀  Forzar inicio del botón"
+            android:text="@string/aj_forzar_inicio"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:background="#FF9800"
@@ -228,7 +228,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Opacidad:"
+                android:text="@string/aj_opacidad"
                 android:textColor="#AAAAAA"
                 android:textSize="13sp"
                 android:paddingEnd="8dp" />
@@ -263,7 +263,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Modo copiar texto"
+                android:text="@string/aj_modo_copiar"
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
@@ -277,7 +277,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Al tocar el botón flotante aparece el menú para copiar textos del WMS (ILP, ubicación o lista)."
+            android:text="@string/aj_modo_copiar_desc"
             android:textColor="#AAAAAA"
             android:textSize="13sp"
             android:layout_marginBottom="16dp" />
@@ -293,7 +293,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🌐  Idioma"
+            android:text="@string/idioma_titulo"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -303,7 +303,7 @@
             android:id="@+id/txt_idioma_actual"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Español 🇪🇸"
+            android:text="@string/idioma_actual_es"
             android:textColor="#AAAAAA"
             android:textSize="14sp"
             android:layout_marginBottom="16dp" />
@@ -319,7 +319,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="♿  Servicio de Accesibilidad"
+            android:text="@string/aj_servicio_acc"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -329,7 +329,7 @@
             android:id="@+id/txt_estado_accesibilidad"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Verificando..."
+            android:text="@string/aj_verificando"
             android:textColor="#AAAAAA"
             android:textSize="15sp"
             android:layout_marginBottom="8dp" />
@@ -339,7 +339,7 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:gravity="center"
-            android:text="⚙  Activar Servicio"
+            android:text="@string/aj_activar_servicio"
             android:textColor="#FFFFFF"
             android:textSize="15sp"
             android:background="#F44336"
@@ -359,7 +359,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🔗  Sincronización Multi-Dispositivo"
+            android:text="@string/aj_sync"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -377,7 +377,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Modo Multi-dispositivo"
+                android:text="@string/aj_modo_multi"
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
@@ -392,7 +392,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Nombre del dispositivo"
+            android:text="@string/aj_nombre_disp"
             android:textColor="#AAAAAA"
             android:textSize="12sp"
             android:layout_marginBottom="4dp" />
@@ -401,7 +401,7 @@
             android:id="@+id/edit_device_name"
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:hint="Ej: Honeywell-01"
+            android:hint="@string/hint_ej_honeywell"
             android:textColor="#FFFFFF"
             android:textColorHint="#666666"
             android:background="#2a2a4a"
@@ -414,7 +414,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Firebase Realtime DB URL"
+            android:text="@string/aj_firebase_url"
             android:textColor="#AAAAAA"
             android:textSize="12sp"
             android:layout_marginBottom="4dp" />
@@ -423,7 +423,7 @@
             android:id="@+id/edit_firebase_url"
             android:layout_width="match_parent"
             android:layout_height="44dp"
-            android:hint="https://tu-proyecto.firebaseio.com"
+            android:hint="@string/hint_firebase_url"
             android:textColor="#FFFFFF"
             android:textColorHint="#666666"
             android:background="#2a2a4a"
@@ -439,7 +439,7 @@
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:gravity="center"
-            android:text="🔌  Probar conexión"
+            android:text="@string/aj_probar_conexion"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:background="#607D8B"
@@ -452,7 +452,7 @@
             android:id="@+id/txt_sync_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Sin configurar"
+            android:text="@string/aj_sin_configurar"
             android:textColor="#888888"
             android:textSize="13sp"
             android:layout_marginBottom="4dp" />
@@ -462,7 +462,7 @@
             android:id="@+id/txt_device_count"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📱 Dispositivos conectados: 0"
+            android:text="@string/aj_disp_conectados_zero"
             android:textColor="#AAAAAA"
             android:textSize="13sp"
             android:layout_marginBottom="16dp" />
@@ -478,7 +478,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🔔  Notificaciones"
+            android:text="@string/aj_notificaciones"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -496,7 +496,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Sonido de notificaciones"
+                android:text="@string/aj_sonido"
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 
@@ -519,7 +519,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Vibración"
+                android:text="@string/aj_vibracion"
                 android:textColor="#DDDDDD"
                 android:textSize="15sp" />
 

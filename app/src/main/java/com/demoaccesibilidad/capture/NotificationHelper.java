@@ -48,20 +48,21 @@ public class NotificationHelper {
     private void crearCanales() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Canal para sincronización.
+            Context loc = LocaleHelper.wrap(context);
             NotificationChannel syncChannel = new NotificationChannel(
                     CHANNEL_SYNC,
-                    "Sincronización\u00A0de\u00A0pallets",
+                    loc.getString(R.string.notif_canal_sync),
                     NotificationManager.IMPORTANCE_LOW
             );
-            syncChannel.setDescription("Notificaciones cuando otros dispositivos escanean.");
+            syncChannel.setDescription(loc.getString(R.string.notif_canal_sync_desc));
 
             // Canal para completado (más prominente).
             NotificationChannel completeChannel = new NotificationChannel(
                     CHANNEL_COMPLETE,
-                    "Container\u00A0completado",
+                    loc.getString(R.string.notif_canal_completo),
                     NotificationManager.IMPORTANCE_HIGH
             );
-            completeChannel.setDescription("Alerta cuando se completa un container.");
+            completeChannel.setDescription(loc.getString(R.string.notif_canal_completo_desc));
             completeChannel.enableVibration(true);
             completeChannel.setVibrationPattern(new long[]{0, 300, 100, 300});
             completeChannel.setSound(
@@ -87,7 +88,8 @@ public class NotificationHelper {
                                           int currentTotal, int expected) {
         if (!isSoundEnabled() && !isVibrationEnabled()) return;
 
-        String title = "📦\u00A0" + deviceName + "\u00A0escaneó";
+        Context loc = LocaleHelper.wrap(context);
+        String title = loc.getString(R.string.notif_escaneo_titulo, deviceName);
         String text = palletCode + "\u00A0—\u00A0" + currentTotal + "/" + expected;
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SYNC)
@@ -110,8 +112,10 @@ public class NotificationHelper {
      * Notificación prominente: ¡container completo!
      */
     public void notifyContainerComplete(String taskId, int totalPallets) {
-        String title = "✅\u00A0¡Container\u00A0completo!";
-        String text = taskId + "\u00A0—\u00A0" + totalPallets + "\u00A0pallets\u00A0escaneados";
+        Context loc = LocaleHelper.wrap(context);
+        String title = loc.getString(R.string.notif_completo_titulo);
+        String text = taskId + "\u00A0—\u00A0" + loc.getResources()
+                .getQuantityString(R.plurals.pallets_escaneados, totalPallets, totalPallets);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_COMPLETE)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -131,8 +135,11 @@ public class NotificationHelper {
      * Notificación: dispositivo conectado/desconectado.
      */
     public void notifyDeviceStatusChanged(String deviceName, boolean connected) {
+        Context loc = LocaleHelper.wrap(context);
         String emoji = connected ? "🟢" : "⚫";
-        String estado = connected ? "conectado" : "desconectado";
+        String estado = connected
+                ? loc.getString(R.string.notif_conectado)
+                : loc.getString(R.string.notif_desconectado);
         String title = emoji + "\u00A0" + deviceName + "\u00A0" + estado;
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SYNC)

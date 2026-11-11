@@ -1,6 +1,7 @@
 package com.demoaccesibilidad.capture;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
@@ -30,6 +31,11 @@ public class TaskDetailActivity extends AppCompatActivity {
     private PalletAdapter adapter;
 
     @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_task_detail);
@@ -51,7 +57,7 @@ public class TaskDetailActivity extends AppCompatActivity {
         String containerDisplay = PalletRepository.displayContainer(containerCode);
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("Pallets\u00A0—\u00A0" + containerDisplay);
+            getSupportActionBar().setTitle(getString(R.string.detail_titulo, containerDisplay));
         }
 
         TextView txtTaskTitle = findViewById(R.id.txt_task_title);
@@ -78,10 +84,9 @@ public class TaskDetailActivity extends AppCompatActivity {
     private void mostrarDialogoBorrarPallet(Pallet p) {
         if (p == null || p.palletCode == null) return;
         new AlertDialog.Builder(this)
-                .setTitle("Borrar\u00A0pallet")
-                .setMessage("¿Borrar\u00A0la\u00A0pallet\u00A0" + p.palletCode
-                        + "?\u00A0Se\u00A0eliminará\u00A0para\u00A0todo\u00A0el\u00A0equipo.")
-                .setPositiveButton("Borrar", (d, which) -> {
+                .setTitle(getString(R.string.cd_borrar_pallet))
+                .setMessage(getString(R.string.dlg_borrar_un_mensaje))
+                .setPositiveButton(getString(R.string.btn_borrar), (d, which) -> {
                     // Borrar del equipo (Firebase) y en local.
                     FirebaseManager.getInstance(this)
                             .deleteTeamPallet(containerCode, p.palletCode);
@@ -94,11 +99,11 @@ public class TaskDetailActivity extends AppCompatActivity {
                     sendBroadcast(new Intent(
                             "com.demoaccesibilidad.capture.UPDATE_FLOATING_FAB"));
                     Toast.makeText(this,
-                            "Pallet\u00A0borrada:\u00A0" + p.palletCode,
+                            getString(R.string.toast_pallet_borrada, p.palletCode),
                             Toast.LENGTH_SHORT).show();
                     cargarPallets();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
                 .show();
     }
 
@@ -108,7 +113,9 @@ public class TaskDetailActivity extends AppCompatActivity {
         List<Pallet> pallets = repo.getPalletsForTask(containerCode);
         pallets = SortHelper.sort(pallets, SortHelper.getMode(this));
         adapter.setPallets(pallets);
-        txtPalletTotal.setText(pallets.size() + "\u00A0pallets\u00A0escaneados");
+        int n = pallets.size();
+        txtPalletTotal.setText(getResources().getQuantityString(
+                R.plurals.pallets_escaneados, n, n));
     }
 
     @Override
@@ -132,30 +139,27 @@ public class TaskDetailActivity extends AppCompatActivity {
 
     /**
      * v4.6: diálogo para escribir o corregir a mano la ubicación de una pallet.
-     * Se abre con una pulsación larga sobre la fila. Guarda con force=true
-     * (permite sobrescribir una ubicación existente porque es una corrección
-     * explícita del usuario) y lo registra en el diagnóstico como fuente "manual".
      */
     private void mostrarDialogoUbicacion(Pallet p) {
         if (p == null || p.palletCode == null) return;
 
         final EditText input = new EditText(this);
-        input.setHint("Ej.\u00A0A07-197-3");
+        input.setHint(getString(R.string.hint_ubicacion));
         if (p.location != null && !p.location.isEmpty()) {
             input.setText(p.location);
             input.setSelection(p.location.length());
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("Ubicación\u00A0de\u00A0" + p.palletCode)
-                .setMessage("Escribe\u00A0o\u00A0corrige\u00A0la\u00A0ubicación\u00A0de\u00A0esta\u00A0pallet.")
+                .setTitle(getString(R.string.dlg_ubicacion_titulo, p.palletCode))
+                .setMessage(getString(R.string.dlg_ubicacion_mensaje))
                 .setView(input)
-                .setPositiveButton("Guardar", (d, which) -> {
+                .setPositiveButton(getString(R.string.btn_guardar), (d, which) -> {
                     String loc = input.getText() != null
                             ? input.getText().toString().trim() : "";
                     if (loc.isEmpty()) {
                         Toast.makeText(this,
-                                "La\u00A0ubicación\u00A0no\u00A0puede\u00A0estar\u00A0vacía",
+                                getString(R.string.toast_ubicacion_vacia),
                                 Toast.LENGTH_SHORT).show();
                         return;
                     }
@@ -165,11 +169,11 @@ public class TaskDetailActivity extends AppCompatActivity {
                             "Pallet\u00A0" + p.palletCode + "\u00A0→\u00A0" + loc
                                     + "\u00A0(fuente:\u00A0manual)");
                     Toast.makeText(this,
-                            "Ubicación\u00A0guardada:\u00A0" + loc,
+                            getString(R.string.toast_ubicacion_guardada),
                             Toast.LENGTH_SHORT).show();
                     cargarPallets();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
                 .show();
     }
 
@@ -177,9 +181,9 @@ public class TaskDetailActivity extends AppCompatActivity {
         final int[] modos = {
                 SortHelper.SORT_SKU, SortHelper.SORT_ILP, SortHelper.SORT_ENTRY };
         final String[] opciones = {
-                SortHelper.label(SortHelper.SORT_SKU),
-                SortHelper.label(SortHelper.SORT_ILP),
-                SortHelper.label(SortHelper.SORT_ENTRY) };
+                SortHelper.label(this, SortHelper.SORT_SKU),
+                SortHelper.label(this, SortHelper.SORT_ILP),
+                SortHelper.label(this, SortHelper.SORT_ENTRY) };
 
         int actual = SortHelper.getMode(this);
         int sel = 0;
@@ -188,13 +192,13 @@ public class TaskDetailActivity extends AppCompatActivity {
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("Ordenar\u00A0pallets")
+                .setTitle(getString(R.string.dlg_ordenar_titulo))
                 .setSingleChoiceItems(opciones, sel, (d, which) -> {
                     SortHelper.setMode(this, modos[which]);
                     d.dismiss();
                     cargarPallets();
                 })
-                .setNegativeButton("Cerrar", null)
+                .setNegativeButton(getString(R.string.btn_cerrar), null)
                 .show();
     }
 }

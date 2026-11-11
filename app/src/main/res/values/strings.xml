@@ -1,7 +1,402 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- ===== Generales / existentes ===== -->
     <string name="app_name">PalletTracker</string>
     <string name="acc_desc">Permite a PalletTracker leer los textos del WMS en pantalla para registrar pallets automáticamente.</string>
     <string name="nav_open">Abrir menú</string>
     <string name="nav_close">Cerrar menú</string>
+
+    <!-- ===== Comunes ===== -->
+    <string name="btn_cancelar">Cancelar</string>
+    <string name="btn_cerrar">Cerrar</string>
+    <string name="btn_guardar">Guardar</string>
+    <string name="btn_crear">Crear</string>
+    <string name="btn_entendido">Entendido</string>
+    <string name="btn_actualizar_plain">Actualizar</string>
+    <string name="btn_actualizar">🔄 Actualizar</string>
+    <string name="cd_contador_pallets">Contador de pallets</string>
+    <string name="toast_pallet_borrada">Pallet borrada: %1$s</string>
+    <string name="cd_cerrar">✕ Cerrar</string>
+
+    <!-- ===== Idioma ===== -->
+    <string name="idioma_titulo">🌐 Idioma</string>
+    <string name="idioma_elige">Elige el idioma</string>
+    <string name="idioma_es">Español 🇪🇸</string>
+    <string name="idioma_en">English 🇬🇧</string>
+    <string name="idioma_zh">中文 🇨🇳</string>
+    <string name="idioma_actual_es">Español 🇪🇸</string>
+    <string name="idioma_cambiado">Idioma cambiado</string>
+
+    <!-- ===== activity_main ===== -->
+    <string name="main_modo_inbound">Modo: Inbound</string>
+    <string name="main_modo_inventario">Modo: Inventario</string>
+    <string name="main_inventario">Inventario</string>
+    <string name="main_container_vacio">Container: ---</string>
+    <string name="main_boton_activo">✓ Botón flotante activo</string>
+    <string name="main_sin_pallets">📦\n\nNo hay pallets registrados.\nEscanea pallets con el escáner para verlas aquí.</string>
+    <string name="cd_nuevo_finalizar">Nuevo\u00A0o\u00A0finalizar\u00A0container</string>
+    <string name="cd_actualizar_sync">Actualizar\u00A0y\u00A0sincronizar</string>
+
+    <!-- ===== Modo (AppMode) ===== -->
+    <string name="appmode_inventario">Inventario</string>
+    <string name="appmode_inbound">Inbound</string>
+    <string name="toast_modo">Modo: %1$s</string>
+    <string name="toast_modo_emoji">📊 Modo: %1$s</string>
+
+    <!-- ===== Diálogo accesibilidad (no descartable) ===== -->
+    <string name="dlg_acc_titulo">⚠️ Accesibilidad desactivada</string>
+    <string name="dlg_acc_mensaje">El servicio de Accesibilidad de PalletTracker está apagado. Sin él no se pueden registrar los pallets automáticamente.\n\nActívalo para seguir trabajando.</string>
+    <string name="dlg_acc_activar">Activar\u00A0ahora</string>
+    <string name="dlg_acc_mas_tarde">Más\u00A0tarde</string>
+
+    <!-- ===== Resumen / encabezado ===== -->
+    <string name="main_vas_container">Vas\u00A0en\u00A0el\u00A0Container\u00A0%1$d</string>
+    <string name="main_equipo_info">Equipo %1$s • %2$s</string>
+    <string name="main_hoy_resumen">Hoy: %1$s • %2$s</string>
+    <string name="main_container_info">Container %1$d • %2$s</string>
+
+    <!-- ===== Diálogo Nuevo Container ===== -->
+    <string name="dlg_nuevo_titulo">🆕 Nuevo Container</string>
+    <string name="dlg_nuevo_mensaje">Se iniciará un container nuevo. Los pallets actuales se guardan en el container anterior.</string>
+    <string name="hint_codigo">Código (Ej: CNT-001)</string>
+    <string name="hint_pallets_esperadas">Pallets esperadas (Ej: 20)</string>
+    <string name="toast_pallets_invalido">❌ Número de pallets inválido</string>
+    <string name="toast_nuevo_container">✅ Nuevo container iniciado</string>
+
+    <!-- ===== Container options (diálogo) ===== -->
+    <string name="dlg_cont_titulo">📦 Configurar Container</string>
+    <string name="dlg_cont_nuevo_titulo">Comenzar Nuevo Container</string>
+    <string name="dlg_cont_nuevo_desc">Resetea contador y crea sesión nueva</string>
+    <string name="dlg_cont_actualizar_titulo">Actualizar Container Actual</string>
+    <string name="dlg_cont_actualizar_desc">Mantiene pallets escaneadas, cambia la meta</string>
+
+    <!-- ===== Diálogo Actualizar Meta ===== -->
+    <string name="hint_nueva_meta">Nueva meta de pallets</string>
+    <string name="dlg_meta_titulo">✏️ Actualizar Meta</string>
+    <string name="btn_quitar_meta">Quitar meta</string>
+    <string name="dlg_meta_tienes">Tienes %1$s. Solo cambia la meta.</string>
+
+    <!-- ===== Ordenar ===== -->
+    <string name="dlg_ordenar_titulo">Ordenar pallets</string>
+    <string name="sort_por_sku">Por\u00A0SKU</string>
+    <string name="sort_por_ilp">Por\u00A0ILP\u00A0(menor\u00A0a\u00A0mayor)</string>
+    <string name="sort_orden_entrada">Orden\u00A0de\u00A0entrada</string>
+
+    <!-- ===== Diálogo reset / finalizar / borrar ===== -->
+    <string name="dlg_reset_titulo">🔄 Resetear container</string>
+    <string name="dlg_reset_mensaje">¿Borrar los pallets del container actual?</string>
+    <string name="toast_actualizado_sync">🔄 Actualizado y sincronizado</string>
+    <string name="toast_no_containers">No hay containers para finalizar</string>
+    <string name="dlg_finalizar_titulo">✅ Finalizar container</string>
+    <string name="dlg_finalizar_mensaje">¿Finalizar el container actual e iniciar uno nuevo?</string>
+    <string name="btn_finalizar">Finalizar</string>
+    <string name="dlg_borrar_cont_titulo">🗑 Borrar containers</string>
+    <string name="btn_borrar_seleccionados">Borrar seleccionados</string>
+    <string name="toast_no_seleccion">No seleccionaste ningún container</string>
+    <string name="dlg_borrar_un_titulo">🗑 Borrar container</string>
+    <string name="dlg_borrar_un_mensaje">¿Borrar este container y sus pallets?</string>
+    <string name="btn_borrar">Borrar</string>
+    <string name="cd_borrar_container">Borrar\u00A0container</string>
+    <string name="cd_borrar_pallet">Borrar\u00A0pallet</string>
+
+    <!-- ===== TaskDetail (pallets de un container) ===== -->
+    <string name="detail_titulo">Pallets — %1$s</string>
+    <string name="detail_pallets_escaneados">%1$s escaneados</string>
+    <string name="detail_container">Container</string>
+    <string name="hint_ubicacion">Ej. A07-197-3</string>
+    <string name="dlg_ubicacion_titulo">Ubicación de %1$s</string>
+    <string name="dlg_ubicacion_mensaje">Escribe o escanea la ubicación.</string>
+    <string name="toast_ubicacion_guardada">✅ Ubicación guardada</string>
+    <string name="toast_ubicacion_vacia">❌ Ubicación vacía</string>
+
+    <!-- ===== Diagnóstico ===== -->
+    <string name="diag_comenzar">▶ Comenzar diagnóstico</string>
+    <string name="diag_detener">⏹ Detener diagnóstico</string>
+    <string name="diag_copiar">📋 Copiar diagnóstico</string>
+    <string name="diag_borrar">🗑 Borrar diagnóstico</string>
+    <string name="diag_toast_iniciado">Grabación de diagnóstico iniciada</string>
+    <string name="diag_toast_detenido">Grabación de diagnóstico detenida</string>
+    <string name="diag_toast_borrado">Diagnóstico borrado</string>
+    <string name="diag_toast_copiado">Diagnóstico copiado</string>
+    <string name="diag_sin_datos">Todavía no hay datos de diagnóstico.\nPulsa «Comenzar diagnóstico» y usa la app.</string>
+    <string name="diag_sin_datos_corto">Sin datos de diagnóstico.</string>
+    <string name="diag_grabando">● Grabando diagnóstico…</string>
+    <string name="diag_detenido_estado">Diagnóstico detenido.</string>
+    <string name="diag_clip_label">Diagnóstico</string>
+
+    <!-- ===== Errores ===== -->
+    <string name="err_titulo">🐞 Registro de Errores</string>
+    <string name="err_desc">Si la app se cierra sola, aquí queda el registro para diagnosticarlo.</string>
+    <string name="err_compartir">📤 Compartir</string>
+    <string name="err_limpiar">🗑 Limpiar</string>
+    <string name="err_sin_errores">Sin errores registrados. 🎉</string>
+    <string name="err_todo_ok">✅ Todo en orden</string>
+    <string name="err_archivo">Archivo: %1$s</string>
+    <string name="err_nada_compartir">No hay nada que compartir</string>
+    <string name="err_chooser">Compartir registro</string>
+    <string name="err_error_compartir">Error al compartir</string>
+    <string name="err_borrado">🗑 Registro de errores borrado</string>
+
+    <!-- ===== Acerca de ===== -->
+    <string name="acerca_contenido">📦 PalletTracker\n\nVersión %1$s\n\nApp para registrar pallets automáticamente leyendo el WMS en pantalla.\n\nPara escáneres Honeywell / iData 50 Series.</string>
+
+    <!-- ===== Menú drawer ===== -->
+    <string name="nav_home">🏠 Home</string>
+    <string name="nav_ajustes">⚙️ Ajustes</string>
+    <string name="nav_errores">🐞 Errores</string>
+    <string name="nav_acerca">ℹ️ Acerca de</string>
+    <string name="nav_actualizaciones">🔄 Buscar actualizaciones</string>
+    <string name="nav_idioma">🌐 Idioma</string>
+    <string name="menu_ordenar">Ordenar</string>
+
+    <!-- ===== Ajustes ===== -->
+    <string name="aj_diagnostico">🔍 Diagnóstico</string>
+    <string name="aj_ver_capturas">📋 Ver capturas del servicio</string>
+    <string name="aj_equipo">👥 Equipo</string>
+    <string name="aj_equipo_desc">Comparte el código con tu equipo para sincronizar containers y pallets entre scanners.</string>
+    <string name="aj_codigo_equipo">Código de equipo</string>
+    <string name="hint_ej_cnt">Ej: CNT-001</string>
+    <string name="aj_unirse">💾 Unirse al equipo</string>
+    <string name="aj_salir">Salir</string>
+    <string name="aj_codigo_sin_config">Código de equipo: Sin configurar</string>
+    <string name="aj_codigo_actual">Código de equipo: %1$s</string>
+    <string name="aj_unido">✅ Unido al equipo %1$s</string>
+    <string name="aj_salio">Saliste del equipo</string>
+    <string name="aj_boton_flotante">📱 Botón Flotante</string>
+    <string name="aj_boton_flotante_desc">Muestra un botón flotante para copiar textos y cambiar de modo sin salir del WMS.</string>
+    <string name="aj_mostrar_boton">Mostrar botón flotante</string>
+    <string name="aj_verificando">Verificando…</string>
+    <string name="aj_activar_overlay">⚙ Activar permiso de overlay</string>
+    <string name="aj_forzar_inicio">🚀 Forzar inicio del botón</string>
+    <string name="aj_opacidad">Opacidad:</string>
+    <string name="aj_opacidad_valor">%1$d%%</string>
+    <string name="aj_modo_copiar">Modo copiar texto</string>
+    <string name="aj_modo_copiar_desc">Al tocar el botón flotante abre el menú de copiar en vez de sumar un pallet.</string>
+    <string name="aj_servicio_acc">♿ Servicio de Accesibilidad</string>
+    <string name="aj_activar_servicio">⚙ Activar Servicio</string>
+    <string name="aj_sync">🔗 Sincronización Multi-Dispositivo</string>
+    <string name="aj_modo_multi">Modo Multi-dispositivo</string>
+    <string name="aj_nombre_disp">Nombre del dispositivo</string>
+    <string name="hint_ej_honeywell">Ej: Honeywell-01</string>
+    <string name="aj_firebase_url">Firebase Realtime DB URL</string>
+    <string name="hint_firebase_url">https://tu-proyecto.firebaseio.com</string>
+    <string name="aj_probar_conexion">🔌 Probar conexión</string>
+    <string name="aj_sin_configurar">Sin configurar</string>
+    <string name="aj_disp_conectados_zero">📱 Dispositivos conectados: 0</string>
+    <string name="aj_disp_conectados">📱 Dispositivos conectados: %1$d</string>
+    <string name="aj_disp_activos">📱 Dispositivos activos: %1$d</string>
+    <string name="aj_notificaciones">🔔 Notificaciones</string>
+    <string name="aj_sonido">Sonido de notificaciones</string>
+    <string name="aj_vibracion">Vibración</string>
+    <string name="aj_toast_overlay_on">Botón flotante activado</string>
+    <string name="aj_toast_overlay_off">Botón flotante desactivado</string>
+    <string name="aj_toast_permiso_overlay">Concede el permiso de overlay primero</string>
+    <string name="aj_toast_forzar_ok">Iniciando botón flotante…</string>
+    <string name="aj_toast_forzar_err">No se pudo iniciar el botón flotante</string>
+    <string name="aj_toast_modo_copiar_on">Modo copiar texto activado</string>
+    <string name="aj_toast_modo_copiar_off">Modo copiar texto desactivado</string>
+    <string name="aj_toast_sync_on">Sincronización activada</string>
+    <string name="aj_toast_sync_off">Sincronización desactivada</string>
+    <string name="aj_toast_sync_problema">Problema con la sincronización</string>
+    <string name="aj_firebase_default">aunload-rescue (auto-configurado)</string>
+    <string name="aj_acc_activa">✅ Servicio activo</string>
+    <string name="aj_acc_inactiva">⚠ Servicio inactivo</string>
+    <string name="aj_overlay_activo">✅ Permiso concedido</string>
+    <string name="aj_overlay_inactivo">⚠ Permiso no concedido</string>
+    <string name="aj_conexion_ok">✅ Conectado</string>
+    <string name="aj_conexion_err">⚠ Sin conexión</string>
+    <string name="aj_error_activar">No se pudo abrir los ajustes del sistema</string>
+
+    <!-- ===== nav_header ===== -->
+    <string name="nav_header_version">v%1$s</string>
+
+    <!-- ===== Notificaciones ===== -->
+    <string name="notif_canal_sync">Sincronización de pallets</string>
+    <string name="notif_canal_sync_desc">Avisos cuando un compañero registra pallets o completa un container.</string>
+    <string name="notif_canal_completo">Container completado</string>
+    <string name="notif_canal_completo_desc">Aviso cuando un container llega a su meta.</string>
+    <string name="notif_escaneo_titulo">📦 %1$s escaneó</string>
+    <string name="notif_escaneo_texto">%1$s en el equipo</string>
+    <string name="notif_completo_titulo">✅ ¡Container completo!</string>
+    <string name="notif_completo_texto">%1$s registrados</string>
+    <string name="notif_conectado">conectado</string>
+    <string name="notif_desconectado">desconectado</string>
+    <string name="notif_estado_titulo">%1$s %2$s</string>
+
+    <!-- ===== FloatingButtonService ===== -->
+    <string name="fab_canal">PalletTracker Flotante</string>
+    <string name="fab_canal_desc">Mantiene activo el botón flotante de PalletTracker.</string>
+    <string name="fab_registrando">Registrando pallets: %1$d</string>
+    <string name="fab_activo_titulo">📦 PalletTracker Activo</string>
+    <string name="fab_activo_texto">Toca el botón flotante para copiar o cambiar de modo.</string>
+    <string name="fab_inventario_titulo">📦 Modo Inventario</string>
+    <string name="fab_inventario_texto">Recogidas de inventario activas.</string>
+
+    <!-- ===== BootReceiver ===== -->
+    <string name="boot_canal">Aviso de accesibilidad</string>
+    <string name="boot_canal_desc">Recuerda activar el servicio de Accesibilidad tras reiniciar.</string>
+    <string name="boot_titulo">⚠️ Activa PalletTracker</string>
+    <string name="boot_texto">Toca para activar el servicio de Accesibilidad.</string>
+    <string name="boot_bigtext">El servicio de Accesibilidad está apagado. Actívalo para que PalletTracker registre los pallets automáticamente.</string>
+
+    <!-- ===== OverlayPermissionHelper ===== -->
+    <string name="dlg_overlay_titulo">📱 Permiso de Overlay</string>
+    <string name="dlg_overlay_mensaje">Para mostrar el botón flotante, concede el permiso de «Mostrar sobre otras apps».</string>
+    <string name="dlg_overlay_abrir">Abrir Ajustes</string>
+    <string name="dlg_overlay_despues">Después</string>
+
+    <!-- ===== UpdateChecker ===== -->
+    <string name="upd_buscando">Buscando actualizaciones…</string>
+    <string name="upd_titulo">🔄 Actualización disponible</string>
+    <string name="upd_mensaje">Hay una versión nueva (%1$s). ¿Descargar e instalar?</string>
+    <string name="upd_descargar">Descargar e instalar</string>
+    <string name="upd_ahora_no">Ahora no</string>
+    <string name="upd_descargando">Descargando versión %1$s…</string>
+    <string name="upd_permiso_titulo">Permiso para instalar</string>
+    <string name="upd_permiso_mensaje">Para instalar la actualización, permite instalar apps de orígenes desconocidos.</string>
+    <string name="upd_sin_actualizacion">Ya tienes la última versión</string>
+
+    <!-- ===== CopyTextHelper (menú FAB) ===== -->
+    <string name="copy_toast_copiado">Copiado: %1$s</string>
+    <string name="copy_titulo">📋 Copiar texto</string>
+    <string name="copy_elige">Elige qué copiar…</string>
+    <string name="copy_ubicaciones">📍 Ubicaciones en pantalla</string>
+    <string name="copy_ilp">🏷 Copiar ILP</string>
+    <string name="copy_sku">📦 Copiar SKU</string>
+    <string name="copy_ubicacion">📍 Copiar ubicación</string>
+    <string name="copy_alternar">🔁 Alternar Yo / Total</string>
+    <string name="copy_modo">🔀 Modo: %1$s</string>
+    <string name="copy_siguiente">Siguiente ubicación</string>
+    <string name="copy_articulo">Artículo (SKU): </string>
+    <string name="copy_total_qty">Total Qty: </string>
+    <string name="copy_menor_mayor">↑ Menor a mayor</string>
+    <string name="copy_mayor_menor">↓ Mayor a menor</string>
+    <string name="copy_completo">Completo ✅</string>
+    <string name="copy_activar_acc">Activa el servicio de Accesibilidad para copiar</string>
+    <string name="copy_ilp_detectados">ILP detectados</string>
+    <string name="copy_ubicaciones_detectadas">Ubicaciones detectadas</string>
+    <string name="copy_sku_detectados">SKU detectados</string>
+    <string name="copy_no_ilp">No se encontraron ILP</string>
+    <string name="copy_no_ubicacion">No se encontraron ubicaciones</string>
+    <string name="copy_no_sku">No se encontraron SKU</string>
+    <string name="copy_toca_valor">Toca un valor para copiarlo</string>
+    <string name="copy_copiar_todos">Copiar todos</string>
+    <string name="copy_titulo_n">%1$s (%2$d)</string>
+    <string name="copy_n_ubicaciones">%1$s</string>
+    <string name="copy_idioma">🌐 Idioma</string>
+
+    <!-- ===== FloatingDialogHelper ===== -->
+    <string name="fd_container">📦 Container</string>
+    <string name="fd_nuevo">🆕 Nuevo Container</string>
+    <string name="fd_nuevo_borra">Se borrarán los pallets actuales.</string>
+    <string name="fd_codigo">Código:</string>
+    <string name="fd_pallets_esperadas">Pallets esperadas:</string>
+    <string name="fd_num_invalido">❌ Número inválido</string>
+    <string name="fd_meta">✏️ Actualizar Meta</string>
+    <string name="fd_quitar">Quitar</string>
+    <string name="fd_completado">¡Completado! 🎉</string>
+    <string name="fd_resetear">🔄 Resetear</string>
+    <string name="fd_borrar_n">¿Borrar %1$s?</string>
+    <string name="fd_si_borrar">Sí, borrar</string>
+
+    <!-- ===== Plurales ===== -->
+    <plurals name="pallets">
+        <item quantity="one">%d pallet</item>
+        <item quantity="other">%d pallets</item>
+    </plurals>
+    <plurals name="containers">
+        <item quantity="one">%d container</item>
+        <item quantity="other">%d containers</item>
+    </plurals>
+    <plurals name="pallets_escaneados">
+        <item quantity="one">%d pallet escaneado</item>
+        <item quantity="other">%d pallets escaneados</item>
+    </plurals>
+    <string name="mode_escaneados">Escaneados</string>
+    <string name="mode_faltan">Faltan</string>
+    <string name="mode_ratio">Ratio</string>
+    <string name="main_sin_container_cfg">Sin\u00A0container\u00A0configurado</string>
+    <string name="reset_label_container">container\u00A0%1$s</string>
+    <string name="reset_label_contador">contador</string>
+    <string name="reset_titulo">🔄\u00A0Resetear\u00A0%1$s</string>
+    <string name="reset_msg">¿Borrar todos los pallets y resetear a 0?\n\n(La meta de %1$d pallets se mantiene)</string>
+    <string name="toast_reset_hecho">🔄\u00A0Reseteado\u00A0a\u00A00</string>
+    <string name="borrar_un_titulo">🗑\u00A0Borrar\u00A0%1$s</string>
+    <string name="borrar_un_msg">¿Borrar %1$s? Se eliminarán sus pallets para todo el equipo.\n\nEsta acción no se puede deshacer.</string>
+    <string name="toast_container_borrado">🗑\u00A0%1$s\u00A0borrado</string>
+    <string name="finalizar_msg">Se dará por terminado el Container %1$d y se iniciará uno nuevo en 0 para todo el equipo.\n\nLos pallets ya escaneados quedan guardados.</string>
+    <string name="btn_finalizar_iniciar">Finalizar\u00A0e\u00A0iniciar\u00A0nuevo</string>
+    <string name="toast_finalizado">✅\u00A0Container\u00A0finalizado\u00A0—\u00A0nuevo\u00A0en\u00A00</string>
+    <string name="toast_no_cont_hoy">🗑\u00A0No\u00A0hay\u00A0containers\u00A0de\u00A0hoy\u00A0para\u00A0borrar</string>
+    <string name="confirmar_borrado_titulo">⚠\u00A0Confirmar\u00A0borrado</string>
+    <string name="confirmar_borrado_msg">¿Seguro que quieres borrar %1$d container(s)?\n\n%2$s\n\nEsta acción no se puede deshacer.</string>
+    <string name="toast_pallets_borrados">🗑\u00A0%1$d\u00A0pallets\u00A0borrados</string>
+    <string name="toast_doble_tap">💡\u00A0Doble\u00A0tap\u00A0para\u00A0configurar\u00A0container</string>
+    <string name="cont_label_pallets">%1$s\u00A0(%2$d\u00A0pallets)</string>
+    <string name="meta_actual">\nMeta\u00A0actual:\u00A0%1$d</string>
+    <string name="meta_completado">\u00A0—\u00A0¡Ya\u00A0completado!\u00A0🎉</string>
+    <string name="meta_faltan">\u00A0—\u00A0faltan\u00A0%1$d</string>
+    <string name="toast_meta_set">✅\u00A0Meta:\u00A0%1$d%2$s</string>
+    <string name="toast_num_invalido">❌\u00A0Número\u00A0inválido</string>
+    <string name="toast_meta_eliminada">🔄\u00A0Meta\u00A0eliminada</string>
+    <string name="dlg_nuevo_msg2">Se\u00A0borrarán\u00A0los\u00A0pallets\u00A0actuales\u00A0y\u00A0se\u00A0creará\u00A0una\u00A0sesión\u00A0nueva.</string>
+    <string name="copy_buscando">Buscando todas las ubicaciones…</string>
+    <string name="copy_activa_servicio">Activa el servicio de Accesibilidad</string>
+    <string name="copy_no_ubic_pantalla">No se encontraron ubicaciones en esta pantalla</string>
+    <string name="copy_count_ubic_sing">%1$d ubicación detectada</string>
+    <string name="copy_count_ubic_plur">%1$d ubicaciones detectadas</string>
+    <string name="copy_inventario_label">Inventario</string>
+    <string name="copy_no_ilp_pant">No se encontró ILP en esta pantalla</string>
+    <string name="copy_no_ubic_pant">No se encontró ubicación en esta pantalla</string>
+    <string name="copy_no_sku_pant">No se encontró SKU en esta pantalla</string>
+    <string name="fab_alerta_titulo">⚠️ Accesibilidad desactivada</string>
+    <string name="fab_alerta_texto">Toca el botón flotante para reactivarla</string>
+    <string name="upd_sin_act_titulo">Sin actualizaciones</string>
+    <string name="upd_sin_release">No se encontró ningún release de PalletTracker en GitHub.</string>
+    <string name="upd_msg_nueva">Tienes la versión %1$s (%2$d).\n\nNueva versión disponible: %3$s (%4$d).\n\n¿Descargar e instalar?</string>
+    <string name="upd_al_dia_titulo">✅ Todo al día</string>
+    <string name="upd_al_dia_msg">Ya tienes la última versión instalada (%1$s).</string>
+    <string name="upd_permiso_abrir">Abrir ajustes</string>
+    <string name="upd_err_generico_titulo">Error</string>
+    <string name="upd_err_abrir_ajustes">No se pudo abrir los ajustes: %1$s</string>
+    <string name="upd_err_descargar_titulo">❌ Error al descargar</string>
+    <string name="upd_err_descargar_msg">No se pudo descargar la actualización.\n\nDetalle:\n%1$s</string>
+    <string name="upd_err_instalar_titulo">❌ Error al instalar</string>
+    <string name="upd_err_instalar_msg">No se pudo iniciar la instalación.\n\nDetalle:\n%1$s</string>
+    <string name="upd_entendido">Entendido</string>
+    <string name="aj_err_cargar">⚠ No se pudo cargar Ajustes.\nRevisa la pestaña \"Errores\" para ver el detalle.</string>
+    <string name="aj_toast_ingresa_codigo">❌ Ingresa un código de equipo</string>
+    <string name="aj_toast_permiso_ya">✅ Permiso ya concedido</string>
+    <string name="aj_toast_forzar_ok2">✅ Botón flotante iniciado correctamente</string>
+    <string name="aj_toast_forzar_err2">⚠ No se pudo iniciar. Revisa permisos.</string>
+    <string name="aj_serv_activo">✅ Servicio: ACTIVO</string>
+    <string name="aj_serv_inactivo">❌ Servicio: INACTIVO</string>
+    <string name="aj_abrir_ajustes_acc">⚙ Abrir Ajustes de Accesibilidad</string>
+    <string name="aj_activar_serv_acc">⚙ Activar Servicio de Accesibilidad</string>
+    <string name="aj_sync_no_activar">❌ No se pudo activar.\n%1$s</string>
+    <string name="aj_sync_err_desconocido">Error desconocido al iniciar Firebase</string>
+    <string name="aj_toast_sync_no_activar">❌ No se pudo activar la sincronización</string>
+    <string name="aj_probando">⏳ Probando conexión…</string>
+    <string name="aj_conexion_exitosa">✅ Conexión exitosa con Firebase</string>
+    <string name="aj_error_fmt">❌ Error: %1$s</string>
+    <string name="aj_estado_ok">🟢 Estado: %1$s</string>
+    <string name="aj_estado_err">🔴 Estado: %1$s</string>
+    <string name="aj_overlay_activo2">✅ Botón flotante: ACTIVO</string>
+    <string name="aj_overlay_inactivo2">⚪ Botón flotante: INACTIVO</string>
+    <string name="aj_permiso_overlay_ok">✅ Permiso de overlay concedido</string>
+    <string name="aj_permiso_activa_switch">✅ Permiso concedido — activa el switch</string>
+    <string name="aj_sin_permiso_overlay">❌ Sin permiso de overlay</string>
+    <string name="aj_err_abrir">⚠ Hubo un problema al abrir Ajustes. Se guardó el detalle.</string>
+    <string name="diag_toast_iniciado2">Grabación iniciada. Usa la otra app y vuelve aquí al terminar.</string>
+    <string name="diag_toast_detenido2">Grabación detenida. %1$d pantallas guardadas.</string>
+    <string name="diag_sin_datos2">Todavía no hay datos.\nInicia la grabación, usa la otra app, y vuelve aquí.</string>
+    <string name="diag_grabando_fmt">🔴 GRABANDO… (%1$d pantallas capturadas)</string>
+    <string name="diag_ultima_captura">\nÚltima captura: %1$s</string>
+    <string name="diag_detenido_fmt">Detenido — %1$d pantallas grabadas. Toca "Copiar" y envíalas.</string>
+    <string name="diag_detenido_vacio">Detenido. Toca "Comenzar" antes de ir a la otra app.</string>
+    <string name="diag_toast_copiado2">Diagnóstico copiado al portapapeles</string>
+    <string name="err_no_cargar">No se pudo cargar la pantalla de errores.</string>
+    <string name="err_eventos">⚠ %1$d evento(s) registrado(s)</string>
+    <string name="err_subject">PalletTracker — Registro de errores</string>
+    <string name="pallet_sin_ubicacion">📍 Sin ubicación</string>
 </resources>

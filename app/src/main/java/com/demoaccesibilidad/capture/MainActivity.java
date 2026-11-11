@@ -133,6 +133,11 @@ public class MainActivity extends AppCompatActivity
     // ====================== LIFECYCLE ======================
 
     @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(LocaleHelper.wrap(base));
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -210,7 +215,7 @@ public class MainActivity extends AppCompatActivity
         fab.setImageResource(android.R.drawable.ic_menu_add);
         fab.setBackgroundTintList(ColorStateList.valueOf(0xFF2196F3)); // azul = acción normal
         fab.setImageTintList(ColorStateList.valueOf(0xFFFFFFFF));
-        fab.setContentDescription("Nuevo\u00A0o\u00A0finalizar\u00A0container");
+        fab.setContentDescription(getString(R.string.cd_nuevo_finalizar));
         fab.setOnClickListener(v -> mostrarDialogoBorrarContainers());
         fab.setOnLongClickListener(v -> {
             mostrarDialogoBorrarContainers();
@@ -221,7 +226,7 @@ public class MainActivity extends AppCompatActivity
         // Situado ARRIBA del FAB principal. Fuerza una re-sincronización y
         // refresca todos los datos por si el tiempo real no se actualizó solo.
         if (fabRefresh != null) {
-            fabRefresh.setContentDescription("Actualizar\u00A0y\u00A0sincronizar");
+            fabRefresh.setContentDescription(getString(R.string.cd_actualizar_sync));
             fabRefresh.setOnClickListener(v -> actualizarYSincronizar());
         }
 
@@ -235,10 +240,10 @@ public class MainActivity extends AppCompatActivity
             switchMode.setOnCheckedChangeListener((btn, checked) -> {
                 AppMode.setInventario(this, checked);
                 if (txtModeLabel != null) {
-                    txtModeLabel.setText(checked ? "Modo: Inventario" : "Modo: Inbound");
+                    txtModeLabel.setText(checked ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
                 }
                 Toast.makeText(this,
-                        "Modo:\u00A0" + (checked ? "Inventario" : "Inbound"),
+                        getString(R.string.toast_modo, checked ? getString(R.string.appmode_inventario) : getString(R.string.appmode_inbound)),
                         Toast.LENGTH_SHORT).show();
             });
         }
@@ -324,15 +329,15 @@ public class MainActivity extends AppCompatActivity
             switchMode.setOnCheckedChangeListener((btn, checked) -> {
                 AppMode.setInventario(this, checked);
                 if (txtModeLabel != null) {
-                    txtModeLabel.setText(checked ? "Modo: Inventario" : "Modo: Inbound");
+                    txtModeLabel.setText(checked ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
                 }
                 Toast.makeText(this,
-                        "Modo:\u00A0" + (checked ? "Inventario" : "Inbound"),
+                        getString(R.string.toast_modo, checked ? getString(R.string.appmode_inventario) : getString(R.string.appmode_inbound)),
                         Toast.LENGTH_SHORT).show();
             });
         }
         if (txtModeLabel != null) {
-            txtModeLabel.setText(inv ? "Modo: Inventario" : "Modo: Inbound");
+            txtModeLabel.setText(inv ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
         }
     }
 
@@ -362,13 +367,10 @@ public class MainActivity extends AppCompatActivity
 
             dialogAccesibilidad = new AlertDialog.Builder(this)
                     .setCancelable(false)
-                    .setTitle("⚠️\u00A0Accesibilidad\u00A0desactivada")
-                    .setMessage("La\u00A0accesibilidad\u00A0de\u00A0PalletTracker\u00A0está\u00A0"
-                            + "desactivada.\u00A0Sin\u00A0ella\u00A0no\u00A0se\u00A0pueden\u00A0"
-                            + "contar\u00A0las\u00A0pallets.\n\nActívala\u00A0para\u00A0seguir\u00A0"
-                            + "registrando\u00A0automáticamente.")
-                    .setPositiveButton("Activar\u00A0ahora", (d, w) -> abrirAjustesAccesibilidad())
-                    .setNegativeButton("Más\u00A0tarde", (d, w) -> d.dismiss())
+                    .setTitle(getString(R.string.dlg_acc_titulo))
+                    .setMessage(getString(R.string.dlg_acc_mensaje))
+                    .setPositiveButton(getString(R.string.dlg_acc_activar), (d, w) -> abrirAjustesAccesibilidad())
+                    .setNegativeButton(getString(R.string.dlg_acc_mas_tarde), (d, w) -> d.dismiss())
                     .create();
             dialogAccesibilidad.show();
         } catch (Throwable t) {
@@ -427,13 +429,10 @@ public class MainActivity extends AppCompatActivity
         if (fm.isTeamActive()) {
             fm.ensureListeningIfEnabled();
             containerHeader.setVisibility(View.VISIBLE);
-            txtContainerCode.setText("Vas\u00A0en\u00A0el\u00A0Container\u00A0"
-                    + fm.getCurrentContainerNumberShared());
+            txtContainerCode.setText(getString(R.string.main_vas_container, fm.getCurrentContainerNumberShared()));
             int totalEquipo = fm.getTeamPalletCount();
             txtContainerTasks.setVisibility(View.VISIBLE);
-            txtContainerTasks.setText("Equipo\u00A0" + fm.getTeamCode()
-                    + "\u00A0•\u00A0" + totalEquipo
-                    + (totalEquipo == 1 ? "\u00A0pallet" : "\u00A0pallets"));
+            txtContainerTasks.setText(getString(R.string.main_equipo_info, fm.getTeamCode(), getResources().getQuantityString(R.plurals.pallets, totalEquipo, totalEquipo)));
 
             int devCount = fm.getActiveDeviceCount();
             if (devCount > 1) {
@@ -457,8 +456,7 @@ public class MainActivity extends AppCompatActivity
         containerHeader.setVisibility(View.VISIBLE);
         // v4.4 — SOLO datos de HOY, sin totales históricos.
         // "Vas en el Container X" = número de container actual DENTRO de hoy.
-        txtContainerCode.setText("Vas\u00A0en\u00A0el\u00A0Container\u00A0"
-                + palletRepo.getCurrentContainerNumber());
+        txtContainerCode.setText(getString(R.string.main_vas_container, palletRepo.getCurrentContainerNumber()));
 
         // v4.5 — "Hoy: N containers" = containers INICIADOS hoy, no solo los que
         // ya tienen pallets. El número del container actual (secuencia diaria)
@@ -470,9 +468,7 @@ public class MainActivity extends AppCompatActivity
                 palletRepo.getContainerListToday().size());
         txtContainerTasks.setVisibility(View.VISIBLE);
         // "Hoy: N containers" + pallets de hoy (nunca el total histórico).
-        txtContainerTasks.setText("Hoy:\u00A0" + numContainers
-                + (numContainers == 1 ? "\u00A0container" : "\u00A0containers")
-                + "\u00A0•\u00A0" + palletsHoy + "\u00A0pallets");
+        txtContainerTasks.setText(getString(R.string.main_hoy_resumen, getResources().getQuantityString(R.plurals.containers, numContainers, numContainers), getResources().getQuantityString(R.plurals.pallets, palletsHoy, palletsHoy)));
 
         // Dispositivos activos.
         int deviceCount = fm.getActiveDeviceCount();
@@ -511,7 +507,7 @@ public class MainActivity extends AppCompatActivity
         if (expectedPallets <= 0) {
             notifHelper.vibrarCorto();
             Toast.makeText(this,
-                    "💡\u00A0Doble\u00A0tap\u00A0para\u00A0configurar\u00A0container",
+                    getString(R.string.toast_doble_tap),
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -523,12 +519,12 @@ public class MainActivity extends AppCompatActivity
 
         String modeName;
         switch (fabDisplayMode) {
-            case MODE_SCANNED:  modeName = "Escaneados"; break;
-            case MODE_REMAINING: modeName = "Faltan"; break;
-            case MODE_RATIO:    modeName = "Ratio"; break;
+            case MODE_SCANNED:  modeName = getString(R.string.mode_escaneados); break;
+            case MODE_REMAINING: modeName = getString(R.string.mode_faltan); break;
+            case MODE_RATIO:    modeName = getString(R.string.mode_ratio); break;
             default: modeName = ""; break;
         }
-        Toast.makeText(this, "📊\u00A0Modo:\u00A0" + modeName, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.toast_modo_emoji, modeName), Toast.LENGTH_SHORT).show();
 
         animarCambioModo();
         refrescarContador();
@@ -573,14 +569,13 @@ public class MainActivity extends AppCompatActivity
             txtContainerInfo.setText(scanned + "/" + expectedPallets
                     + "\u00A0pallets\u00A0escaneadas");
         } else {
-            txtContainerInfo.setText("Sin\u00A0container\u00A0configurado");
+            txtContainerInfo.setText(getString(R.string.main_sin_container_cfg));
         }
 
         // Subtítulo de opción 2.
         TextView txtUpdateSubtitle = dialog.findViewById(R.id.txt_update_subtitle);
         if (scanned > 0) {
-            txtUpdateSubtitle.setText("Tienes\u00A0" + scanned
-                    + "\u00A0pallets.\u00A0Solo\u00A0cambia\u00A0la\u00A0meta.");
+            txtUpdateSubtitle.setText(getString(R.string.dlg_meta_tienes, getResources().getQuantityString(R.plurals.pallets, scanned, scanned)));
         }
 
         // Opción 1: Nuevo Container.
@@ -611,7 +606,7 @@ public class MainActivity extends AppCompatActivity
         // Input para código de container (opcional si ya está en ajustes).
         final EditText inputCode = new EditText(this);
         inputCode.setInputType(android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
-        inputCode.setHint("Código\u00A0(Ej:\u00A0CNT-001)");
+        inputCode.setHint(getString(R.string.hint_codigo));
         inputCode.setTextColor(0xFFFFFFFF);
         inputCode.setHintTextColor(0xFF888888);
         inputCode.setBackgroundColor(0xFF2a2a4a);
@@ -623,7 +618,7 @@ public class MainActivity extends AppCompatActivity
         // Input para pallets esperadas.
         final EditText inputPallets = new EditText(this);
         inputPallets.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        inputPallets.setHint("Pallets\u00A0esperadas\u00A0(Ej:\u00A020)");
+        inputPallets.setHint(getString(R.string.hint_pallets_esperadas));
         inputPallets.setTextColor(0xFFFFFFFF);
         inputPallets.setHintTextColor(0xFF888888);
         inputPallets.setBackgroundColor(0xFF2a2a4a);
@@ -643,10 +638,10 @@ public class MainActivity extends AppCompatActivity
         layout.addView(inputPallets);
 
         new AlertDialog.Builder(this)
-                .setTitle("🆕\u00A0Nuevo\u00A0Container")
-                .setMessage("Se\u00A0borrarán\u00A0los\u00A0pallets\u00A0actuales\u00A0y\u00A0se\u00A0creará\u00A0una\u00A0sesión\u00A0nueva.")
+                .setTitle(getString(R.string.dlg_nuevo_titulo))
+                .setMessage(getString(R.string.dlg_nuevo_msg2))
                 .setView(layout)
-                .setPositiveButton("Crear", (d, w) -> {
+                .setPositiveButton(getString(R.string.btn_crear), (d, w) -> {
                     String code = inputCode.getText().toString().trim().toUpperCase();
                     String palletsStr = inputPallets.getText().toString().trim();
 
@@ -690,7 +685,7 @@ public class MainActivity extends AppCompatActivity
                     msg += "\u00A0—\u00A0meta:\u00A0" + numPallets;
                     Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
                 .show();
     }
 
@@ -703,7 +698,7 @@ public class MainActivity extends AppCompatActivity
 
         final EditText input = new EditText(this);
         input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        input.setHint("Nueva\u00A0meta\u00A0de\u00A0pallets");
+        input.setHint(getString(R.string.hint_nueva_meta));
         input.setTextColor(0xFFFFFFFF);
         input.setHintTextColor(0xFF888888);
         input.setBackgroundColor(0xFF2a2a4a);
@@ -720,17 +715,16 @@ public class MainActivity extends AppCompatActivity
         params.setMargins(50, 20, 50, 0);
         container.addView(input, params);
 
-        String message = "Tienes\u00A0" + scanned + "\u00A0pallets\u00A0escaneadas.\n"
-                + "Solo\u00A0se\u00A0actualizará\u00A0la\u00A0meta.";
+        String message = getString(R.string.dlg_meta_tienes, getResources().getQuantityString(R.plurals.pallets, scanned, scanned));
         if (expectedPallets > 0) {
-            message += "\nMeta\u00A0actual:\u00A0" + expectedPallets;
+            message += getString(R.string.meta_actual, expectedPallets);
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("✏️\u00A0Actualizar\u00A0Meta")
+                .setTitle(getString(R.string.dlg_meta_titulo))
                 .setMessage(message)
                 .setView(container)
-                .setPositiveButton("Actualizar", (d, w) -> {
+                .setPositiveButton(getString(R.string.btn_actualizar_plain), (d, w) -> {
                     String txt = input.getText().toString().trim();
                     if (!txt.isEmpty()) {
                         try {
@@ -760,23 +754,23 @@ public class MainActivity extends AppCompatActivity
 
                                 String estado;
                                 if (scanned >= num) {
-                                    estado = "\u00A0—\u00A0¡Ya\u00A0completado!\u00A0🎉";
+                                    estado = getString(R.string.meta_completado);
                                 } else {
-                                    estado = "\u00A0—\u00A0faltan\u00A0" + (num - scanned);
+                                    estado = getString(R.string.meta_faltan, (num - scanned));
                                 }
                                 Toast.makeText(this,
-                                        "✅\u00A0Meta:\u00A0" + num + estado,
+                                        getString(R.string.toast_meta_set, num, estado),
                                         Toast.LENGTH_SHORT).show();
                             }
                         } catch (NumberFormatException ignored) {
                             Toast.makeText(this,
-                                    "❌\u00A0Número\u00A0inválido",
+                                    getString(R.string.toast_num_invalido),
                                     Toast.LENGTH_SHORT).show();
                         }
                     }
                 })
-                .setNegativeButton("Cancelar", null)
-                .setNeutralButton("Quitar\u00A0meta", (d, w) -> {
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
+                .setNeutralButton(getString(R.string.btn_quitar_meta), (d, w) -> {
                     expectedPallets = 0;
                     fabPrefs.edit().putInt(KEY_EXPECTED_PALLETS, 0).apply();
                     fabDisplayMode = MODE_SCANNED;
@@ -784,7 +778,7 @@ public class MainActivity extends AppCompatActivity
                     containerWasComplete = false;
                     refrescarContador();
                     Toast.makeText(this,
-                            "🔄\u00A0Meta\u00A0eliminada",
+                            getString(R.string.toast_meta_eliminada),
                             Toast.LENGTH_SHORT).show();
                 })
                 .show();
@@ -899,10 +893,53 @@ public class MainActivity extends AppCompatActivity
             mostrarFragment(new AcercaDeFragment(), "Acerca\u00A0de");
         } else if (id == R.id.nav_actualizar) {
             new UpdateChecker().checkForUpdates(this);
+        } else if (id == R.id.nav_idioma) {
+            mostrarDialogoIdioma();
         }
 
         drawerLayout.closeDrawer(GravityCompat.START);
         return true;
+    }
+
+    /** Selector de idioma (Español / English / 中文). Persiste y recrea la app. */
+    public void mostrarDialogoIdioma() {
+        final String[] codes = { LocaleHelper.ES, LocaleHelper.EN, LocaleHelper.ZH };
+        String[] labels = {
+                getString(R.string.idioma_es),
+                getString(R.string.idioma_en),
+                getString(R.string.idioma_zh)
+        };
+        String actual = LocaleHelper.getLanguage(this);
+        int sel = 0;
+        for (int i = 0; i < codes.length; i++) if (codes[i].equals(actual)) sel = i;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.idioma_elige))
+                .setSingleChoiceItems(labels, sel, (d, which) -> {
+                    d.dismiss();
+                    aplicarIdioma(codes[which]);
+                })
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
+                .show();
+    }
+
+    /** Guarda el idioma, reinicia el botón flotante y recrea la Activity. */
+    public void aplicarIdioma(String lang) {
+        if (lang == null) return;
+        if (lang.equals(LocaleHelper.getLanguage(this))) return;
+        LocaleHelper.setLanguage(this, lang);
+        // Reiniciar el servicio del FAB para que overlays/notificaciones usen el idioma.
+        try {
+            boolean fabOn = getSharedPreferences("overlay_prefs", MODE_PRIVATE)
+                    .getBoolean("overlay_enabled", true);
+            Intent svc = new Intent(this, FloatingButtonService.class);
+            stopService(svc);
+            if (fabOn && android.provider.Settings.canDrawOverlays(this)) {
+                startService(svc);
+            }
+        } catch (Exception ignored) {}
+        android.widget.Toast.makeText(this, getString(R.string.idioma_cambiado),
+                android.widget.Toast.LENGTH_SHORT).show();
+        recreate();
     }
 
     @Override
@@ -969,7 +1006,7 @@ public class MainActivity extends AppCompatActivity
         if (statusOverlay == null) return;
 
         if (FloatingButtonService.isRunning()) {
-            statusOverlay.setText("✓\u00A0Botón\u00A0flotante\u00A0activo");
+            statusOverlay.setText(getString(R.string.main_boton_activo));
             statusOverlay.setTextColor(0xFF4CAF50);
             statusOverlay.setVisibility(View.VISIBLE);
         } else {
@@ -1016,9 +1053,9 @@ public class MainActivity extends AppCompatActivity
         final int[] modos = {
                 SortHelper.SORT_SKU, SortHelper.SORT_ILP, SortHelper.SORT_ENTRY };
         final String[] opciones = {
-                SortHelper.label(SortHelper.SORT_SKU),
-                SortHelper.label(SortHelper.SORT_ILP),
-                SortHelper.label(SortHelper.SORT_ENTRY) };
+                SortHelper.label(this, SortHelper.SORT_SKU),
+                SortHelper.label(this, SortHelper.SORT_ILP),
+                SortHelper.label(this, SortHelper.SORT_ENTRY) };
 
         int actual = SortHelper.getMode(this);
         int sel = 0;
@@ -1027,13 +1064,13 @@ public class MainActivity extends AppCompatActivity
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("Ordenar\u00A0pallets")
+                .setTitle(getString(R.string.dlg_ordenar_titulo))
                 .setSingleChoiceItems(opciones, sel, (d, which) -> {
                     SortHelper.setMode(this, modos[which]);
                     d.dismiss();
                     refrescarDatos();
                 })
-                .setNegativeButton("Cerrar", null)
+                .setNegativeButton(getString(R.string.btn_cerrar), null)
                 .show();
     }
 
@@ -1045,14 +1082,13 @@ public class MainActivity extends AppCompatActivity
         FirebaseManager fm = FirebaseManager.getInstance(this);
         String containerCode = fm.getContainerCode();
         String label = (containerCode != null && !containerCode.isEmpty())
-                ? "container\u00A0" + containerCode
-                : "contador";
+                ? getString(R.string.reset_label_container, containerCode)
+                : getString(R.string.reset_label_contador);
 
         new AlertDialog.Builder(this)
-                .setTitle("🔄\u00A0Resetear\u00A0" + label)
-                .setMessage("¿Borrar todos los pallets\u00A0y\u00A0resetear\u00A0a\u00A00?\n\n"
-                        + "(La meta de " + expectedPallets + "\u00A0pallets\u00A0se\u00A0mantiene)")
-                .setPositiveButton("Sí,\u00A0borrar", (d, w) -> {
+                .setTitle(getString(R.string.reset_titulo, label))
+                .setMessage(getString(R.string.reset_msg, expectedPallets))
+                .setPositiveButton(getString(R.string.fd_si_borrar), (d, w) -> {
                     palletRepo.clearAll();
                     containerWasComplete = false;
 
@@ -1060,10 +1096,10 @@ public class MainActivity extends AppCompatActivity
 
                     refrescarDatos();
                     Toast.makeText(this,
-                            "🔄\u00A0Reseteado\u00A0a\u00A00",
+                            getString(R.string.toast_reset_hecho),
                             Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
                 .show();
     }
 
@@ -1084,11 +1120,9 @@ public class MainActivity extends AppCompatActivity
         final String display = PalletRepository.displayContainer(containerId);
 
         new AlertDialog.Builder(this)
-                .setTitle("🗑\u00A0Borrar\u00A0" + display)
-                .setMessage("¿Borrar\u00A0" + display + "?\u00A0Se\u00A0eliminarán\u00A0"
-                        + "sus\u00A0pallets\u00A0para\u00A0todo\u00A0el\u00A0equipo.\n\n"
-                        + "Esta\u00A0acción\u00A0no\u00A0se\u00A0puede\u00A0deshacer.")
-                .setPositiveButton("Borrar", (d, w) -> {
+                .setTitle(getString(R.string.borrar_un_titulo, display))
+                .setMessage(getString(R.string.borrar_un_msg, display))
+                .setPositiveButton(getString(R.string.btn_borrar), (d, w) -> {
                     // Borrar del equipo (Firebase) y en local.
                     FirebaseManager.getInstance(this).deleteTeamContainer(containerId);
                     int removed = palletRepo.deletePalletsByContainer(containerId);
@@ -1106,10 +1140,10 @@ public class MainActivity extends AppCompatActivity
                     } catch (Exception ignored) { }
 
                     Toast.makeText(this,
-                            "🗑\u00A0" + display + "\u00A0borrado",
+                            getString(R.string.toast_container_borrado, display),
                             Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
                 .show();
     }
 
@@ -1139,7 +1173,7 @@ public class MainActivity extends AppCompatActivity
         } catch (Exception ignored) { }
 
         Toast.makeText(this,
-                "🔄\u00A0Actualizado\u00A0y\u00A0sincronizado",
+                getString(R.string.toast_actualizado_sync),
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -1161,21 +1195,17 @@ public class MainActivity extends AppCompatActivity
         final FirebaseManager fmTeam = FirebaseManager.getInstance(this);
         if (fmTeam.isTeamActive()) {
             new AlertDialog.Builder(this)
-                    .setTitle("✅\u00A0Finalizar\u00A0container")
-                    .setMessage("Se\u00A0dará\u00A0por\u00A0terminado\u00A0el\u00A0Container\u00A0"
-                            + fmTeam.getCurrentContainerNumberShared()
-                            + "\u00A0y\u00A0se\u00A0iniciará\u00A0uno\u00A0nuevo\u00A0en\u00A00"
-                            + "\u00A0para\u00A0todo\u00A0el\u00A0equipo.\n\n"
-                            + "Los\u00A0pallets\u00A0ya\u00A0escaneados\u00A0quedan\u00A0guardados.")
-                    .setPositiveButton("Finalizar\u00A0e\u00A0iniciar\u00A0nuevo", (d, w) -> {
+                    .setTitle(getString(R.string.dlg_finalizar_titulo))
+                    .setMessage(getString(R.string.finalizar_msg, fmTeam.getCurrentContainerNumberShared()))
+                    .setPositiveButton(getString(R.string.btn_finalizar_iniciar), (d, w) -> {
                         fmTeam.startNewContainerShared();
                         notifHelper.vibrarCorto();
                         Toast.makeText(this,
-                                "✅\u00A0Container\u00A0finalizado\u00A0—\u00A0nuevo\u00A0en\u00A00",
+                                getString(R.string.toast_finalizado),
                                 Toast.LENGTH_SHORT).show();
                         refrescarDatos();
                     })
-                    .setNegativeButton("Cancelar", null)
+                    .setNegativeButton(getString(R.string.btn_cancelar), null)
                     .show();
             return;
         }
@@ -1183,7 +1213,7 @@ public class MainActivity extends AppCompatActivity
         final List<String> containers = palletRepo.getUniqueContainersToday();
         if (containers.isEmpty()) {
             Toast.makeText(this,
-                    "🗑\u00A0No\u00A0hay\u00A0containers\u00A0de\u00A0hoy\u00A0para\u00A0borrar",
+                    getString(R.string.toast_no_cont_hoy),
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -1192,28 +1222,27 @@ public class MainActivity extends AppCompatActivity
         final boolean[] checked = new boolean[containers.size()];
         for (int i = 0; i < containers.size(); i++) {
             int count = palletRepo.getPalletsForTask(containers.get(i)).size();
-            labels[i] = PalletRepository.displayContainer(containers.get(i))
-                    + "\u00A0(" + count + "\u00A0pallets)";
+            labels[i] = getString(R.string.cont_label_pallets, PalletRepository.displayContainer(containers.get(i)), count);
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("🗑\u00A0Borrar\u00A0containers")
+                .setTitle(getString(R.string.dlg_borrar_cont_titulo))
                 .setMultiChoiceItems(labels, checked,
                         (d, which, isChecked) -> checked[which] = isChecked)
-                .setPositiveButton("Borrar\u00A0seleccionados", (d, w) -> {
+                .setPositiveButton(getString(R.string.btn_borrar_seleccionados), (d, w) -> {
                     List<String> aBorrar = new ArrayList<>();
                     for (int i = 0; i < containers.size(); i++) {
                         if (checked[i]) aBorrar.add(containers.get(i));
                     }
                     if (aBorrar.isEmpty()) {
                         Toast.makeText(this,
-                                "No\u00A0seleccionaste\u00A0ningún\u00A0container",
+                                getString(R.string.toast_no_seleccion),
                                 Toast.LENGTH_SHORT).show();
                         return;
                     }
                     confirmarBorradoContainers(aBorrar);
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
                 .show();
     }
 
@@ -1228,11 +1257,9 @@ public class MainActivity extends AppCompatActivity
         }
 
         new AlertDialog.Builder(this)
-                .setTitle("⚠\u00A0Confirmar\u00A0borrado")
-                .setMessage("¿Seguro que quieres borrar " + containers.size()
-                        + "\u00A0container(s)?\n\n" + sb
-                        + "\n\nEsta\u00A0acción\u00A0no\u00A0se\u00A0puede\u00A0deshacer.")
-                .setPositiveButton("Sí,\u00A0borrar", (d, w) -> {
+                .setTitle(getString(R.string.confirmar_borrado_titulo))
+                .setMessage(getString(R.string.confirmar_borrado_msg, containers.size(), sb.toString()))
+                .setPositiveButton(getString(R.string.fd_si_borrar), (d, w) -> {
                     int total = 0;
                     for (String c : containers) {
                         total += palletRepo.deletePalletsByContainer(c);
@@ -1250,10 +1277,10 @@ public class MainActivity extends AppCompatActivity
                     } catch (Exception ignored) { }
 
                     Toast.makeText(this,
-                            "🗑\u00A0" + total + "\u00A0pallets\u00A0borrados",
+                            getString(R.string.toast_pallets_borrados, total),
                             Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton(getString(R.string.btn_cancelar), null)
                 .show();
     }
 }

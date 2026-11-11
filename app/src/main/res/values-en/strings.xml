@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ===== General ===== -->
+    <string name="app_name">PalletTracker</string>
+    <string name="acc_desc">Lets PalletTracker read the WMS text on screen to register pallets automatically.</string>
+    <string name="nav_open">Open menu</string>
+    <string name="nav_close">Close menu</string>
+
+    <!-- ===== Common ===== -->
+    <string name="btn_cancelar">Cancel</string>
+    <string name="btn_cerrar">Close</string>
+    <string name="btn_guardar">Save</string>
+    <string name="btn_crear">Create</string>
+    <string name="btn_entendido">Got it</string>
+    <string name="btn_actualizar_plain">Update</string>
+    <string name="btn_actualizar">🔄 Refresh</string>
+    <string name="cd_contador_pallets">Pallet counter</string>
+    <string name="toast_pallet_borrada">Pallet deleted: %1$s</string>
+    <string name="cd_cerrar">✕ Close</string>
+
+    <!-- ===== Language ===== -->
+    <string name="idioma_titulo">🌐 Language</string>
+    <string name="idioma_elige">Choose language</string>
+    <string name="idioma_es">Español 🇪🇸</string>
+    <string name="idioma_en">English 🇬🇧</string>
+    <string name="idioma_zh">中文 🇨🇳</string>
+    <string name="idioma_actual_es">English 🇬🇧</string>
+    <string name="idioma_cambiado">Language changed</string>
+
+    <!-- ===== activity_main ===== -->
+    <string name="main_modo_inbound">Mode: Inbound</string>
+    <string name="main_modo_inventario">Mode: Inventory</string>
+    <string name="main_inventario">Inventory</string>
+    <string name="main_container_vacio">Container: ---</string>
+    <string name="main_boton_activo">✓ Floating button active</string>
+    <string name="main_sin_pallets">📦\n\nNo pallets registered.\nScan pallets with the scanner to see them here.</string>
+    <string name="cd_nuevo_finalizar">New\u00A0or\u00A0finish\u00A0container</string>
+    <string name="cd_actualizar_sync">Refresh\u00A0and\u00A0sync</string>
+
+    <!-- ===== Mode ===== -->
+    <string name="appmode_inventario">Inventory</string>
+    <string name="appmode_inbound">Inbound</string>
+    <string name="toast_modo">Mode: %1$s</string>
+    <string name="toast_modo_emoji">📊 Mode: %1$s</string>
+
+    <!-- ===== Accessibility dialog ===== -->
+    <string name="dlg_acc_titulo">⚠️ Accessibility off</string>
+    <string name="dlg_acc_mensaje">PalletTracker\'s Accessibility service is off. Without it pallets cannot be registered automatically.\n\nTurn it on to keep working.</string>
+    <string name="dlg_acc_activar">Turn\u00A0on\u00A0now</string>
+    <string name="dlg_acc_mas_tarde">Later</string>
+
+    <!-- ===== Summary / header ===== -->
+    <string name="main_vas_container">You\u00A0are\u00A0on\u00A0Container\u00A0%1$d</string>
+    <string name="main_equipo_info">Team %1$s • %2$s</string>
+    <string name="main_hoy_resumen">Today: %1$s • %2$s</string>
+    <string name="main_container_info">Container %1$d • %2$s</string>
+
+    <!-- ===== New Container dialog ===== -->
+    <string name="dlg_nuevo_titulo">🆕 New Container</string>
+    <string name="dlg_nuevo_mensaje">A new container will start. Current pallets are saved to the previous container.</string>
+    <string name="hint_codigo">Code (e.g. CNT-001)</string>
+    <string name="hint_pallets_esperadas">Expected pallets (e.g. 20)</string>
+    <string name="toast_pallets_invalido">❌ Invalid pallet number</string>
+    <string name="toast_nuevo_container">✅ New container started</string>
+
+    <!-- ===== Container options ===== -->
+    <string name="dlg_cont_titulo">📦 Set up Container</string>
+    <string name="dlg_cont_nuevo_titulo">Start New Container</string>
+    <string name="dlg_cont_nuevo_desc">Resets counter and creates a new session</string>
+    <string name="dlg_cont_actualizar_titulo">Update Current Container</string>
+    <string name="dlg_cont_actualizar_desc">Keeps scanned pallets, changes the goal</string>
+
+    <!-- ===== Update Goal dialog ===== -->
+    <string name="hint_nueva_meta">New pallet goal</string>
+    <string name="dlg_meta_titulo">✏️ Update Goal</string>
+    <string name="btn_quitar_meta">Remove goal</string>
+    <string name="dlg_meta_tienes">You have %1$s. Only the goal changes.</string>
+
+    <!-- ===== Sort ===== -->
+    <string name="dlg_ordenar_titulo">Sort pallets</string>
+    <string name="sort_por_sku">By\u00A0SKU</string>
+    <string name="sort_por_ilp">By\u00A0ILP\u00A0(low\u00A0to\u00A0high)</string>
+    <string name="sort_orden_entrada">Entry\u00A0order</string>
+
+    <!-- ===== Reset / finish / delete ===== -->
+    <string name="dlg_reset_titulo">🔄 Reset container</string>
+    <string name="dlg_reset_mensaje">Delete the pallets in the current container?</string>
+    <string name="toast_actualizado_sync">🔄 Refreshed and synced</string>
+    <string name="toast_no_containers">No containers to finish</string>
+    <string name="dlg_finalizar_titulo">✅ Finish container</string>
+    <string name="dlg_finalizar_mensaje">Finish the current container and start a new one?</string>
+    <string name="btn_finalizar">Finish</string>
+    <string name="dlg_borrar_cont_titulo">🗑 Delete containers</string>
+    <string name="btn_borrar_seleccionados">Delete selected</string>
+    <string name="toast_no_seleccion">You did not select any container</string>
+    <string name="dlg_borrar_un_titulo">🗑 Delete container</string>
+    <string name="dlg_borrar_un_mensaje">Delete this container and its pallets?</string>
+    <string name="btn_borrar">Delete</string>
+    <string name="cd_borrar_container">Delete\u00A0container</string>
+    <string name="cd_borrar_pallet">Delete\u00A0pallet</string>
+
+    <!-- ===== TaskDetail ===== -->
+    <string name="detail_titulo">Pallets — %1$s</string>
+    <string name="detail_pallets_escaneados">%1$s scanned</string>
+    <string name="detail_container">Container</string>
+    <string name="hint_ubicacion">e.g. A07-197-3</string>
+    <string name="dlg_ubicacion_titulo">Location of %1$s</string>
+    <string name="dlg_ubicacion_mensaje">Type or scan the location.</string>
+    <string name="toast_ubicacion_guardada">✅ Location saved</string>
+    <string name="toast_ubicacion_vacia">❌ Empty location</string>
+
+    <!-- ===== Diagnostics ===== -->
+    <string name="diag_comenzar">▶ Start diagnostics</string>
+    <string name="diag_detener">⏹ Stop diagnostics</string>
+    <string name="diag_copiar">📋 Copy diagnostics</string>
+    <string name="diag_borrar">🗑 Clear diagnostics</string>
+    <string name="diag_toast_iniciado">Diagnostics recording started</string>
+    <string name="diag_toast_detenido">Diagnostics recording stopped</string>
+    <string name="diag_toast_borrado">Diagnostics cleared</string>
+    <string name="diag_toast_copiado">Diagnostics copied</string>
+    <string name="diag_sin_datos">No diagnostics data yet.\nTap \u00abStart diagnostics\u00bb and use the app.</string>
+    <string name="diag_sin_datos_corto">No diagnostics data.</string>
+    <string name="diag_grabando">● Recording diagnostics…</string>
+    <string name="diag_detenido_estado">Diagnostics stopped.</string>
+    <string name="diag_clip_label">Diagnostics</string>
+
+    <!-- ===== Errors ===== -->
+    <string name="err_titulo">🐞 Error Log</string>
+    <string name="err_desc">If the app closes on its own, the log is kept here for troubleshooting.</string>
+    <string name="err_compartir">📤 Share</string>
+    <string name="err_limpiar">🗑 Clear</string>
+    <string name="err_sin_errores">No errors logged. 🎉</string>
+    <string name="err_todo_ok">✅ All good</string>
+    <string name="err_archivo">File: %1$s</string>
+    <string name="err_nada_compartir">Nothing to share</string>
+    <string name="err_chooser">Share log</string>
+    <string name="err_error_compartir">Error while sharing</string>
+    <string name="err_borrado">🗑 Error log cleared</string>
+
+    <!-- ===== About ===== -->
+    <string name="acerca_contenido">📦 PalletTracker\n\nVersion %1$s\n\nApp to register pallets automatically by reading the WMS on screen.\n\nFor Honeywell / iData 50 Series scanners.</string>
+
+    <!-- ===== Drawer menu ===== -->
+    <string name="nav_home">🏠 Home</string>
+    <string name="nav_ajustes">⚙️ Settings</string>
+    <string name="nav_errores">🐞 Errors</string>
+    <string name="nav_acerca">ℹ️ About</string>
+    <string name="nav_actualizaciones">🔄 Check for updates</string>
+    <string name="nav_idioma">🌐 Language</string>
+    <string name="menu_ordenar">Sort</string>
+
+    <!-- ===== Settings ===== -->
+    <string name="aj_diagnostico">🔍 Diagnostics</string>
+    <string name="aj_ver_capturas">📋 View service captures</string>
+    <string name="aj_equipo">👥 Team</string>
+    <string name="aj_equipo_desc">Share the code with your team to sync containers and pallets across scanners.</string>
+    <string name="aj_codigo_equipo">Team code</string>
+    <string name="hint_ej_cnt">e.g. CNT-001</string>
+    <string name="aj_unirse">💾 Join team</string>
+    <string name="aj_salir">Leave</string>
+    <string name="aj_codigo_sin_config">Team code: Not set</string>
+    <string name="aj_codigo_actual">Team code: %1$s</string>
+    <string name="aj_unido">✅ Joined team %1$s</string>
+    <string name="aj_salio">You left the team</string>
+    <string name="aj_boton_flotante">📱 Floating Button</string>
+    <string name="aj_boton_flotante_desc">Shows a floating button to copy text and switch modes without leaving the WMS.</string>
+    <string name="aj_mostrar_boton">Show floating button</string>
+    <string name="aj_verificando">Checking…</string>
+    <string name="aj_activar_overlay">⚙ Grant overlay permission</string>
+    <string name="aj_forzar_inicio">🚀 Force start button</string>
+    <string name="aj_opacidad">Opacity:</string>
+    <string name="aj_opacidad_valor">%1$d%%</string>
+    <string name="aj_modo_copiar">Copy text mode</string>
+    <string name="aj_modo_copiar_desc">Tapping the floating button opens the copy menu instead of adding a pallet.</string>
+    <string name="aj_servicio_acc">♿ Accessibility Service</string>
+    <string name="aj_activar_servicio">⚙ Enable Service</string>
+    <string name="aj_sync">🔗 Multi-Device Sync</string>
+    <string name="aj_modo_multi">Multi-device mode</string>
+    <string name="aj_nombre_disp">Device name</string>
+    <string name="hint_ej_honeywell">e.g. Honeywell-01</string>
+    <string name="aj_firebase_url">Firebase Realtime DB URL</string>
+    <string name="hint_firebase_url">https://your-project.firebaseio.com</string>
+    <string name="aj_probar_conexion">🔌 Test connection</string>
+    <string name="aj_sin_configurar">Not set</string>
+    <string name="aj_disp_conectados_zero">📱 Connected devices: 0</string>
+    <string name="aj_disp_conectados">📱 Connected devices: %1$d</string>
+    <string name="aj_disp_activos">📱 Active devices: %1$d</string>
+    <string name="aj_notificaciones">🔔 Notifications</string>
+    <string name="aj_sonido">Notification sound</string>
+    <string name="aj_vibracion">Vibration</string>
+    <string name="aj_toast_overlay_on">Floating button enabled</string>
+    <string name="aj_toast_overlay_off">Floating button disabled</string>
+    <string name="aj_toast_permiso_overlay">Grant the overlay permission first</string>
+    <string name="aj_toast_forzar_ok">Starting floating button…</string>
+    <string name="aj_toast_forzar_err">Could not start the floating button</string>
+    <string name="aj_toast_modo_copiar_on">Copy text mode enabled</string>
+    <string name="aj_toast_modo_copiar_off">Copy text mode disabled</string>
+    <string name="aj_toast_sync_on">Sync enabled</string>
+    <string name="aj_toast_sync_off">Sync disabled</string>
+    <string name="aj_toast_sync_problema">Sync problem</string>
+    <string name="aj_firebase_default">aunload-rescue (auto-configured)</string>
+    <string name="aj_acc_activa">✅ Service active</string>
+    <string name="aj_acc_inactiva">⚠ Service inactive</string>
+    <string name="aj_overlay_activo">✅ Permission granted</string>
+    <string name="aj_overlay_inactivo">⚠ Permission not granted</string>
+    <string name="aj_conexion_ok">✅ Connected</string>
+    <string name="aj_conexion_err">⚠ No connection</string>
+    <string name="aj_error_activar">Could not open system settings</string>
+
+    <!-- ===== nav_header ===== -->
+    <string name="nav_header_version">v%1$s</string>
+
+    <!-- ===== Notifications ===== -->
+    <string name="notif_canal_sync">Pallet sync</string>
+    <string name="notif_canal_sync_desc">Alerts when a teammate registers pallets or completes a container.</string>
+    <string name="notif_canal_completo">Container completed</string>
+    <string name="notif_canal_completo_desc">Alert when a container reaches its goal.</string>
+    <string name="notif_escaneo_titulo">📦 %1$s scanned</string>
+    <string name="notif_escaneo_texto">%1$s on the team</string>
+    <string name="notif_completo_titulo">✅ Container complete!</string>
+    <string name="notif_completo_texto">%1$s registered</string>
+    <string name="notif_conectado">connected</string>
+    <string name="notif_desconectado">disconnected</string>
+    <string name="notif_estado_titulo">%1$s %2$s</string>
+
+    <!-- ===== FloatingButtonService ===== -->
+    <string name="fab_canal">PalletTracker Floating</string>
+    <string name="fab_canal_desc">Keeps the PalletTracker floating button active.</string>
+    <string name="fab_registrando">Registering pallets: %1$d</string>
+    <string name="fab_activo_titulo">📦 PalletTracker Active</string>
+    <string name="fab_activo_texto">Tap the floating button to copy or switch modes.</string>
+    <string name="fab_inventario_titulo">📦 Inventory Mode</string>
+    <string name="fab_inventario_texto">Inventory pick-ups active.</string>
+
+    <!-- ===== BootReceiver ===== -->
+    <string name="boot_canal">Accessibility reminder</string>
+    <string name="boot_canal_desc">Reminds you to enable the Accessibility service after a reboot.</string>
+    <string name="boot_titulo">⚠️ Enable PalletTracker</string>
+    <string name="boot_texto">Tap to enable the Accessibility service.</string>
+    <string name="boot_bigtext">The Accessibility service is off. Turn it on so PalletTracker registers pallets automatically.</string>
+
+    <!-- ===== OverlayPermissionHelper ===== -->
+    <string name="dlg_overlay_titulo">📱 Overlay Permission</string>
+    <string name="dlg_overlay_mensaje">To show the floating button, grant the \u00abDisplay over other apps\u00bb permission.</string>
+    <string name="dlg_overlay_abrir">Open Settings</string>
+    <string name="dlg_overlay_despues">Later</string>
+
+    <!-- ===== UpdateChecker ===== -->
+    <string name="upd_buscando">Checking for updates…</string>
+    <string name="upd_titulo">🔄 Update available</string>
+    <string name="upd_mensaje">A new version (%1$s) is available. Download and install?</string>
+    <string name="upd_descargar">Download and install</string>
+    <string name="upd_ahora_no">Not now</string>
+    <string name="upd_descargando">Downloading version %1$s…</string>
+    <string name="upd_permiso_titulo">Install permission</string>
+    <string name="upd_permiso_mensaje">To install the update, allow installing apps from unknown sources.</string>
+    <string name="upd_sin_actualizacion">You already have the latest version</string>
+
+    <!-- ===== CopyTextHelper (FAB menu) ===== -->
+    <string name="copy_toast_copiado">Copied: %1$s</string>
+    <string name="copy_titulo">📋 Copy text</string>
+    <string name="copy_elige">Choose what to copy…</string>
+    <string name="copy_ubicaciones">📍 Locations on screen</string>
+    <string name="copy_ilp">🏷 Copy ILP</string>
+    <string name="copy_sku">📦 Copy SKU</string>
+    <string name="copy_ubicacion">📍 Copy location</string>
+    <string name="copy_alternar">🔁 Toggle Me / Total</string>
+    <string name="copy_modo">🔀 Mode: %1$s</string>
+    <string name="copy_siguiente">Next location</string>
+    <string name="copy_articulo">Item (SKU): </string>
+    <string name="copy_total_qty">Total Qty: </string>
+    <string name="copy_menor_mayor">↑ Low to high</string>
+    <string name="copy_mayor_menor">↓ High to low</string>
+    <string name="copy_completo">Done ✅</string>
+    <string name="copy_activar_acc">Enable the Accessibility service to copy</string>
+    <string name="copy_ilp_detectados">ILP detected</string>
+    <string name="copy_ubicaciones_detectadas">Locations detected</string>
+    <string name="copy_sku_detectados">SKU detected</string>
+    <string name="copy_no_ilp">No ILP found</string>
+    <string name="copy_no_ubicacion">No locations found</string>
+    <string name="copy_no_sku">No SKU found</string>
+    <string name="copy_toca_valor">Tap a value to copy it</string>
+    <string name="copy_copiar_todos">Copy all</string>
+    <string name="copy_titulo_n">%1$s (%2$d)</string>
+    <string name="copy_n_ubicaciones">%1$s</string>
+    <string name="copy_idioma">🌐 Language</string>
+
+    <!-- ===== FloatingDialogHelper ===== -->
+    <string name="fd_container">📦 Container</string>
+    <string name="fd_nuevo">🆕 New Container</string>
+    <string name="fd_nuevo_borra">Current pallets will be deleted.</string>
+    <string name="fd_codigo">Code:</string>
+    <string name="fd_pallets_esperadas">Expected pallets:</string>
+    <string name="fd_num_invalido">❌ Invalid number</string>
+    <string name="fd_meta">✏️ Update Goal</string>
+    <string name="fd_quitar">Remove</string>
+    <string name="fd_completado">Completed! 🎉</string>
+    <string name="fd_resetear">🔄 Reset</string>
+    <string name="fd_borrar_n">Delete %1$s?</string>
+    <string name="fd_si_borrar">Yes, delete</string>
+
+    <!-- ===== Plurals ===== -->
+    <plurals name="pallets">
+        <item quantity="one">%d pallet</item>
+        <item quantity="other">%d pallets</item>
+    </plurals>
+    <plurals name="containers">
+        <item quantity="one">%d container</item>
+        <item quantity="other">%d containers</item>
+    </plurals>
+    <plurals name="pallets_escaneados">
+        <item quantity="one">%d pallet scanned</item>
+        <item quantity="other">%d pallets scanned</item>
+    </plurals>
+    <string name="mode_escaneados">Scanned</string>
+    <string name="mode_faltan">Remaining</string>
+    <string name="mode_ratio">Ratio</string>
+    <string name="main_sin_container_cfg">No container set</string>
+    <string name="reset_label_container">container\u00A0%1$s</string>
+    <string name="reset_label_contador">counter</string>
+    <string name="reset_titulo">🔄\u00A0Reset\u00A0%1$s</string>
+    <string name="reset_msg">Delete all pallets and reset to 0?\n\n(The goal of %1$d pallets is kept)</string>
+    <string name="toast_reset_hecho">🔄\u00A0Reset\u00A0to\u00A00</string>
+    <string name="borrar_un_titulo">🗑\u00A0Delete\u00A0%1$s</string>
+    <string name="borrar_un_msg">Delete %1$s? Its pallets will be removed for the whole team.\n\nThis action cannot be undone.</string>
+    <string name="toast_container_borrado">🗑\u00A0%1$s\u00A0deleted</string>
+    <string name="finalizar_msg">Container %1$d will be finished and a new one started at 0 for the whole team.\n\nAlready scanned pallets are kept.</string>
+    <string name="btn_finalizar_iniciar">Finish\u00A0and\u00A0start\u00A0new</string>
+    <string name="toast_finalizado">✅\u00A0Container\u00A0finished\u00A0—\u00A0new\u00A0at\u00A00</string>
+    <string name="toast_no_cont_hoy">🗑\u00A0No\u00A0containers\u00A0today\u00A0to\u00A0delete</string>
+    <string name="confirmar_borrado_titulo">⚠\u00A0Confirm\u00A0deletion</string>
+    <string name="confirmar_borrado_msg">Delete %1$d container(s)?\n\n%2$s\n\nThis action cannot be undone.</string>
+    <string name="toast_pallets_borrados">🗑\u00A0%1$d\u00A0pallets\u00A0deleted</string>
+    <string name="toast_doble_tap">💡\u00A0Double\u00A0tap\u00A0to\u00A0set\u00A0up\u00A0container</string>
+    <string name="cont_label_pallets">%1$s\u00A0(%2$d\u00A0pallets)</string>
+    <string name="meta_actual">\nCurrent\u00A0goal:\u00A0%1$d</string>
+    <string name="meta_completado">\u00A0—\u00A0Already\u00A0complete!\u00A0🎉</string>
+    <string name="meta_faltan">\u00A0—\u00A0%1$d\u00A0left</string>
+    <string name="toast_meta_set">✅\u00A0Goal:\u00A0%1$d%2$s</string>
+    <string name="toast_num_invalido">❌\u00A0Invalid\u00A0number</string>
+    <string name="toast_meta_eliminada">🔄\u00A0Goal\u00A0removed</string>
+    <string name="dlg_nuevo_msg2">Current pallets will be deleted and a new session created.</string>
+    <string name="copy_buscando">Searching all locations…</string>
+    <string name="copy_activa_servicio">Enable the Accessibility service</string>
+    <string name="copy_no_ubic_pantalla">No locations found on this screen</string>
+    <string name="copy_count_ubic_sing">%1$d location found</string>
+    <string name="copy_count_ubic_plur">%1$d locations found</string>
+    <string name="copy_inventario_label">Inventory</string>
+    <string name="copy_no_ilp_pant">No ILP found on this screen</string>
+    <string name="copy_no_ubic_pant">No location found on this screen</string>
+    <string name="copy_no_sku_pant">No SKU found on this screen</string>
+    <string name="fab_alerta_titulo">⚠️ Accessibility disabled</string>
+    <string name="fab_alerta_texto">Tap the floating button to re-enable it</string>
+    <string name="upd_sin_act_titulo">No updates</string>
+    <string name="upd_sin_release">No PalletTracker release was found on GitHub.</string>
+    <string name="upd_msg_nueva">You have version %1$s (%2$d).\n\nNew version available: %3$s (%4$d).\n\nDownload and install?</string>
+    <string name="upd_al_dia_titulo">✅ Up to date</string>
+    <string name="upd_al_dia_msg">You already have the latest version installed (%1$s).</string>
+    <string name="upd_permiso_abrir">Open settings</string>
+    <string name="upd_err_generico_titulo">Error</string>
+    <string name="upd_err_abrir_ajustes">Couldn\'t open settings: %1$s</string>
+    <string name="upd_err_descargar_titulo">❌ Download error</string>
+    <string name="upd_err_descargar_msg">The update could not be downloaded.\n\nDetails:\n%1$s</string>
+    <string name="upd_err_instalar_titulo">❌ Install error</string>
+    <string name="upd_err_instalar_msg">The installation could not be started.\n\nDetails:\n%1$s</string>
+    <string name="upd_entendido">Got it</string>
+    <string name="aj_err_cargar">⚠ Couldn\'t load Settings.\nCheck the \"Errors\" tab for details.</string>
+    <string name="aj_toast_ingresa_codigo">❌ Enter a team code</string>
+    <string name="aj_toast_permiso_ya">✅ Permission already granted</string>
+    <string name="aj_toast_forzar_ok2">✅ Floating button started successfully</string>
+    <string name="aj_toast_forzar_err2">⚠ Couldn\'t start. Check permissions.</string>
+    <string name="aj_serv_activo">✅ Service: ON</string>
+    <string name="aj_serv_inactivo">❌ Service: OFF</string>
+    <string name="aj_abrir_ajustes_acc">⚙ Open Accessibility settings</string>
+    <string name="aj_activar_serv_acc">⚙ Enable Accessibility service</string>
+    <string name="aj_sync_no_activar">❌ Couldn\'t enable.\n%1$s</string>
+    <string name="aj_sync_err_desconocido">Unknown error starting Firebase</string>
+    <string name="aj_toast_sync_no_activar">❌ Couldn\'t enable sync</string>
+    <string name="aj_probando">⏳ Testing connection…</string>
+    <string name="aj_conexion_exitosa">✅ Successfully connected to Firebase</string>
+    <string name="aj_error_fmt">❌ Error: %1$s</string>
+    <string name="aj_estado_ok">🟢 Status: %1$s</string>
+    <string name="aj_estado_err">🔴 Status: %1$s</string>
+    <string name="aj_overlay_activo2">✅ Floating button: ON</string>
+    <string name="aj_overlay_inactivo2">⚪ Floating button: OFF</string>
+    <string name="aj_permiso_overlay_ok">✅ Overlay permission granted</string>
+    <string name="aj_permiso_activa_switch">✅ Permission granted — turn on the switch</string>
+    <string name="aj_sin_permiso_overlay">❌ No overlay permission</string>
+    <string name="aj_err_abrir">⚠ There was a problem opening Settings. Details were saved.</string>
+    <string name="diag_toast_iniciado2">Recording started. Use the other app and come back here when done.</string>
+    <string name="diag_toast_detenido2">Recording stopped. %1$d screens saved.</string>
+    <string name="diag_sin_datos2">No data yet.\nStart recording, use the other app, and come back here.</string>
+    <string name="diag_grabando_fmt">🔴 RECORDING… (%1$d screens captured)</string>
+    <string name="diag_ultima_captura">\nLast capture: %1$s</string>
+    <string name="diag_detenido_fmt">Stopped — %1$d screens recorded. Tap "Copy" and send them.</string>
+    <string name="diag_detenido_vacio">Stopped. Tap "Start" before going to the other app.</string>
+    <string name="diag_toast_copiado2">Diagnostics copied to clipboard</string>
+    <string name="err_no_cargar">Could not load the errors screen.</string>
+    <string name="err_eventos">⚠ %1$d event(s) logged</string>
+    <string name="err_subject">PalletTracker — Error log</string>
+    <string name="pallet_sin_ubicacion">📍 No location</string>
+</resources>

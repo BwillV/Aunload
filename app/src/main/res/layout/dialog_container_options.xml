@@ -11,7 +11,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📦  Configurar Container"
+        android:text="@string/dlg_cont_titulo"
         android:textColor="#FFFFFF"
         android:textSize="20sp"
         android:textStyle="bold"
@@ -66,7 +66,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Comenzar Nuevo Container"
+                    android:text="@string/dlg_cont_nuevo_titulo"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -74,7 +74,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Resetea contador y crea sesión nueva"
+                    android:text="@string/dlg_cont_nuevo_desc"
                     android:textColor="#AAAAAA"
                     android:textSize="13sp"
                     android:paddingTop="2dp" />
@@ -126,7 +126,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Actualizar Container Actual"
+                    android:text="@string/dlg_cont_actualizar_titulo"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -135,7 +135,7 @@
                     android:id="@+id/txt_update_subtitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Mantiene pallets escaneadas, cambia la meta"
+                    android:text="@string/dlg_cont_actualizar_desc"
                     android:textColor="#AAAAAA"
                     android:textSize="13sp"
                     android:paddingTop="2dp" />

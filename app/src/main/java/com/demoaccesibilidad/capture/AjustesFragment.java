@@ -68,8 +68,7 @@ public class AjustesFragment extends Fragment {
             // de tumbar la app.
             PalletTrackerApp.logException(getContext(), "AjustesFragment.onCreateView", t);
             android.widget.TextView tv = new android.widget.TextView(inflater.getContext());
-            tv.setText("⚠\u00A0No\u00A0se\u00A0pudo\u00A0cargar\u00A0Ajustes.\n"
-                    + "Revisa\u00A0la\u00A0pestaña\u00A0\"Errores\"\u00A0para\u00A0ver\u00A0el\u00A0detalle.");
+            tv.setText(inflater.getContext().getString(R.string.aj_err_cargar));
             tv.setTextColor(0xFFFFFFFF);
             tv.setBackgroundColor(0xFF1a1a2e);
             tv.setPadding(48, 48, 48, 48);
@@ -103,10 +102,10 @@ public class AjustesFragment extends Fragment {
         String currentCode = fm.getTeamCode();
         if (currentCode != null && !currentCode.isEmpty()) {
             editContainerCode.setText(currentCode);
-            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0" + currentCode);
+            txtContainerActual.setText(requireContext().getString(R.string.aj_codigo_actual, currentCode));
             txtContainerActual.setTextColor(0xFF4CAF50);
         } else {
-            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0Sin\u00A0configurar");
+            txtContainerActual.setText(requireContext().getString(R.string.aj_codigo_sin_config));
             txtContainerActual.setTextColor(0xFFFF9800);
         }
 
@@ -114,18 +113,18 @@ public class AjustesFragment extends Fragment {
             String code = editContainerCode.getText().toString().trim().toUpperCase();
             if (code.isEmpty()) {
                 Toast.makeText(requireContext(),
-                        "❌\u00A0Ingresa\u00A0un\u00A0código\u00A0de\u00A0equipo",
+                        requireContext().getString(R.string.aj_toast_ingresa_codigo),
                         Toast.LENGTH_SHORT).show();
                 return;
             }
             // v4.9 — Unirse al equipo. El código es PERSISTENTE: quien se une
             // adopta el container que ya estaba en curso, sin borrar nada.
             fm.joinTeam(code);
-            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0" + code);
+            txtContainerActual.setText(requireContext().getString(R.string.aj_codigo_actual, code));
             txtContainerActual.setTextColor(0xFF4CAF50);
 
             Toast.makeText(requireContext(),
-                    "✅\u00A0Te\u00A0uniste\u00A0al\u00A0equipo:\u00A0" + code,
+                    requireContext().getString(R.string.aj_unido, code),
                     Toast.LENGTH_SHORT).show();
         });
 
@@ -133,10 +132,10 @@ public class AjustesFragment extends Fragment {
             // v4.9 — Salir del equipo (única forma de borrar el código).
             editContainerCode.setText("");
             fm.leaveTeam();
-            txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0Sin\u00A0configurar");
+            txtContainerActual.setText(requireContext().getString(R.string.aj_codigo_sin_config));
             txtContainerActual.setTextColor(0xFFFF9800);
             Toast.makeText(requireContext(),
-                    "👋\u00A0Saliste\u00A0del\u00A0equipo",
+                    requireContext().getString(R.string.aj_salio),
                     Toast.LENGTH_SHORT).show();
         });
 
@@ -161,7 +160,7 @@ public class AjustesFragment extends Fragment {
                 if (OverlayPermissionHelper.hasOverlayPermission(requireContext())) {
                     iniciarOverlay();
                     Toast.makeText(requireContext(),
-                            "📱\u00A0Botón\u00A0flotante\u00A0activado",
+                            requireContext().getString(R.string.aj_toast_overlay_on),
                             Toast.LENGTH_SHORT).show();
                 } else {
                     OverlayPermissionHelper.requestOverlayPermission(requireActivity());
@@ -169,7 +168,7 @@ public class AjustesFragment extends Fragment {
             } else {
                 detenerOverlay();
                 Toast.makeText(requireContext(),
-                        "📴\u00A0Botón\u00A0flotante\u00A0desactivado",
+                        requireContext().getString(R.string.aj_toast_overlay_off),
                         Toast.LENGTH_SHORT).show();
             }
             actualizarEstadoOverlay();
@@ -178,7 +177,7 @@ public class AjustesFragment extends Fragment {
         btnPermisoOverlay.setOnClickListener(b -> {
             if (OverlayPermissionHelper.hasOverlayPermission(requireContext())) {
                 Toast.makeText(requireContext(),
-                        "✅\u00A0Permiso\u00A0ya\u00A0concedido",
+                        requireContext().getString(R.string.aj_toast_permiso_ya),
                         Toast.LENGTH_SHORT).show();
             } else {
                 OverlayPermissionHelper.requestOverlayPermission(requireActivity());
@@ -202,11 +201,11 @@ public class AjustesFragment extends Fragment {
                     actualizarEstadoOverlay();
                     if (FloatingButtonService.isRunning()) {
                         Toast.makeText(requireContext(),
-                                "✅\u00A0Botón\u00A0flotante\u00A0iniciado\u00A0correctamente",
+                                requireContext().getString(R.string.aj_toast_forzar_ok2),
                                 Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(requireContext(),
-                                "⚠\u00A0No\u00A0se\u00A0pudo\u00A0iniciar.\u00A0Revisa\u00A0permisos.",
+                                requireContext().getString(R.string.aj_toast_forzar_err2),
                                 Toast.LENGTH_LONG).show();
                     }
                 }, 800);
@@ -240,15 +239,23 @@ public class AjustesFragment extends Fragment {
             switchCopiarTexto.setOnCheckedChangeListener((btn, isChecked) -> {
                 CopyTextHelper.setEnabled(requireContext(), isChecked);
                 Toast.makeText(requireContext(),
-                        isChecked ? "📋\u00A0Modo\u00A0copiar\u00A0texto\u00A0activado"
-                                  : "📴\u00A0Modo\u00A0copiar\u00A0texto\u00A0desactivado",
+                        isChecked ? requireContext().getString(R.string.aj_toast_modo_copiar_on)
+                                  : requireContext().getString(R.string.aj_toast_modo_copiar_off),
                         Toast.LENGTH_SHORT).show();
             });
         }
 
         // ═══════ IDIOMA ═══════
         TextView txtIdioma = v.findViewById(R.id.txt_idioma_actual);
-        txtIdioma.setText("Español\u00A0🇪🇸");
+        String lang = LocaleHelper.getLanguage(requireContext());
+        int langRes = LocaleHelper.EN.equals(lang) ? R.string.idioma_en
+                : (LocaleHelper.ZH.equals(lang) ? R.string.idioma_zh : R.string.idioma_es);
+        txtIdioma.setText(requireContext().getString(langRes));
+        txtIdioma.setOnClickListener(b -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).mostrarDialogoIdioma();
+            }
+        });
 
         // ═══════ ACCESIBILIDAD ═══════
         txtEstadoAcc = v.findViewById(R.id.txt_estado_accesibilidad);
@@ -268,7 +275,7 @@ public class AjustesFragment extends Fragment {
 
         EditText editFirebaseUrl = v.findViewById(R.id.edit_firebase_url);
         if (editFirebaseUrl != null) {
-            editFirebaseUrl.setText("aunload-rescue\u00A0(auto-configurado)");
+            editFirebaseUrl.setText(requireContext().getString(R.string.aj_firebase_default));
             editFirebaseUrl.setEnabled(false);
             editFirebaseUrl.setAlpha(0.6f);
         }
@@ -289,19 +296,19 @@ public class AjustesFragment extends Fragment {
                 // No se pudo activar: mostrar el error COMPLETO.
                 btn.setChecked(false);
                 String err = fm.getLastInitError();
-                txtSyncStatus.setText("❌\u00A0No\u00A0se\u00A0pudo\u00A0activar.\n"
-                        + (err != null ? err : "Error\u00A0desconocido\u00A0al\u00A0iniciar\u00A0Firebase"));
+                txtSyncStatus.setText(requireContext().getString(R.string.aj_sync_no_activar,
+                        (err != null ? err : requireContext().getString(R.string.aj_sync_err_desconocido))));
                 txtSyncStatus.setTextColor(0xFFF44336);
                 Toast.makeText(requireContext(),
-                        "❌\u00A0No\u00A0se\u00A0pudo\u00A0activar\u00A0la\u00A0sincronización",
+                        requireContext().getString(R.string.aj_toast_sync_no_activar),
                         Toast.LENGTH_LONG).show();
                 return;
             }
             actualizarVistaSync(realmente);
             mostrarEstadoConexion(fm);
             Toast.makeText(requireContext(),
-                    realmente ? "🔗\u00A0Sincronización\u00A0activada"
-                              : "📴\u00A0Sincronización\u00A0desactivada",
+                    realmente ? requireContext().getString(R.string.aj_toast_sync_on)
+                              : requireContext().getString(R.string.aj_toast_sync_off),
                     Toast.LENGTH_SHORT).show();
         });
 
@@ -318,7 +325,7 @@ public class AjustesFragment extends Fragment {
         });
 
         btnTestConnection.setOnClickListener(b -> {
-            txtSyncStatus.setText("⏳\u00A0Probando\u00A0conexión...");
+            txtSyncStatus.setText(requireContext().getString(R.string.aj_probando));
             txtSyncStatus.setTextColor(0xFF9E9E9E);
             btnTestConnection.setEnabled(false);
 
@@ -326,17 +333,17 @@ public class AjustesFragment extends Fragment {
                 if (!isAdded()) return;
                 btnTestConnection.setEnabled(true);
                 if (success) {
-                    txtSyncStatus.setText("✅\u00A0Conexión\u00A0exitosa\u00A0con\u00A0Firebase");
+                    txtSyncStatus.setText(requireContext().getString(R.string.aj_conexion_exitosa));
                     txtSyncStatus.setTextColor(0xFF4CAF50);
                 } else {
-                    txtSyncStatus.setText("❌\u00A0Error:\u00A0" + message);
+                    txtSyncStatus.setText(requireContext().getString(R.string.aj_error_fmt, message));
                     txtSyncStatus.setTextColor(0xFFF44336);
                 }
             });
         });
 
         int deviceCount = fm.getActiveDeviceCount();
-        txtDeviceCount.setText("📱\u00A0Dispositivos\u00A0activos:\u00A0" + deviceCount);
+        txtDeviceCount.setText(requireContext().getString(R.string.aj_disp_activos, deviceCount));
 
         // ═══════ NOTIFICACIONES ═══════
         switchSonido = v.findViewById(R.id.switch_sonido);
@@ -357,7 +364,7 @@ public class AjustesFragment extends Fragment {
             PalletTrackerApp.logException(getContext(), "AjustesFragment.onViewCreated", t);
             if (getContext() != null) {
                 Toast.makeText(getContext(),
-                        "⚠\u00A0Hubo\u00A0un\u00A0problema\u00A0al\u00A0abrir\u00A0Ajustes.\u00A0Se\u00A0guardó\u00A0el\u00A0detalle.",
+                        getContext().getString(R.string.aj_err_abrir),
                         Toast.LENGTH_LONG).show();
             }
         }
@@ -402,17 +409,17 @@ public class AjustesFragment extends Fragment {
         FirebaseManager fm = FirebaseManager.getInstance(requireContext());
         int deviceCount = fm.getActiveDeviceCount();
         if (txtDeviceCount != null) {
-            txtDeviceCount.setText("📱\u00A0Dispositivos\u00A0activos:\u00A0" + deviceCount);
+            txtDeviceCount.setText(requireContext().getString(R.string.aj_disp_activos, deviceCount));
         }
 
         // Refrescar código de equipo (persistente).
         String code = fm.getTeamCode();
         if (txtContainerActual != null) {
             if (code != null && !code.isEmpty()) {
-                txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0" + code);
+                txtContainerActual.setText(requireContext().getString(R.string.aj_codigo_actual, code));
                 txtContainerActual.setTextColor(0xFF4CAF50);
             } else {
-                txtContainerActual.setText("Código\u00A0de\u00A0equipo:\u00A0Sin\u00A0configurar");
+                txtContainerActual.setText(requireContext().getString(R.string.aj_codigo_sin_config));
                 txtContainerActual.setTextColor(0xFFFF9800);
             }
         }
@@ -435,11 +442,11 @@ public class AjustesFragment extends Fragment {
     private void mostrarEstadoConexion(FirebaseManager fm) {
         if (txtSyncStatus == null) return;
         if (fm.isFirebaseAvailable()) {
-            txtSyncStatus.setText("🟢\u00A0Estado:\u00A0" + fm.getConnectionStatus());
+            txtSyncStatus.setText(requireContext().getString(R.string.aj_estado_ok, fm.getConnectionStatus()));
             txtSyncStatus.setTextColor(0xFF4CAF50);
         } else {
             String err = fm.getLastInitError();
-            txtSyncStatus.setText("🔴\u00A0Estado:\u00A0" + fm.getConnectionStatus()
+            txtSyncStatus.setText(requireContext().getString(R.string.aj_estado_err, fm.getConnectionStatus())
                     + (err != null ? "\n" + err : ""));
             txtSyncStatus.setTextColor(0xFFF44336);
         }
@@ -448,14 +455,14 @@ public class AjustesFragment extends Fragment {
     private void actualizarEstadoAccesibilidad() {
         boolean activo = isAccessibilityServiceEnabled();
         if (activo) {
-            txtEstadoAcc.setText("✅\u00A0Servicio:\u00A0ACTIVO");
+            txtEstadoAcc.setText(requireContext().getString(R.string.aj_serv_activo));
             txtEstadoAcc.setTextColor(0xFF4CAF50);
-            btnActivarAcc.setText("⚙\u00A0Abrir\u00A0Ajustes\u00A0de\u00A0Accesibilidad");
+            btnActivarAcc.setText(requireContext().getString(R.string.aj_abrir_ajustes_acc));
             btnActivarAcc.setBackgroundColor(0xFF607D8B);
         } else {
-            txtEstadoAcc.setText("❌\u00A0Servicio:\u00A0INACTIVO");
+            txtEstadoAcc.setText(requireContext().getString(R.string.aj_serv_inactivo));
             txtEstadoAcc.setTextColor(0xFFF44336);
-            btnActivarAcc.setText("⚙\u00A0Activar\u00A0Servicio\u00A0de\u00A0Accesibilidad");
+            btnActivarAcc.setText(requireContext().getString(R.string.aj_activar_serv_acc));
             btnActivarAcc.setBackgroundColor(0xFFF44336);
         }
     }
@@ -470,25 +477,25 @@ public class AjustesFragment extends Fragment {
         boolean switchIsOn = op.getBoolean("overlay_enabled", true);
 
         if (running) {
-            txtEstadoOverlay.setText("✅\u00A0Botón\u00A0flotante:\u00A0ACTIVO");
+            txtEstadoOverlay.setText(requireContext().getString(R.string.aj_overlay_activo2));
             txtEstadoOverlay.setTextColor(0xFF4CAF50);
             btnPermisoOverlay.setBackgroundColor(0xFF607D8B);
-            btnPermisoOverlay.setText("✅\u00A0Permiso\u00A0de\u00A0overlay\u00A0concedido");
+            btnPermisoOverlay.setText(requireContext().getString(R.string.aj_permiso_overlay_ok));
             if (btnForzarOverlay != null) btnForzarOverlay.setVisibility(View.GONE);
         } else if (hasPermission) {
-            txtEstadoOverlay.setText("⚪\u00A0Botón\u00A0flotante:\u00A0INACTIVO");
+            txtEstadoOverlay.setText(requireContext().getString(R.string.aj_overlay_inactivo2));
             txtEstadoOverlay.setTextColor(0xFFFF9800);
             btnPermisoOverlay.setBackgroundColor(0xFF607D8B);
-            btnPermisoOverlay.setText("✅\u00A0Permiso\u00A0concedido\u00A0—\u00A0activa\u00A0el\u00A0switch");
+            btnPermisoOverlay.setText(requireContext().getString(R.string.aj_permiso_activa_switch));
             // Mostrar botón forzar si el switch dice ON pero servicio murió.
             if (btnForzarOverlay != null) {
                 btnForzarOverlay.setVisibility(switchIsOn ? View.VISIBLE : View.GONE);
             }
         } else {
-            txtEstadoOverlay.setText("❌\u00A0Sin\u00A0permiso\u00A0de\u00A0overlay");
+            txtEstadoOverlay.setText(requireContext().getString(R.string.aj_sin_permiso_overlay));
             txtEstadoOverlay.setTextColor(0xFFF44336);
             btnPermisoOverlay.setBackgroundColor(0xFFF44336);
-            btnPermisoOverlay.setText("⚙\u00A0Activar\u00A0permiso\u00A0de\u00A0overlay");
+            btnPermisoOverlay.setText(requireContext().getString(R.string.aj_activar_overlay));
             if (btnForzarOverlay != null) btnForzarOverlay.setVisibility(View.GONE);
         }
     }

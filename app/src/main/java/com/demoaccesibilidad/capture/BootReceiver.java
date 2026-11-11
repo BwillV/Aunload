@@ -78,12 +78,12 @@ public class BootReceiver extends BroadcastReceiver {
             if (nm == null) return;
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Context loc = LocaleHelper.wrap(context);
                 NotificationChannel channel = new NotificationChannel(
                         CHANNEL_BOOT,
-                        "Aviso\u00A0de\u00A0accesibilidad",
+                        loc.getString(R.string.boot_canal),
                         NotificationManager.IMPORTANCE_HIGH);
-                channel.setDescription("Avisa cuando la accesibilidad de "
-                        + "PalletTracker está desactivada tras reiniciar.");
+                channel.setDescription(loc.getString(R.string.boot_canal_desc));
                 nm.createNotificationChannel(channel);
             }
 
@@ -95,15 +95,12 @@ public class BootReceiver extends BroadcastReceiver {
             }
             PendingIntent pi = PendingIntent.getActivity(context, 0, settings, flags);
 
+            Context locN = LocaleHelper.wrap(context);
             Notification notif = new NotificationCompat.Builder(context, CHANNEL_BOOT)
-                    .setContentTitle("⚠️\u00A0Activa\u00A0la\u00A0accesibilidad\u00A0de\u00A0PalletTracker")
-                    .setContentText("Sin\u00A0ella\u00A0no\u00A0se\u00A0cuentan\u00A0las\u00A0pallets.\u00A0"
-                            + "Toca\u00A0para\u00A0activarla.")
+                    .setContentTitle(locN.getString(R.string.boot_titulo))
+                    .setContentText(locN.getString(R.string.boot_texto))
                     .setStyle(new NotificationCompat.BigTextStyle().bigText(
-                            "El\u00A0servicio\u00A0de\u00A0accesibilidad\u00A0quedó\u00A0desactivado\u00A0"
-                                    + "tras\u00A0reiniciar\u00A0el\u00A0equipo.\u00A0Toca\u00A0esta\u00A0"
-                                    + "notificación\u00A0para\u00A0activarlo\u00A0y\u00A0seguir\u00A0"
-                                    + "contando\u00A0pallets\u00A0automáticamente."))
+                            locN.getString(R.string.boot_bigtext)))
                     .setSmallIcon(android.R.drawable.stat_notify_error)
                     .setContentIntent(pi)
                     .setAutoCancel(true)

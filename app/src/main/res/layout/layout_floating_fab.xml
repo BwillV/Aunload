@@ -13,7 +13,7 @@
         app:fabSize="normal"
         app:elevation="8dp"
         app:borderWidth="0dp"
-        android:contentDescription="Contador de pallets" />
+        android:contentDescription="@string/cd_contador_pallets" />
 
     <!-- Badge de texto sobre el FAB.
          IMPORTANTE: el FAB tiene elevation=8dp. En un FrameLayout la elevation

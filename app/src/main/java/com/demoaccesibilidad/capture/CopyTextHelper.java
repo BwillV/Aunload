@@ -3,6 +3,7 @@ package com.demoaccesibilidad.capture;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.util.TypedValue;
@@ -80,6 +81,7 @@ public class CopyTextHelper {
 
     /** Copia al portapapeles y muestra un Toast. */
     public static void copyToClipboard(Context context, String text) {
+        context = LocaleHelper.wrap(context);
         if (text == null || text.trim().isEmpty()) return;
         final String value = text.trim();
         try {
@@ -89,7 +91,7 @@ public class CopyTextHelper {
                 clip.setPrimaryClip(ClipData.newPlainText("PalletTracker", value));
             }
             String preview = value.length() > 40 ? value.substring(0, 40) + "…" : value;
-            Toast.makeText(context, "Copiado:\u00A0" + preview, Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, context.getString(R.string.copy_toast_copiado, preview), Toast.LENGTH_SHORT).show();
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.copyToClipboard", t);
@@ -104,16 +106,17 @@ public class CopyTextHelper {
      * Pequeño menú overlay con las acciones de copiado. onToggleYoTotal preserva
      * la acción original del toque del FAB (alternar entre "Yo" y "Total").
      */
-    public static void showActionMenu(final Context context, final WindowManager wm,
+    public static void showActionMenu(final Context ctxBase, final WindowManager wm,
                                       final Runnable onToggleYoTotal) {
+        final Context context = LocaleHelper.wrap(ctxBase);
         final OverlayRoot root = crearRoot(context);
 
-        TextView titulo = crearTexto(context, "📋\u00A0Copiar\u00A0texto", 18, true);
+        TextView titulo = crearTexto(context, context.getString(R.string.copy_titulo), 18, true);
         titulo.setPadding(0, 0, 0, dp(context, 4));
         root.addView(titulo);
 
         TextView sub = crearTexto(context,
-                "Elige\u00A0qué\u00A0copiar\u00A0de\u00A0la\u00A0pantalla\u00A0del\u00A0WMS", 12, false);
+                context.getString(R.string.copy_elige), 12, false);
         sub.setTextColor(COLOR_HINT);
         sub.setPadding(0, 0, 0, dp(context, 14));
         root.addView(sub);
@@ -121,7 +124,7 @@ public class CopyTextHelper {
         final WindowManager.LayoutParams params = crearParams(false);
 
         // Ubicaciones en pantalla (ordenadas y con checkbox).
-        Button btnLista = crearBoton(context, "📍\u00A0Ubicaciones\u00A0en\u00A0pantalla", COLOR_BLUE);
+        Button btnLista = crearBoton(context, context.getString(R.string.copy_ubicaciones), COLOR_BLUE);
         btnLista.setOnClickListener(v -> {
             removerOverlay(wm, root);
             abrirListaUbicaciones(context, wm, true);
@@ -131,7 +134,7 @@ public class CopyTextHelper {
 
         // Copiar ILP directo. (Solo en modo Inbound: en Inventario no hay ILP.)
         if (!AppMode.isInventario(context)) {
-            Button btnIlp = crearBoton(context, "🏷\u00A0Copiar\u00A0ILP", COLOR_GREEN);
+            Button btnIlp = crearBoton(context, context.getString(R.string.copy_ilp), COLOR_GREEN);
             btnIlp.setOnClickListener(v -> {
                 removerOverlay(wm, root);
                 copiarDirecto(context, wm, true);
@@ -141,7 +144,7 @@ public class CopyTextHelper {
         }
 
         // Copiar SKU directo.
-        Button btnSku = crearBoton(context, "📦\u00A0Copiar\u00A0SKU", COLOR_GREEN);
+        Button btnSku = crearBoton(context, context.getString(R.string.copy_sku), COLOR_GREEN);
         btnSku.setOnClickListener(v -> {
             removerOverlay(wm, root);
             copiarSku(context, wm);
@@ -150,7 +153,7 @@ public class CopyTextHelper {
         addSpacer(context, root, 8);
 
         // Copiar ubicación directa.
-        Button btnLoc = crearBoton(context, "📍\u00A0Copiar\u00A0ubicación", COLOR_GREEN);
+        Button btnLoc = crearBoton(context, context.getString(R.string.copy_ubicacion), COLOR_GREEN);
         btnLoc.setOnClickListener(v -> {
             removerOverlay(wm, root);
             copiarDirecto(context, wm, false);
@@ -161,7 +164,7 @@ public class CopyTextHelper {
         // Alternar Yo / Total (acción original del toque del FAB).
         // En modo Inventario no aplica (no se cuentan pallets), así que se oculta.
         if (onToggleYoTotal != null && !AppMode.isInventario(context)) {
-            Button btnModo = crearBoton(context, "🔁\u00A0Alternar\u00A0Yo\u00A0/\u00A0Total", COLOR_INDIGO);
+            Button btnModo = crearBoton(context, context.getString(R.string.copy_alternar), COLOR_INDIGO);
             btnModo.setOnClickListener(v -> {
                 removerOverlay(wm, root);
                 onToggleYoTotal.run();
@@ -173,21 +176,30 @@ public class CopyTextHelper {
         // Cambiar de modo (Inbound / Inventario). También disponible en la
         // pantalla principal de la app. Toca para alternar.
         Button btnCambioModo = crearBoton(context,
-                "🔀\u00A0Modo:\u00A0" + (AppMode.isInventario(context) ? "Inventario" : "Inbound"),
+                context.getString(R.string.copy_modo, AppMode.nombre(context)),
                 COLOR_INDIGO);
         btnCambioModo.setOnClickListener(v -> {
             boolean inv = !AppMode.isInventario(context);
             AppMode.setInventario(context, inv);
             removerOverlay(wm, root);
             Toast.makeText(context,
-                    "Modo:\u00A0" + (inv ? "Inventario" : "Inbound"),
+                    context.getString(R.string.toast_modo, AppMode.nombre(context)),
                     Toast.LENGTH_SHORT).show();
         });
         root.addView(btnCambioModo);
         addSpacer(context, root, 8);
 
+        // Selector de idioma (Español / English / 中文) desde el FAB.
+        Button btnIdioma = crearBoton(context, context.getString(R.string.copy_idioma), COLOR_BLUE);
+        btnIdioma.setOnClickListener(v -> {
+            removerOverlay(wm, root);
+            mostrarMenuIdioma(ctxBase, wm);
+        });
+        root.addView(btnIdioma);
+        addSpacer(context, root, 8);
+
         // Cerrar.
-        Button btnCerrar = crearBoton(context, "✕\u00A0Cerrar", COLOR_GRAY);
+        Button btnCerrar = crearBoton(context, "✕\u00A0" + context.getString(R.string.btn_cerrar), COLOR_GRAY);
         btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
         root.addView(btnCerrar);
 
@@ -199,6 +211,84 @@ public class CopyTextHelper {
         } catch (Throwable t) {
             PalletTrackerApp.logException(context.getApplicationContext(),
                     "CopyTextHelper.showActionMenu", t);
+        }
+    }
+
+    // =============================================================
+    //        SELECTOR DE IDIOMA (desde el menú del FAB)
+    // =============================================================
+
+    /** Overlay con las tres opciones de idioma (Español / English / 中文). */
+    private static void mostrarMenuIdioma(final Context ctxBase, final WindowManager wm) {
+        final Context context = LocaleHelper.wrap(ctxBase);
+        final OverlayRoot root = crearRoot(context);
+
+        TextView titulo = crearTexto(context, context.getString(R.string.idioma_titulo), 18, true);
+        titulo.setPadding(0, 0, 0, dp(context, 4));
+        root.addView(titulo);
+
+        TextView sub = crearTexto(context, context.getString(R.string.idioma_elige), 12, false);
+        sub.setTextColor(COLOR_HINT);
+        sub.setPadding(0, 0, 0, dp(context, 14));
+        root.addView(sub);
+
+        final WindowManager.LayoutParams params = crearParams(false);
+
+        final String[] codes = { LocaleHelper.ES, LocaleHelper.EN, LocaleHelper.ZH };
+        final int[] labelRes = { R.string.idioma_es, R.string.idioma_en, R.string.idioma_zh };
+        for (int i = 0; i < codes.length; i++) {
+            final String code = codes[i];
+            Button b = crearBoton(context, context.getString(labelRes[i]), COLOR_INDIGO);
+            b.setOnClickListener(v -> {
+                removerOverlay(wm, root);
+                aplicarIdiomaDesdeFab(ctxBase, code);
+            });
+            root.addView(b);
+            addSpacer(context, root, 8);
+        }
+
+        Button btnCerrar = crearBoton(context, "✕\u00A0" + context.getString(R.string.btn_cerrar), COLOR_GRAY);
+        btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));
+        root.addView(btnCerrar);
+
+        setOnBack(root, () -> removerOverlay(wm, root));
+
+        try {
+            mostrarOverlay(wm, root, params);
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(ctxBase.getApplicationContext(),
+                    "CopyTextHelper.mostrarMenuIdioma", t);
+        }
+    }
+
+    /**
+     * Guarda el idioma elegido desde el FAB, avisa con un Toast ya localizado y
+     * reinicia el servicio flotante para que notificaciones y overlays usen el
+     * nuevo idioma. La pantalla principal lo tomará al reabrirse.
+     */
+    private static void aplicarIdiomaDesdeFab(Context ctxBase, String lang) {
+        try {
+            Context app = ctxBase.getApplicationContext();
+            boolean cambia = !lang.equals(LocaleHelper.getLanguage(app));
+            if (cambia) LocaleHelper.setLanguage(app, lang);
+            Context w = LocaleHelper.wrap(app, lang);
+            Toast.makeText(w, w.getString(R.string.idioma_cambiado),
+                    Toast.LENGTH_SHORT).show();
+            if (!cambia) return;
+            boolean fabOn = app.getSharedPreferences("overlay_prefs", Context.MODE_PRIVATE)
+                    .getBoolean("overlay_enabled", true);
+            Intent svc = new Intent(app, FloatingButtonService.class);
+            app.stopService(svc);
+            if (fabOn && android.provider.Settings.canDrawOverlays(app)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    app.startForegroundService(svc);
+                } else {
+                    app.startService(svc);
+                }
+            }
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(ctxBase.getApplicationContext(),
+                    "CopyTextHelper.aplicarIdiomaDesdeFab", t);
         }
     }
 
@@ -225,7 +315,7 @@ public class CopyTextHelper {
         ScreenCaptureService svc = ScreenCaptureService.getInstance();
         if (svc == null) {
             Toast.makeText(context,
-                    "Activa\u00A0el\u00A0servicio\u00A0de\u00A0Accesibilidad",
+                    context.getString(R.string.copy_activa_servicio),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -233,7 +323,7 @@ public class CopyTextHelper {
         // las ubicaciones cuando hay más de las que caben en pantalla. El
         // resultado se abre al terminar (callback en el hilo UI).
         Toast.makeText(context,
-                "Buscando\u00A0todas\u00A0las\u00A0ubicaciones…", Toast.LENGTH_SHORT).show();
+                context.getString(R.string.copy_buscando), Toast.LENGTH_SHORT).show();
         svc.collectAllLocationsScrolling(result ->
                 abrirListaUbicaciones(context, wm, ascending, result, null));
     }
@@ -273,7 +363,7 @@ public class CopyTextHelper {
             ScreenCaptureService svc = ScreenCaptureService.getInstance();
             if (svc == null) {
                 Toast.makeText(context,
-                        "Activa\u00A0el\u00A0servicio\u00A0de\u00A0Accesibilidad",
+                        context.getString(R.string.copy_activa_servicio),
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -281,7 +371,7 @@ public class CopyTextHelper {
         }
         if (ubicaciones == null || ubicaciones.isEmpty()) {
             Toast.makeText(context,
-                    "No\u00A0se\u00A0encontraron\u00A0ubicaciones\u00A0en\u00A0esta\u00A0pantalla",
+                    context.getString(R.string.copy_no_ubic_pantalla),
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -299,10 +389,9 @@ public class CopyTextHelper {
         root.addView(titulo);
 
         TextView sub = crearTexto(context,
-                ubicaciones.size()
-                        + (ubicaciones.size() == 1
-                        ? "\u00A0ubicación\u00A0detectada"
-                        : "\u00A0ubicaciones\u00A0detectadas"),
+                context.getString(ubicaciones.size() == 1
+                        ? R.string.copy_count_ubic_sing
+                        : R.string.copy_count_ubic_plur, ubicaciones.size()),
                 12, false);
         sub.setTextColor(COLOR_HINT);
         sub.setPadding(0, 0, 0, dp(context, 8));
@@ -331,7 +420,7 @@ public class CopyTextHelper {
 
             // Etiqueta pequeña ("Siguiente ubicación").
             txtSigLabel = new TextView(context);
-            txtSigLabel.setText("Siguiente\u00A0ubicación");
+            txtSigLabel.setText(context.getString(R.string.copy_siguiente));
             txtSigLabel.setTextColor(COLOR_TEXT);
             txtSigLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
             txtSigLabel.setGravity(Gravity.CENTER);
@@ -362,7 +451,7 @@ public class CopyTextHelper {
             }
         } catch (Throwable ignored) { }
         TextView infoSku = crearTexto(context,
-                "Artículo\u00A0(SKU):\u00A0"
+                context.getString(R.string.copy_articulo)
                         + ((sku != null && !sku.isEmpty())
                         ? sku.replace(' ', '\u00A0') : "—"),
                 14, true);
@@ -370,7 +459,7 @@ public class CopyTextHelper {
         infoSku.setPadding(0, 0, 0, dp(context, 2));
         root.addView(infoSku);
         TextView infoTotal = crearTexto(context,
-                "Total\u00A0Qty:\u00A0"
+                context.getString(R.string.copy_total_qty)
                         + ((total != null && !total.isEmpty())
                         ? total.replace(' ', '\u00A0') : "—"),
                 14, true);
@@ -379,9 +468,9 @@ public class CopyTextHelper {
         root.addView(infoTotal);
 
         // Botón de orden (toggle asc / desc).
-        String sortLabel = ascending
-                ? "↑\u00A0Menor\u00A0a\u00A0mayor"
-                : "↓\u00A0Mayor\u00A0a\u00A0menor";
+        String sortLabel = context.getString(ascending
+                ? R.string.copy_menor_mayor
+                : R.string.copy_mayor_menor);
         Button btnSort = crearBoton(context, sortLabel, COLOR_INDIGO);
         btnSort.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         btnSort.setPadding(dp(context, 12), dp(context, 8),
@@ -471,7 +560,7 @@ public class CopyTextHelper {
         };
 
         // Botón Cerrar.
-        Button btnCerrar = crearBoton(context, "✕\u00A0Cerrar", COLOR_GRAY);
+        Button btnCerrar = crearBoton(context, "✕\u00A0" + context.getString(R.string.btn_cerrar), COLOR_GRAY);
         btnCerrar.setOnClickListener(v -> cerrar.run());
         root.addView(btnCerrar);
 
@@ -535,11 +624,11 @@ public class CopyTextHelper {
                         siguienteCard.setVisibility(View.GONE);
                     } else if (todas) {
                         siguienteCard.setVisibility(View.VISIBLE);
-                        txtSigLabel.setText("Inventario");
-                        txtSigLoc.setText("Completo\u00A0✅");
+                        txtSigLabel.setText(context.getString(R.string.copy_inventario_label));
+                        txtSigLoc.setText(context.getString(R.string.copy_completo));
                     } else {
                         siguienteCard.setVisibility(View.VISIBLE);
-                        txtSigLabel.setText("Siguiente\u00A0ubicación");
+                        txtSigLabel.setText(context.getString(R.string.copy_siguiente));
                         txtSigLoc.setText(siguiente == null
                                 ? "—" : siguiente.replace(' ', '\u00A0'));
                         // 4) Auto-scroll: llevar la lista hasta la siguiente
@@ -619,29 +708,28 @@ public class CopyTextHelper {
         ScreenCaptureService svc = ScreenCaptureService.getInstance();
         if (svc == null) {
             Toast.makeText(context,
-                    "Activa\u00A0el\u00A0servicio\u00A0de\u00A0Accesibilidad\u00A0para\u00A0copiar",
+                    context.getString(R.string.copy_activar_acc),
                     Toast.LENGTH_LONG).show();
             return;
         }
         java.util.ArrayList<String> valores =
                 ilp ? svc.findAllIlpsOnScreen() : svc.findAllLocationsOnScreen();
         manejarResultados(context, wm, valores,
-                ilp ? "ILP\u00A0detectados" : "Ubicaciones\u00A0detectadas",
-                ilp ? "No\u00A0se\u00A0encontró\u00A0ILP\u00A0en\u00A0esta\u00A0pantalla"
-                    : "No\u00A0se\u00A0encontró\u00A0ubicación\u00A0en\u00A0esta\u00A0pantalla");
+                context.getString(ilp ? R.string.copy_ilp_detectados : R.string.copy_ubicaciones_detectadas),
+                context.getString(ilp ? R.string.copy_no_ilp_pant : R.string.copy_no_ubic_pant));
     }
 
     private static void copiarSku(Context context, WindowManager wm) {
         ScreenCaptureService svc = ScreenCaptureService.getInstance();
         if (svc == null) {
             Toast.makeText(context,
-                    "Activa\u00A0el\u00A0servicio\u00A0de\u00A0Accesibilidad\u00A0para\u00A0copiar",
+                    context.getString(R.string.copy_activar_acc),
                     Toast.LENGTH_LONG).show();
             return;
         }
         manejarResultados(context, wm, svc.findAllSkusOnScreen(),
-                "SKU\u00A0detectados",
-                "No\u00A0se\u00A0encontró\u00A0SKU\u00A0en\u00A0esta\u00A0pantalla");
+                context.getString(R.string.copy_sku_detectados),
+                context.getString(R.string.copy_no_sku_pant));
     }
 
     /** 0 → Toast; 1 → copia directa; 2+ → overlay con la lista. */
@@ -670,12 +758,12 @@ public class CopyTextHelper {
         final OverlayRoot root = crearRoot(context);
 
         TextView titulo = crearTexto(context,
-                tituloBase + "\u00A0(" + valores.size() + ")", 16, true);
+                context.getString(R.string.copy_titulo_n, tituloBase, valores.size()), 16, true);
         titulo.setPadding(0, 0, 0, dp(context, 4));
         root.addView(titulo);
 
         TextView sub = crearTexto(context,
-                "Toca\u00A0un\u00A0valor\u00A0para\u00A0copiarlo", 12, false);
+                context.getString(R.string.copy_toca_valor), 12, false);
         sub.setTextColor(COLOR_HINT);
         sub.setPadding(0, 0, 0, dp(context, 10));
         root.addView(sub);
@@ -718,7 +806,7 @@ public class CopyTextHelper {
         LinearLayout fila = new LinearLayout(context);
         fila.setOrientation(LinearLayout.HORIZONTAL);
 
-        Button btnTodos = crearBoton(context, "Copiar\u00A0todos", COLOR_BLUE);
+        Button btnTodos = crearBoton(context, context.getString(R.string.copy_copiar_todos), COLOR_BLUE);
         btnTodos.setLayoutParams(new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         btnTodos.setOnClickListener(v -> {
@@ -731,7 +819,7 @@ public class CopyTextHelper {
 
         addSpacerH(context, fila, 8);
 
-        Button btnCerrar = crearBoton(context, "✕\u00A0Cerrar", COLOR_GRAY);
+        Button btnCerrar = crearBoton(context, "✕\u00A0" + context.getString(R.string.btn_cerrar), COLOR_GRAY);
         btnCerrar.setLayoutParams(new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         btnCerrar.setOnClickListener(v -> removerOverlay(wm, root));

@@ -44,6 +44,17 @@ public final class SortHelper {
         }
     }
 
+    /** Variante localizada: usa los recursos de strings del idioma elegido. */
+    public static String label(Context c, int mode) {
+        if (c == null) return label(mode);
+        Context lc = LocaleHelper.wrap(c);
+        switch (mode) {
+            case SORT_SKU: return lc.getString(R.string.sort_por_sku);
+            case SORT_ILP: return lc.getString(R.string.sort_por_ilp);
+            default:       return lc.getString(R.string.sort_orden_entrada);
+        }
+    }
+
     /**
      * Devuelve una copia ordenada de la lista según el modo indicado.
      */
