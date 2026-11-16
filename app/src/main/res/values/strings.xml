@@ -123,6 +123,11 @@
     <string name="diag_grabando">● Grabando diagnóstico…</string>
     <string name="diag_detenido_estado">Diagnóstico detenido.</string>
     <string name="diag_clip_label">Diagnóstico</string>
+    <string name="diag_enviar_iphone">📲 Enviar a iPhone</string>
+    <string name="diag_enviando">Subiendo diagnóstico…</string>
+    <string name="diag_enviar_error">No se pudo enviar: %1$s</string>
+    <string name="diag_qr_titulo">📲 Escanea con tu iPhone</string>
+    <string name="diag_qr_instruccion">Abre la cámara del iPhone y apúntala al código. Se abrirá en Safari el diagnóstico, listo para leer y copiar.</string>
 
     <!-- ===== Errores ===== -->
     <string name="err_titulo">🐞 Registro de Errores</string>

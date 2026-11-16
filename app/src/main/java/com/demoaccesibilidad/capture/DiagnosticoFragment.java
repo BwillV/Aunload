@@ -1,12 +1,15 @@
 package com.demoaccesibilidad.capture;
 
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,7 +30,8 @@ public class DiagnosticoFragment extends Fragment {
 
     private DiagnosticoRepository repo;
     private TextView txtDiag, btnDiagCopiar, btnDiagRefrescar;
-    private TextView btnDiagGrabar, txtDiagEstado, btnDiagBorrar;
+    private TextView btnDiagGrabar, txtDiagEstado, btnDiagBorrar, btnDiagIphone;
+    private boolean enviando = false;
 
     @Nullable
     @Override
@@ -48,11 +52,13 @@ public class DiagnosticoFragment extends Fragment {
         btnDiagGrabar    = v.findViewById(R.id.btn_diag_grabar);
         txtDiagEstado    = v.findViewById(R.id.txt_diag_estado);
         btnDiagBorrar    = v.findViewById(R.id.btn_diag_borrar);
+        btnDiagIphone    = v.findViewById(R.id.btn_diag_iphone);
 
         btnDiagRefrescar.setOnClickListener(b -> refrescar());
         btnDiagCopiar.setOnClickListener(b -> copiar());
         btnDiagGrabar.setOnClickListener(b -> alternarGrabacion());
         btnDiagBorrar.setOnClickListener(b -> borrar());
+        btnDiagIphone.setOnClickListener(b -> enviarAiPhone());
 
         refrescar();
     }
@@ -129,19 +135,72 @@ public class DiagnosticoFragment extends Fragment {
         refrescar();
     }
 
-    private void copiar() {
+    /** Construye el texto completo del diagnóstico (mismo formato que se ve/copia). */
+    private String construirTextoCompleto() {
         List<String> dumps = repo.getDumps();
-        String texto;
-        if (dumps.isEmpty()) {
-            texto = getString(R.string.diag_sin_datos_corto);
-        } else {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < dumps.size(); i++) {
-                if (i > 0) sb.append("\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
-                sb.append(dumps.get(i));
-            }
-            texto = sb.toString();
+        if (dumps.isEmpty()) return getString(R.string.diag_sin_datos_corto);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < dumps.size(); i++) {
+            if (i > 0) sb.append("\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
+            sb.append(dumps.get(i));
         }
+        return sb.toString();
+    }
+
+    // ====================== ENVIAR A iPHONE (QR) ======================
+
+    private void enviarAiPhone() {
+        if (enviando) return;
+        List<String> dumps = repo.getDumps();
+        if (dumps.isEmpty()) {
+            Toast.makeText(requireContext(), getString(R.string.diag_sin_datos_corto),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        enviando = true;
+        btnDiagIphone.setText(getString(R.string.diag_enviando));
+        String texto = construirTextoCompleto();
+        Context app = requireContext().getApplicationContext();
+        DiagShareHelper.enviar(app, texto, new DiagShareHelper.Callback() {
+            @Override public void onSuccess(String urlPublica) {
+                if (!isAdded()) return;
+                enviando = false;
+                btnDiagIphone.setText(getString(R.string.diag_enviar_iphone));
+                mostrarDialogoQr(urlPublica);
+            }
+            @Override public void onError(String mensaje) {
+                if (!isAdded()) return;
+                enviando = false;
+                btnDiagIphone.setText(getString(R.string.diag_enviar_iphone));
+                Toast.makeText(requireContext(),
+                        getString(R.string.diag_enviar_error, mensaje),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void mostrarDialogoQr(String url) {
+        View v = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_qr_diag, null, false);
+        ImageView img = v.findViewById(R.id.img_qr);
+        TextView txtUrl = v.findViewById(R.id.txt_qr_url);
+        TextView btnCerrar = v.findViewById(R.id.btn_qr_cerrar);
+
+        Bitmap qr = QrHelper.generar(url, 640);
+        if (qr != null) img.setImageBitmap(qr);
+        txtUrl.setText(url);
+
+        // AlertDialog: la tecla Atrás lo cierra por defecto.
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setView(v)
+                .setCancelable(true)
+                .create();
+        btnCerrar.setOnClickListener(b -> dialog.dismiss());
+        dialog.show();
+    }
+
+    private void copiar() {
+        String texto = construirTextoCompleto();
         ClipboardManager clip = (ClipboardManager)
                 requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
         if (clip != null) {

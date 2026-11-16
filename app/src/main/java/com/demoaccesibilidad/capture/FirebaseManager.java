@@ -360,6 +360,11 @@ public class FirebaseManager {
         return deviceId;
     }
 
+    /** URL base de la Realtime Database (para subir el diagnóstico vía REST). */
+    public static String getDatabaseUrl() {
+        return FB_DATABASE_URL;
+    }
+
     public void setSyncListener(SyncListener listener) {
         this.listener = listener;
     }

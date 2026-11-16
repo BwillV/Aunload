@@ -10,8 +10,8 @@ android {
         applicationId "com.demoaccesibilidad.capture"
         minSdk 26
         targetSdk 28
-        versionCode 45
-        versionName "5.15"
+        versionCode 46
+        versionName "5.16"
     }
 
     buildTypes {
@@ -58,6 +58,10 @@ dependencies {
     // Se quitó firebase-analytics y firebase-auth porque dependen de GMS,
     // ausente en los escáner Honeywell, y provocaban crash en el arranque.
     implementation 'com.google.firebase:firebase-database:20.0.5'
+
+    // ═══ Generación local de códigos QR (sin Google Play Services) ═══
+    // Solo el núcleo de ZXing; el QR se dibuja a mano en un Bitmap.
+    implementation 'com.google.zxing:core:3.3.3'
 }
 
 apply plugin: 'com.google.gms.google-services'

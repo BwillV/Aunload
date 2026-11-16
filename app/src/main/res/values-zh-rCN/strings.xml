@@ -123,6 +123,11 @@
     <string name="diag_grabando">● 正在记录诊断…</string>
     <string name="diag_detenido_estado">诊断已停止。</string>
     <string name="diag_clip_label">诊断</string>
+    <string name="diag_enviar_iphone">📲 发送到 iPhone</string>
+    <string name="diag_enviando">正在上传诊断…</string>
+    <string name="diag_enviar_error">无法发送：%1$s</string>
+    <string name="diag_qr_titulo">📲 用 iPhone 扫描</string>
+    <string name="diag_qr_instruccion">打开 iPhone 相机并对准二维码。诊断将在 Safari 中打开，可直接阅读和复制。</string>
 
     <!-- ===== 错误 ===== -->
     <string name="err_titulo">🐞 错误记录</string>

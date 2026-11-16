@@ -123,6 +123,11 @@
     <string name="diag_grabando">● Recording diagnostics…</string>
     <string name="diag_detenido_estado">Diagnostics stopped.</string>
     <string name="diag_clip_label">Diagnostics</string>
+    <string name="diag_enviar_iphone">📲 Send to iPhone</string>
+    <string name="diag_enviando">Uploading diagnostics…</string>
+    <string name="diag_enviar_error">Could not send: %1$s</string>
+    <string name="diag_qr_titulo">📲 Scan with your iPhone</string>
+    <string name="diag_qr_instruccion">Open the iPhone camera and point it at the code. The diagnostics will open in Safari, ready to read and copy.</string>
 
     <!-- ===== Errors ===== -->
     <string name="err_titulo">🐞 Error Log</string>
