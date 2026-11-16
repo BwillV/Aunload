@@ -132,6 +132,19 @@ public class CopyTextHelper {
         root.addView(btnLista);
         addSpacer(context, root, 8);
 
+        // PickTracker (nuevo v5.15, por Muse): rendimiento y consejo de tareas.
+        // Solo en modo Picking, para que quede ordenado: en Inbound e
+        // Inventario PickTracker no aparece ni hace nada.
+        if (AppMode.isPicking(context)) {
+            Button btnPickTracker = crearBoton(context, context.getString(R.string.pt_menu), COLOR_BLUE);
+            btnPickTracker.setOnClickListener(v -> {
+                removerOverlay(wm, root);
+                PickTrackerHelper.mostrar(context, wm);
+            });
+            root.addView(btnPickTracker);
+            addSpacer(context, root, 8);
+        }
+
         // Copiar ILP directo. (Solo en modo Inbound: en Inventario no hay ILP.)
         if (!AppMode.isInventario(context)) {
             Button btnIlp = crearBoton(context, context.getString(R.string.copy_ilp), COLOR_GREEN);
@@ -163,7 +176,8 @@ public class CopyTextHelper {
 
         // Alternar Yo / Total (acción original del toque del FAB).
         // En modo Inventario no aplica (no se cuentan pallets), así que se oculta.
-        if (onToggleYoTotal != null && !AppMode.isInventario(context)) {
+        // En modo Picking tampoco (PickTracker lleva sus propios números).
+        if (onToggleYoTotal != null && !AppMode.isInventario(context) && !AppMode.isPicking(context)) {
             Button btnModo = crearBoton(context, context.getString(R.string.copy_alternar), COLOR_INDIGO);
             btnModo.setOnClickListener(v -> {
                 removerOverlay(wm, root);
@@ -173,14 +187,14 @@ public class CopyTextHelper {
             addSpacer(context, root, 8);
         }
 
-        // Cambiar de modo (Inbound / Inventario). También disponible en la
-        // pantalla principal de la app. Toca para alternar.
+        // Cambiar de modo (Inbound / Inventario / Picking). También disponible
+        // en la pantalla principal de la app. Toca para pasar al siguiente.
         Button btnCambioModo = crearBoton(context,
                 context.getString(R.string.copy_modo, AppMode.nombre(context)),
                 COLOR_INDIGO);
         btnCambioModo.setOnClickListener(v -> {
-            boolean inv = !AppMode.isInventario(context);
-            AppMode.setInventario(context, inv);
+            int modo = (AppMode.getMode(context) + 1) % 3;
+            AppMode.setMode(context, modo);
             removerOverlay(wm, root);
             Toast.makeText(context,
                     context.getString(R.string.toast_modo, AppMode.nombre(context)),

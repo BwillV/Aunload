@@ -80,6 +80,7 @@ public class FloatingButtonService extends Service {
     private static final int COLOR_TOTAL = 0xFF3F51B5;  // índigo → "Total"
     private static final int COLOR_ALERT = 0xFFD32F2F;  // rojo  → accesibilidad OFF
     private static final int COLOR_INV = 0xFFF57C00;    // ámbar → modo Inventario
+    private static final int COLOR_PICKING = 0xFF2E7D32; // verde → modo Picking (v5.15, Muse)
 
     // ═══ Vistas ═══
     private WindowManager windowManager;
@@ -507,6 +508,30 @@ public class FloatingButtonService extends Service {
             return;
         }
 
+        // v5.15 (Muse) — Modo Picking: el FAB se pone verde y no muestra
+        // conteo de pallets (PickTracker lleva sus propios números en su
+        // overlay). No se toca el conteo de pallets, solo el color.
+        if (AppMode.isPicking(this)) {
+            if (currentColor != COLOR_PICKING) {
+                if (fab != null) {
+                    fab.setImageDrawable(null);
+                    fab.setBackgroundTintList(ColorStateList.valueOf(COLOR_PICKING));
+                }
+                currentColor = COLOR_PICKING;
+            }
+            if (fabBadge != null && !"".equals(ultimoDisplayText)) {
+                fabBadge.setText("");
+                ultimoDisplayText = "";
+            }
+            actualizarNotificacionPicking();
+            return;
+        }
+        // Al volver de Picking a otro modo: quitar el color verde.
+        if (currentColor == COLOR_PICKING && fab != null) {
+            fab.setImageDrawable(null);
+            currentColor = 0;
+        }
+
         // v5.11 — Modo Inventario: no se cuentan pallets. El FAB muestra un icono
         // de inventario (ámbar) y oculta el número; en Inbound vuelve al conteo.
         if (AppMode.isInventario(this)) {
@@ -690,6 +715,31 @@ public class FloatingButtonService extends Service {
             Notification notif = new NotificationCompat.Builder(this, CHANNEL_OVERLAY)
                     .setContentTitle(LocaleHelper.wrap(this).getString(R.string.fab_inventario_titulo))
                     .setContentText(LocaleHelper.wrap(this).getString(R.string.fab_inventario_texto))
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentIntent(pi)
+                    .setOngoing(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build();
+
+            nm.notify(NOTIF_ID, notif);
+        } catch (Exception ignored) { }
+    }
+
+    // v5.15 (Muse) — Notificación cuando el FAB está en modo Picking.
+    private void actualizarNotificacionPicking() {
+        try {
+            NotificationManager nm = (NotificationManager)
+                    getSystemService(NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            Intent openApp = new Intent(this, MainActivity.class);
+            openApp.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent pi = PendingIntent.getActivity(this, 0, openApp,
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Notification notif = new NotificationCompat.Builder(this, CHANNEL_OVERLAY)
+                    .setContentTitle(LocaleHelper.wrap(this).getString(R.string.fab_picking_titulo))
+                    .setContentText(LocaleHelper.wrap(this).getString(R.string.fab_picking_texto))
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentIntent(pi)
                     .setOngoing(true)

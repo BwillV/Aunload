@@ -319,10 +319,14 @@ public class MainActivity extends AppCompatActivity
         verificarAccesibilidad();
     }
 
-    /** Pone el switch de modo acorde a AppMode sin disparar el Toast del listener. */
+    /** Pone el switch de modo acorde a AppMode sin disparar el Toast del listener.
+     * El switch solo cubre Inbound/Inventario: en modo Picking queda apagado
+     * y la etiqueta dice "Modo: Picking". Al mover el switch se sale de
+     * Picking hacia Inbound o Inventario. */
     private void sincronizarSwitchModo() {
         if (switchMode == null) return;
         boolean inv = AppMode.isInventario(this);
+        boolean picking = AppMode.isPicking(this);
         if (switchMode.isChecked() != inv) {
             switchMode.setOnCheckedChangeListener(null);
             switchMode.setChecked(inv);
@@ -337,7 +341,8 @@ public class MainActivity extends AppCompatActivity
             });
         }
         if (txtModeLabel != null) {
-            txtModeLabel.setText(inv ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
+            txtModeLabel.setText(picking ? getString(R.string.main_modo_picking)
+                    : inv ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
         }
     }
 

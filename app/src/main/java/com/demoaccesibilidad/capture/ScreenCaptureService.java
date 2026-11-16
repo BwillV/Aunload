@@ -455,6 +455,9 @@ public class ScreenCaptureService extends AccessibilityService {
             // v5.11 — en modo Inventario, detectar recogidas (Inventory Collect)
             // y publicarlas al equipo para el marcado automático del que busca.
             procesarInventarioSiAplica(textos);
+            // PickTracker (nuevo v5.15, por Muse): detector real de Pick Task,
+            // solo en modo Picking (ver método).
+            procesarPickTrackerSiAplica(textos);
         }
     }
 
@@ -537,6 +540,57 @@ public class ScreenCaptureService extends AccessibilityService {
         } catch (Throwable t) {
             PalletTrackerApp.logException(getApplicationContext(),
                     "procesarInventarioSiAplica", t);
+        }
+    }
+
+    // =============================================================
+    //   PickTracker (nuevo v5.15, por Muse) — DETECTOR REAL (v2)
+    //   Parser real de la lista y el detalle de Pick Task, validado
+    //   contra el diagnóstico de Wilson (20261116_173121_Will.json):
+    //   lista → tarjetas (TASK, envío, zona, ubicaciones, DNs);
+    //   detalle → arranca la tarea, anota cada ubicación nueva y lee el
+    //   progreso "A / B Skus, C / D EA Picked"; el diálogo
+    //   "All steps finished..." cierra la tarea.
+    //   SOLO corre en modo Picking (AppMode): en Inbound e Inventario
+    //   PickTracker no lee pantallas ni toca datos.
+    //   Corre en ioExecutor (leerPantallaCompletaBg), nunca en el hilo main.
+    //   NOTA: si Wilson cambia de tarea a mitad sin cerrarla, la anterior
+    //   queda sin cerrar y su tiempo no se suma al día (igual que al
+    //   cerrar el overlay a mano sin pulsar "Cerrar tarea").
+    // =============================================================
+
+    private void procesarPickTrackerSiAplica(List<String> textos) {
+        try {
+            if (textos == null || textos.isEmpty()) return;
+            if (!AppMode.isPicking(this)) return;
+            List<String> t = textos;
+            if (PickTrackerParser.isListScreen(t)) {
+                List<PickTrackerParser.ListCard> cards = PickTrackerParser.parseList(t);
+                if (!cards.isEmpty()) PickTrackerStore.savePendingCards(this, cards);
+                return;
+            }
+            String taskId = PickTrackerParser.detailTaskId(t);
+            if (taskId != null) {
+                if (!taskId.equals(PickTrackerStore.getCurrentTask(this))) {
+                    PickTrackerStore.startTask(this, taskId);
+                }
+                String loc = PickTrackerParser.detailLocation(t);
+                if (loc != null) PickTrackerStore.noteLocation(this, loc);
+                PickTrackerParser.Progress p = PickTrackerParser.parseProgress(t);
+                if (p != null) {
+                    PickTrackerStore.updateProgress(this,
+                            p.skusDone, p.skusTotal, p.eaDone, p.eaTotal);
+                }
+                return;
+            }
+            // "Close step now?" no necesita acción: la ubicación ya quedó
+            // anotada cuando apareció en el detalle.
+            if (PickTrackerParser.isCloseTaskDialog(t)) {
+                PickTrackerStore.endTask(this);
+            }
+        } catch (Throwable t) {
+            PalletTrackerApp.logException(getApplicationContext(),
+                    "procesarPickTrackerSiAplica", t);
         }
     }
 
@@ -1687,6 +1741,63 @@ public class ScreenCaptureService extends AccessibilityService {
         } catch (Throwable t) {
             // Fallback síncrono si no se pudo lanzar el hilo.
             cb.onResult(findAllLocationsOnScreen());
+        }
+    }
+
+    /** Callback con los textos de cada paso del scroll (se invoca en el hilo principal). */
+    public interface TextsCallback {
+        void onResult(java.util.List<java.util.List<String>> steps);
+    }
+
+    /**
+     * PickTracker (nuevo v5.15, por Muse): recolecta TODOS los textos
+     * desplazando la lista desplazable de la pantalla de arriba a abajo,
+     * un paso por scroll. Es el mismo mecanismo que
+     * collectAllLocationsScrolling (que solo recoge ubicaciones), pero
+     * aquí se guardan los textos completos de cada paso para que el
+     * parser de Pick Task pueda leer TODAS las tarjetas de la lista,
+     * incluidas las que no caben en pantalla, sin que Wilson tenga que
+     * deslizar él mismo. Al terminar vuelve a desplazar la lista al
+     * inicio (best-effort) y entrega los pasos por el callback en el
+     * hilo principal. Corre en un hilo aparte para no bloquear la UI.
+     * El llamador parsea cada paso por separado y fusiona las tarjetas
+     * (PickTrackerStore.savePendingCards), así los duplicados entre
+     * pasos no borran datos.
+     */
+    public void collectAllTextsScrolling(final TextsCallback cb) {
+        if (cb == null) return;
+        final Runnable job = () -> {
+            final java.util.List<java.util.List<String>> steps = new java.util.ArrayList<>();
+            final java.util.LinkedHashSet<String> vistos = new java.util.LinkedHashSet<>();
+            try {
+                java.util.List<String> primero = recolectarTodo(getRootInActiveWindow());
+                steps.add(primero);
+                vistos.addAll(primero);
+                int sinCambios = 0;
+                for (int i = 0; i < 30 && sinCambios < 2; i++) {
+                    if (!desplazarLista(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break;
+                    try { Thread.sleep(300); } catch (InterruptedException ie) { break; }
+                    java.util.List<String> paso = recolectarTodo(getRootInActiveWindow());
+                    int antes = vistos.size();
+                    vistos.addAll(paso);
+                    steps.add(paso);
+                    if (vistos.size() == antes) sinCambios++; else sinCambios = 0;
+                }
+                // Volver al inicio para no dejar la lista desplazada.
+                for (int i = 0; i < 30; i++) {
+                    if (!desplazarLista(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)) break;
+                    try { Thread.sleep(120); } catch (InterruptedException ie) { break; }
+                }
+            } catch (Throwable ignored) { }
+            try { mainHandler.post(() -> cb.onResult(steps)); } catch (Throwable ignored) { }
+        };
+        try {
+            new Thread(job, "pt-scroll").start();
+        } catch (Throwable t) {
+            // Fallback síncrono si no se pudo lanzar el hilo: solo lo visible.
+            java.util.List<java.util.List<String>> steps = new java.util.ArrayList<>();
+            steps.add(recolectarTodo(getRootInActiveWindow()));
+            cb.onResult(steps);
         }
     }
 
