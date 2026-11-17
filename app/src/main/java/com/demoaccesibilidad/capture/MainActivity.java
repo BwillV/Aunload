@@ -31,7 +31,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.SwitchCompat;
 import androidx.appcompat.widget.Toolbar;
 import androidx.cardview.widget.CardView;
 import androidx.core.view.GravityCompat;
@@ -89,7 +88,10 @@ public class MainActivity extends AppCompatActivity
     private FloatingActionButton fab;
     private FloatingActionButton fabRefresh; // v5.0: botón Actualizar/Sincronizar
     private TextView fabBadge;
-    private SwitchCompat switchMode;         // v5.10: switch de modo Inbound/Inventario
+    private android.widget.RadioGroup modeSelector;   // v5.19: selector de modo Inbound/Inventario/Picking
+    private android.widget.RadioButton modeInbound;
+    private android.widget.RadioButton modeInventario;
+    private android.widget.RadioButton modePicking;
     private TextView txtModeLabel;
     private View homeContainer;
     private View fragmentContainer;
@@ -230,20 +232,29 @@ public class MainActivity extends AppCompatActivity
             fabRefresh.setOnClickListener(v -> actualizarYSincronizar());
         }
 
-        // ═══════════ SWITCH DE MODO (v5.10) — Inbound / Inventario ═══════════
-        // También está disponible dentro del menú del FAB flotante. Guarda el
-        // modo en SharedPreferences (AppMode) para que ambos queden iguales.
-        switchMode = findViewById(R.id.switch_mode);
+        // ═══════════ SELECTOR DE MODO (v5.19) — Inbound / Inventario / Picking ═══════════
+        // Reemplaza el switch anterior por un selector segmentado de 3 opciones.
+        // También se puede cambiar desde el menú del FAB flotante y desde el
+        // drawer ("📦 Modo Picking"). Guarda el modo en SharedPreferences
+        // (AppMode) para que todos queden sincronizados.
+        modeSelector = findViewById(R.id.mode_selector);
+        modeInbound = findViewById(R.id.mode_inbound);
+        modeInventario = findViewById(R.id.mode_inventario);
+        modePicking = findViewById(R.id.mode_picking);
         txtModeLabel = findViewById(R.id.txt_mode_label);
-        if (switchMode != null) {
+        if (modeSelector != null) {
             sincronizarSwitchModo();   // estado inicial (sin disparar Toast)
-            switchMode.setOnCheckedChangeListener((btn, checked) -> {
-                AppMode.setInventario(this, checked);
-                if (txtModeLabel != null) {
-                    txtModeLabel.setText(checked ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
-                }
+            modeSelector.setOnCheckedChangeListener((group, checkedId) -> {
+                int nuevo;
+                if (checkedId == R.id.mode_inventario) nuevo = AppMode.MODE_INVENTARIO;
+                else if (checkedId == R.id.mode_picking) nuevo = AppMode.MODE_PICKING;
+                else nuevo = AppMode.MODE_INBOUND;
+                if (nuevo == AppMode.getMode(this)) return;  // sin cambios
+                AppMode.setMode(this, nuevo);
+                actualizarEtiquetaModo();
+                refrescarDatos();
                 Toast.makeText(this,
-                        getString(R.string.toast_modo, checked ? getString(R.string.appmode_inventario) : getString(R.string.appmode_inbound)),
+                        getString(R.string.toast_modo, AppMode.nombre(this)),
                         Toast.LENGTH_SHORT).show();
             });
         }
@@ -319,31 +330,45 @@ public class MainActivity extends AppCompatActivity
         verificarAccesibilidad();
     }
 
-    /** Pone el switch de modo acorde a AppMode sin disparar el Toast del listener.
-     * El switch solo cubre Inbound/Inventario: en modo Picking queda apagado
-     * y la etiqueta dice "Modo: Picking". Al mover el switch se sale de
-     * Picking hacia Inbound o Inventario. */
+    /** Pone el selector de modo acorde a AppMode sin disparar el Toast del listener.
+     * El selector cubre los 3 modos: Inbound, Inventario y Picking. Elegir
+     * Picking tiene el mismo efecto que "📦 Modo Picking" del drawer. Mantiene
+     * la etiqueta "Modo: ..." sincronizada. (El nombre del método se conserva
+     * por compatibilidad con las llamadas existentes.) */
     private void sincronizarSwitchModo() {
-        if (switchMode == null) return;
-        boolean inv = AppMode.isInventario(this);
-        boolean picking = AppMode.isPicking(this);
-        if (switchMode.isChecked() != inv) {
-            switchMode.setOnCheckedChangeListener(null);
-            switchMode.setChecked(inv);
-            switchMode.setOnCheckedChangeListener((btn, checked) -> {
-                AppMode.setInventario(this, checked);
-                if (txtModeLabel != null) {
-                    txtModeLabel.setText(checked ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
-                }
+        if (modeSelector == null) return;
+        int mode = AppMode.getMode(this);
+        int targetId;
+        if (mode == AppMode.MODE_INVENTARIO) targetId = R.id.mode_inventario;
+        else if (mode == AppMode.MODE_PICKING) targetId = R.id.mode_picking;
+        else targetId = R.id.mode_inbound;
+        if (modeSelector.getCheckedRadioButtonId() != targetId) {
+            modeSelector.setOnCheckedChangeListener(null);
+            modeSelector.check(targetId);
+            modeSelector.setOnCheckedChangeListener((group, checkedId) -> {
+                int nuevo;
+                if (checkedId == R.id.mode_inventario) nuevo = AppMode.MODE_INVENTARIO;
+                else if (checkedId == R.id.mode_picking) nuevo = AppMode.MODE_PICKING;
+                else nuevo = AppMode.MODE_INBOUND;
+                if (nuevo == AppMode.getMode(this)) return;
+                AppMode.setMode(this, nuevo);
+                actualizarEtiquetaModo();
+                refrescarDatos();
                 Toast.makeText(this,
-                        getString(R.string.toast_modo, checked ? getString(R.string.appmode_inventario) : getString(R.string.appmode_inbound)),
+                        getString(R.string.toast_modo, AppMode.nombre(this)),
                         Toast.LENGTH_SHORT).show();
             });
         }
-        if (txtModeLabel != null) {
-            txtModeLabel.setText(picking ? getString(R.string.main_modo_picking)
-                    : inv ? getString(R.string.main_modo_inventario) : getString(R.string.main_modo_inbound));
-        }
+        actualizarEtiquetaModo();
+    }
+
+    /** Actualiza solo el texto "Modo: ..." de la cabecera según AppMode. */
+    private void actualizarEtiquetaModo() {
+        if (txtModeLabel == null) return;
+        int mode = AppMode.getMode(this);
+        if (mode == AppMode.MODE_PICKING) txtModeLabel.setText(getString(R.string.main_modo_picking));
+        else if (mode == AppMode.MODE_INVENTARIO) txtModeLabel.setText(getString(R.string.main_modo_inventario));
+        else txtModeLabel.setText(getString(R.string.main_modo_inbound));
     }
 
     // ═══════════════════════════════════════════════════════════

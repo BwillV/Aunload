@@ -421,4 +421,14 @@
     <string name="pt_orden_zona">库区 %1$s</string>
     <string name="pt_orden_zona_ubic">库区 %1$s · %2$d 库位</string>
     <string name="pt_ruta">从最远处开始，向 B15/C01（交货点）推进。</string>
+    <!-- v5.19 — 个人拣货统计 -->
+    <string name="pt_stats_titulo">📊 我的统计（仅本机）</string>
+    <string name="pt_stats_sin_datos">暂无个人数据。完成任务前，每库位按默认 3:03 计算。</string>
+    <string name="pt_stats_hoy_linea">今天：%1$d 任务 · %2$d 库位 · %3$d EA · %4$s</string>
+    <string name="pt_stats_total_linea">累计：%1$d 任务 · %2$d 库位 · %3$d EA · %4$s</string>
+    <string name="pt_stats_promedios">你的平均：%1$s/库位 · %2$s/任务 · %3$d EA/小时</string>
+    <string name="pt_stats_reset">🔄 重置我的统计</string>
+    <string name="pt_stats_reset_ok">统计已重置</string>
+    <string name="pt_fuente_propia">⏱ 每托盘时间按你的数据（%1$s/库位）。</string>
+    <string name="pt_fuente_default">⏱ 每托盘时间按默认值（%1$s/库位）。</string>
 </resources>

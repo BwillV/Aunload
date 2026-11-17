@@ -424,4 +424,14 @@
     <string name="pt_orden_zona">zone %1$s</string>
     <string name="pt_orden_zona_ubic">zone %1$s · %2$d locs</string>
     <string name="pt_ruta">Start from the farthest point and move toward B15/C01 (drop-off).</string>
+    <!-- v5.19 — Personal picking statistics -->
+    <string name="pt_stats_titulo">📊 My stats (just me)</string>
+    <string name="pt_stats_sin_datos">No personal data yet. Using 3:03 per location (default) until you complete tasks.</string>
+    <string name="pt_stats_hoy_linea">Today: %1$d tasks · %2$d locs · %3$d EA · %4$s</string>
+    <string name="pt_stats_total_linea">Total: %1$d tasks · %2$d locs · %3$d EA · %4$s</string>
+    <string name="pt_stats_promedios">Your average: %1$s/loc · %2$s/task · %3$d EA/h</string>
+    <string name="pt_stats_reset">🔄 Reset my stats</string>
+    <string name="pt_stats_reset_ok">Statistics reset</string>
+    <string name="pt_fuente_propia">⏱ Per-pallet times from YOUR data (%1$s/location).</string>
+    <string name="pt_fuente_default">⏱ Per-pallet times using default value (%1$s/location).</string>
 </resources>

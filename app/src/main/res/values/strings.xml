@@ -424,4 +424,14 @@
     <string name="pt_orden_zona">zona %1$s</string>
     <string name="pt_orden_zona_ubic">zona %1$s · %2$d ubic</string>
     <string name="pt_ruta">Empieza por lo más lejano y avanza hacia B15/C01 (entrega).</string>
+    <!-- v5.19 — Estadísticas personales de Picking -->
+    <string name="pt_stats_titulo">📊 Mis estadísticas (solo yo)</string>
+    <string name="pt_stats_sin_datos">Aún sin datos propios. Se usa 3:03 por ubicación (valor por defecto) hasta que completes tareas.</string>
+    <string name="pt_stats_hoy_linea">Hoy: %1$d tareas · %2$d ubic · %3$d EA · %4$s</string>
+    <string name="pt_stats_total_linea">Acumulado: %1$d tareas · %2$d ubic · %3$d EA · %4$s</string>
+    <string name="pt_stats_promedios">Tu promedio: %1$s/ubic · %2$s/tarea · %3$d EA/h</string>
+    <string name="pt_stats_reset">🔄 Reiniciar mis estadísticas</string>
+    <string name="pt_stats_reset_ok">Estadísticas reiniciadas</string>
+    <string name="pt_fuente_propia">⏱ Tiempos por pallet con TUS datos (%1$s/ubicación).</string>
+    <string name="pt_fuente_default">⏱ Tiempos por pallet con valor por defecto (%1$s/ubicación).</string>
 </resources>

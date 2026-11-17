@@ -1801,15 +1801,36 @@ public class ScreenCaptureService extends AccessibilityService {
         }
     }
 
-    /** Ejecuta una acción de scroll en la primera lista desplazable visible. */
+    /**
+     * Ejecuta una acción de scroll en la lista desplazable VERTICAL de la
+     * pantalla. (v5.19) Antes se tomaba el primer nodo desplazable (DFS), que
+     * en la pantalla de Pick Task del WMS era el carrusel/pestañas horizontal
+     * (New / In Progress / Done), por lo que el "scroll automático" movía la
+     * pantalla de lado en vez de hacia abajo. Ahora se elige el contenedor
+     * desplazable VERTICAL más grande (mayor altura), descartando los nodos
+     * claramente horizontales (ViewPager / HorizontalScrollView o cuyo ancho
+     * supera a su alto). Si por alguna razón no se logra desplazar con la
+     * acción de accesibilidad, se recurre a un gesto (swipe) vertical.
+     */
     private boolean desplazarLista(int accion) {
         AccessibilityNodeInfo root = null;
         AccessibilityNodeInfo scroll = null;
         try {
             root = getRootInActiveWindow();
-            scroll = buscarScrollable(root, 0);
-            if (scroll == null) return false;
-            return scroll.performAction(accion);
+            scroll = buscarScrollableVertical(root);
+            boolean ok = false;
+            if (scroll != null) {
+                try { ok = scroll.performAction(accion); } catch (Throwable ignored) { }
+            }
+            // Respaldo: si no hay nodo desplazable vertical o la acción no
+            // funcionó, hacemos un gesto (swipe) vertical sobre el centro de la
+            // pantalla. ACTION_SCROLL_FORWARD = deslizar hacia ARRIBA (bajar en
+            // la lista); ACTION_SCROLL_BACKWARD = deslizar hacia ABAJO (subir).
+            if (!ok) {
+                boolean haciaAbajo = (accion == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+                ok = gestoSwipeVertical(scroll, haciaAbajo);
+            }
+            return ok;
         } catch (Throwable t) {
             return false;
         } finally {
@@ -1818,24 +1839,108 @@ public class ScreenCaptureService extends AccessibilityService {
         }
     }
 
-    /** Busca el primer nodo desplazable (DFS). No recicla el nodo devuelto. */
-    private AccessibilityNodeInfo buscarScrollable(AccessibilityNodeInfo node, int prof) {
-        if (node == null || prof > MAX_PROFUNDIDAD) return null;
-        try { if (node.isScrollable()) return node; } catch (Throwable ignored) { }
+    /**
+     * Busca el mejor nodo desplazable VERTICAL de la jerarquía: recoge todos los
+     * nodos desplazables y devuelve el de mayor altura que NO sea horizontal.
+     * No recicla el nodo devuelto; sí recicla los descartados.
+     */
+    private AccessibilityNodeInfo buscarScrollableVertical(AccessibilityNodeInfo root) {
+        if (root == null) return null;
+        java.util.ArrayList<AccessibilityNodeInfo> scrollables = new java.util.ArrayList<>();
+        recolectarScrollables(root, 0, scrollables);
+        AccessibilityNodeInfo mejor = null;        // mejor vertical
+        int mejorAlto = -1;
+        AccessibilityNodeInfo mejorFallback = null; // mayor área si ninguno es claramente vertical
+        int mejorArea = -1;
+        android.graphics.Rect r = new android.graphics.Rect();
+        for (AccessibilityNodeInfo nodo : scrollables) {
+            if (nodo == null) continue;
+            int alto = 0, ancho = 0;
+            boolean horizontalClase = false;
+            try {
+                nodo.getBoundsInScreen(r);
+                alto = r.height();
+                ancho = r.width();
+                CharSequence cls = nodo.getClassName();
+                if (cls != null) {
+                    String c = cls.toString();
+                    if (c.contains("ViewPager") || c.contains("HorizontalScrollView")
+                            || c.contains("Gallery") || c.contains("ViewPager2")) {
+                        horizontalClase = true;
+                    }
+                }
+            } catch (Throwable ignored) { }
+            int area = alto * ancho;
+            if (area > mejorArea) { mejorArea = area; mejorFallback = nodo; }
+            // Vertical: no es de clase horizontal y su alto es >= su ancho.
+            boolean esVertical = !horizontalClase && alto >= ancho && alto > 0;
+            if (esVertical && alto > mejorAlto) { mejorAlto = alto; mejor = nodo; }
+        }
+        AccessibilityNodeInfo elegido = (mejor != null) ? mejor : mejorFallback;
+        // Reciclar los no elegidos.
+        for (AccessibilityNodeInfo nodo : scrollables) {
+            if (nodo != null && nodo != elegido) {
+                try { nodo.recycle(); } catch (Throwable ignored) { }
+            }
+        }
+        return elegido;
+    }
+
+    /** Recoge TODOS los nodos desplazables (DFS). Los nodos NO desplazables se reciclan. */
+    private void recolectarScrollables(AccessibilityNodeInfo node, int prof,
+                                       java.util.ArrayList<AccessibilityNodeInfo> out) {
+        if (node == null || prof > MAX_PROFUNDIDAD) return;
+        boolean esteScrollable = false;
+        try { esteScrollable = node.isScrollable(); } catch (Throwable ignored) { }
+        if (esteScrollable) out.add(node);
         int n = 0;
         try { n = node.getChildCount(); } catch (Throwable ignored) { }
         for (int i = 0; i < n; i++) {
             AccessibilityNodeInfo child = null;
             try { child = node.getChild(i); } catch (Throwable ignored) { }
             if (child == null) continue;
-            AccessibilityNodeInfo r = buscarScrollable(child, prof + 1);
-            if (r != null) {
-                if (r != child) { try { child.recycle(); } catch (Throwable ignored) { } }
-                return r;
+            recolectarScrollables(child, prof + 1, out);
+            // Reciclar hijos que no quedaron guardados como scrollables.
+            if (!out.contains(child)) {
+                try { child.recycle(); } catch (Throwable ignored) { }
             }
-            try { child.recycle(); } catch (Throwable ignored) { }
         }
-        return null;
+    }
+
+    /**
+     * Respaldo por gesto: swipe VERTICAL en el centro del nodo desplazable (o de
+     * la pantalla si es null). haciaAbajo=true desliza de abajo hacia arriba
+     * (avanza en la lista); false al revés. Requiere API 24+ (minSdk 26).
+     */
+    private boolean gestoSwipeVertical(AccessibilityNodeInfo nodo, boolean haciaAbajo) {
+        try {
+            android.graphics.Rect r = new android.graphics.Rect();
+            if (nodo != null) {
+                nodo.getBoundsInScreen(r);
+            }
+            if (r.width() <= 0 || r.height() <= 0) {
+                // Usar bordes de la pantalla.
+                android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+                r.set(0, 0, dm.widthPixels, dm.heightPixels);
+            }
+            int cx = r.centerX();
+            // Deslizar dentro del 60% central vertical para no tocar bordes.
+            int top = r.top + (int) (r.height() * 0.30f);
+            int bottom = r.top + (int) (r.height() * 0.70f);
+            int yStart, yEnd;
+            if (haciaAbajo) { yStart = bottom; yEnd = top; }   // dedo sube => lista baja
+            else { yStart = top; yEnd = bottom; }              // dedo baja => lista sube
+            android.graphics.Path path = new android.graphics.Path();
+            path.moveTo(cx, yStart);
+            path.lineTo(cx, yEnd);
+            android.accessibilityservice.GestureDescription.StrokeDescription stroke =
+                    new android.accessibilityservice.GestureDescription.StrokeDescription(path, 0, 250);
+            android.accessibilityservice.GestureDescription gesture =
+                    new android.accessibilityservice.GestureDescription.Builder().addStroke(stroke).build();
+            return dispatchGesture(gesture, null, null);
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /** Todos los SKU de la pantalla, sin duplicados, en orden. */

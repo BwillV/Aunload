@@ -115,6 +115,18 @@ public final class PickTrackerAdvisor {
             return totalLocations() * SECONDS_PER_LOCATION;
         }
 
+        /**
+         * Tiempo estimado por pallet usando el promedio PERSONAL por ubicación
+         * (segundos). Modelo: nº de ubicaciones × promedio propio por ubicación.
+         * Es el mismo indicador que usa la pantalla de la jefa (每库位耗时 /
+         * "time per location"). Si no hay datos propios, el llamador pasa el
+         * valor por defecto (PickTrackerStore.BASELINE_SEC_PER_LOC = 3:03).
+         */
+        public int estimatedSeconds(int secPerLocation) {
+            int spl = secPerLocation > 0 ? secPerLocation : SECONDS_PER_LOCATION;
+            return totalLocations() * spl;
+        }
+
         public boolean hasPriority() {
             for (TaskInfo t : orders) if (t.isBigSingleLocation()) return true;
             return false;
