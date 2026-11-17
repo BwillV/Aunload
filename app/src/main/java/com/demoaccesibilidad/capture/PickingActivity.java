@@ -2,10 +2,10 @@ package com.demoaccesibilidad.capture;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -18,45 +18,57 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.cardview.widget.CardView;
 
 import java.util.List;
 
 /**
- * v5.21 — Pantalla de Picking dentro de la app, AHORA integrada como una
- * pantalla más (igual que la principal): barra superior azul (#0f3460) con
- * título y flecha de volver, mismo fondo (#1a1a2e) y las mismas tarjetas que el
- * resto de la app. Antes usaba un tema sin barra y una paleta propia muy
- * oscura, por eso parecía una ventana "sobrepuesta" flotando encima; eso se
- * eliminó.
+ * v5.22 — Pantalla de Picking integrada visualmente con el resto de la app.
  *
- * Muestra:
- *   1. Estadísticas del DÍA de Wilson con el formato de la pantalla de la jefa
- *      (Tareas, Inventario EA, Ubicaciones, Progreso %, Tiempo, Tiempo/ubic) y
- *      el bloque del día ANTERIOR.
- *   2. El estimado de tiempo por pallet (promedio personal de hoy/ayer; "sin
- *      datos aún" si no hay) — NO se elimina.
- *   3. Los pallets sugeridos (solo de la pestaña New del WMS), con su SLP junto
- *      a cada orden y un check por orden terminada.
- *   4. Botón "Reset de lectura" (borra la lectura de tareas, NO las stats) y
- *      botón "Reiniciar stats de hoy", ambos con confirmación.
+ * Por qué se volvió a tocar: en las capturas de la v5.21 esta pantalla NO se
+ * veía como la pantalla principal. Las causas reales eran:
+ *   1) Las "tarjetas" eran LinearLayout planos con esquinas rectas y sin
+ *      elevación — el home usa CardView redondeadas (8dp, elevación 2dp,
+ *      fondo #16213e, igual que item_task.xml). Por eso se veía como texto
+ *      suelto sobre un bloque azul, no como una pantalla nativa.
+ *   2) El bloque "Ayer" usaba un azul más claro (#2a2a4a) que formaba un panel
+ *      brillante que no pegaba con el resto.
+ *   3) Faltaba el "cromado" de la app: la pantalla principal tiene la barra
+ *      "Modo: ..." debajo del Toolbar. Aquí se saltaba directo a las stats, así
+ *      que se sentía otra app.
  *
- * Todo 100% local (SharedPreferences), nada a Firebase. Se abre desde el drawer
- * "📦 Modo Picking" SIN cambiar de modo. El overlay del FAB (📦 Picking) sigue
- * existiendo tal cual; esta pantalla es complementaria.
+ * Arreglo v5.22:
+ *   - Toolbar azul #0f3460 con el nombre "PalletTracker" (misma marca que el
+ *     home) y flecha de volver.
+ *   - Barra "🔀 Modo: Picking — Mis estadísticas" sobre #0d2137, idéntica en
+ *     estilo a la barra de modo del home.
+ *   - Fondo plano #1a1a2e (sin degradados ni paneles sueltos).
+ *   - Todas las secciones son CardView redondeadas #16213e con elevación, y
+ *     cada pallet sugerido es una sub-tarjeta redondeada, igual que las de la
+ *     pantalla principal.
+ *
+ * Toda la funcionalidad se conserva: stats de hoy/ayer (reinicio diario),
+ * estimado de tiempo por pallet siempre visible ("sin datos aún" si no hay),
+ * pallets sugeridos solo de la pestaña New con SLP y check por orden, botón
+ * "Reset de lectura" (no borra stats, con confirmación) y "Reiniciar stats".
+ * Todo local (SharedPreferences), nada a Firebase. El overlay del FAB sigue
+ * igual.
  */
 public class PickingActivity extends AppCompatActivity {
 
-    // Paleta del home (activity_main.xml), para que se vea natural en la app.
-    private static final int BG      = Color.parseColor("#1a1a2e");
-    private static final int BAR     = Color.parseColor("#0f3460");
-    private static final int CARD    = Color.parseColor("#16213e");
-    private static final int CARD2   = Color.parseColor("#2a2a4a");
-    private static final int FG      = Color.parseColor("#FFFFFF");
-    private static final int MUTED   = Color.parseColor("#AAAAAA");
-    private static final int ACCENT  = Color.parseColor("#2196F3");
-    private static final int GREEN   = Color.parseColor("#4CAF50");
-    private static final int GOLD    = Color.parseColor("#FFC107");
-    private static final int GRAY    = Color.parseColor("#607D8B");
+    // Paleta EXACTA del home (activity_main.xml / item_task.xml).
+    private static final int BG       = Color.parseColor("#1a1a2e"); // fondo app
+    private static final int BAR      = Color.parseColor("#0f3460"); // toolbar
+    private static final int MODEBAR  = Color.parseColor("#0d2137"); // barra de modo
+    private static final int CARD     = Color.parseColor("#16213e"); // tarjetas
+    private static final int SUBCARD  = Color.parseColor("#1f2b4d"); // sub-tarjeta pallet
+    private static final int FG       = Color.parseColor("#FFFFFF");
+    private static final int MUTED    = Color.parseColor("#AAAAAA");
+    private static final int MUTED2   = Color.parseColor("#888888");
+    private static final int ACCENT   = Color.parseColor("#2196F3");
+    private static final int GREEN    = Color.parseColor("#4CAF50");
+    private static final int GOLD     = Color.parseColor("#FFC107");
+    private static final int GRAY     = Color.parseColor("#607D8B");
 
     private LinearLayout root;
 
@@ -69,14 +81,14 @@ public class PickingActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Contenedor vertical: barra superior + contenido desplazable.
         LinearLayout screen = new LinearLayout(this);
         screen.setOrientation(LinearLayout.VERTICAL);
         screen.setBackgroundColor(BG);
 
+        // ── Toolbar: misma marca y color que el home ──
         Toolbar toolbar = new Toolbar(this);
         toolbar.setBackgroundColor(BAR);
-        toolbar.setTitle(getString(R.string.pt_js_titulo));
+        toolbar.setTitle(getString(R.string.app_name));
         toolbar.setTitleTextColor(FG);
         toolbar.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -91,6 +103,32 @@ public class PickingActivity extends AppCompatActivity {
             try { getWindow().setStatusBarColor(BAR); } catch (Throwable ignored) { }
         }
 
+        // ── Barra "Modo: ..." igual que la de la pantalla principal ──
+        LinearLayout modeBar = new LinearLayout(this);
+        modeBar.setOrientation(LinearLayout.HORIZONTAL);
+        modeBar.setGravity(Gravity.CENTER_VERTICAL);
+        modeBar.setBackgroundColor(MODEBAR);
+        int mp = dp(12);
+        modeBar.setPadding(mp, mp, mp, mp);
+        modeBar.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        TextView modeIcon = new TextView(this);
+        modeIcon.setText("🔀");
+        modeIcon.setTextSize(18f);
+        modeIcon.setPadding(0, 0, dp(8), 0);
+        modeBar.addView(modeIcon);
+
+        TextView modeLabel = new TextView(this);
+        modeLabel.setText(getString(R.string.pt_js_titulo));
+        modeLabel.setTextColor(FG);
+        modeLabel.setTextSize(15f);
+        modeLabel.setTypeface(null, Typeface.BOLD);
+        modeBar.addView(modeLabel);
+        screen.addView(modeBar);
+
+        // ── Contenido desplazable ──
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
         scroll.setFillViewport(true);
@@ -99,7 +137,7 @@ public class PickingActivity extends AppCompatActivity {
 
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(16);
+        int pad = dp(12);
         root.setPadding(pad, pad, pad, pad);
         scroll.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -137,7 +175,7 @@ public class PickingActivity extends AppCompatActivity {
         PickTrackerStore.Stats ayer = PickTrackerStore.getStatsPrevDay(this);
 
         // ---- Bloque HOY (formato jefa) ----
-        LinearLayout hoyCard = card(getString(R.string.pt_js_hoy), CARD);
+        LinearLayout hoyCard = card(getString(R.string.pt_js_hoy));
         addRow(hoyCard, R.string.pt_js_tasks, String.valueOf(hoy.tasks));
         addRow(hoyCard, R.string.pt_js_total_inv,
                 asigArt > 0 ? String.valueOf(asigArt) : String.valueOf(hoy.ea));
@@ -151,10 +189,9 @@ public class PickingActivity extends AppCompatActivity {
         addRow(hoyCard, R.string.pt_js_time_loc,
                 hoy.locations > 0 ? PickTrackerStore.formatMmSs(hoy.secPerLocation())
                                   : getString(R.string.pt_js_sin_datos));
-        root.addView(hoyCard);
 
         // ---- Bloque AYER ----
-        LinearLayout ayerCard = card(getString(R.string.pt_js_ayer), CARD2);
+        LinearLayout ayerCard = card(getString(R.string.pt_js_ayer));
         if (ayer.isEmpty()) {
             TextView t = new TextView(this);
             t.setText(getString(R.string.pt_js_sin_datos));
@@ -170,25 +207,10 @@ public class PickingActivity extends AppCompatActivity {
                     ayer.locations > 0 ? PickTrackerStore.formatMmSs(ayer.secPerLocation())
                                        : getString(R.string.pt_js_sin_datos));
         }
-        root.addView(ayerCard);
-
-        // ---- Fuente del consejo de tiempo por pallet (estimado por pallet) ----
-        int src = PickTrackerStore.adviceSource(this);
-        int spl = PickTrackerStore.secPerLocationForAdvice(this);
-        TextView fuente = new TextView(this);
-        fuente.setTextColor(spl > 0 ? GREEN : MUTED);
-        fuente.setPadding(dp(4), dp(6), dp(4), dp(2));
-        String mmss = PickTrackerStore.formatMmSs(spl);
-        if (src == PickTrackerStore.SRC_TODAY) {
-            fuente.setText(getString(R.string.pt_fuente_hoy, mmss));
-        } else if (src == PickTrackerStore.SRC_PREV) {
-            fuente.setText(getString(R.string.pt_fuente_ayer, mmss));
-        } else {
-            fuente.setText(getString(R.string.pt_fuente_sin));
-        }
-        root.addView(fuente);
 
         // ---- Pallets sugeridos (solo pestaña New) con SLP + checks ----
+        int src = PickTrackerStore.adviceSource(this);
+        int spl = PickTrackerStore.secPerLocationForAdvice(this);
         renderPlan(pend, spl, src);
 
         // ---- Botón "Reset de lectura" (borra lectura, NO stats) ----
@@ -199,7 +221,9 @@ public class PickingActivity extends AppCompatActivity {
         resetLectura.setBackgroundColor(GRAY);
         LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rlp.topMargin = dp(18);
+        rlp.topMargin = dp(10);
+        rlp.leftMargin = dp(4);
+        rlp.rightMargin = dp(4);
         resetLectura.setLayoutParams(rlp);
         resetLectura.setOnClickListener(v -> new AlertDialog.Builder(PickingActivity.this)
                 .setMessage(getString(R.string.pt_js_reset_lectura_confirm))
@@ -223,6 +247,9 @@ public class PickingActivity extends AppCompatActivity {
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         blp.topMargin = dp(10);
+        blp.leftMargin = dp(4);
+        blp.rightMargin = dp(4);
+        blp.bottomMargin = dp(8);
         reset.setLayoutParams(blp);
         reset.setOnClickListener(v -> new AlertDialog.Builder(PickingActivity.this)
                 .setMessage(getString(R.string.pt_js_reset_confirm))
@@ -239,7 +266,7 @@ public class PickingActivity extends AppCompatActivity {
 
     /** Dibuja el bloque "Pallets sugeridos" con el mismo criterio que el overlay. */
     private void renderPlan(List<PickTrackerAdvisor.TaskInfo> pend, int spl, int src) {
-        LinearLayout plan = card(getString(R.string.pt_js_plan), CARD);
+        LinearLayout plan = card(getString(R.string.pt_js_plan));
 
         TextView solo = new TextView(this);
         solo.setText(getString(R.string.pt_solo_new));
@@ -248,13 +275,27 @@ public class PickingActivity extends AppCompatActivity {
         solo.setPadding(0, 0, 0, dp(8));
         plan.addView(solo);
 
+        // Fuente del estimado de tiempo por pallet (siempre visible).
+        TextView fuente = new TextView(this);
+        fuente.setTextColor(spl > 0 ? GREEN : MUTED);
+        fuente.setTextSize(12f);
+        fuente.setPadding(0, 0, 0, dp(8));
+        String mmss = PickTrackerStore.formatMmSs(spl);
+        if (src == PickTrackerStore.SRC_TODAY) {
+            fuente.setText(getString(R.string.pt_fuente_hoy, mmss));
+        } else if (src == PickTrackerStore.SRC_PREV) {
+            fuente.setText(getString(R.string.pt_fuente_ayer, mmss));
+        } else {
+            fuente.setText(getString(R.string.pt_fuente_sin));
+        }
+        plan.addView(fuente);
+
         if (pend == null || pend.isEmpty()) {
             TextView vacio = new TextView(this);
             vacio.setText(getString(R.string.pt_sin_plan));
             vacio.setTextColor(MUTED);
             vacio.setPadding(0, 0, 0, dp(4));
             plan.addView(vacio);
-            root.addView(plan);
             return;
         }
 
@@ -288,14 +329,7 @@ public class PickingActivity extends AppCompatActivity {
 
         int palletNum = 1;
         for (PickTrackerAdvisor.Pallet p : pallets) {
-            LinearLayout pc = new LinearLayout(this);
-            pc.setOrientation(LinearLayout.VERTICAL);
-            pc.setBackgroundColor(CARD2);
-            pc.setPadding(dp(12), dp(10), dp(12), dp(10));
-            LinearLayout.LayoutParams pclp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            pclp.bottomMargin = dp(8);
-            pc.setLayoutParams(pclp);
+            LinearLayout pc = subCard(plan);
 
             TextView tvCab = new TextView(this);
             tvCab.setText(p.crossAisle
@@ -303,7 +337,7 @@ public class PickingActivity extends AppCompatActivity {
                     : getString(R.string.pt_pallet, palletNum, p.aisleLabel()));
             tvCab.setTextColor(ACCENT);
             tvCab.setTextSize(15f);
-            tvCab.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvCab.setTypeface(null, Typeface.BOLD);
             pc.addView(tvCab);
 
             TextView tvRes = new TextView(this);
@@ -364,37 +398,74 @@ public class PickingActivity extends AppCompatActivity {
                 pc.addView(fila);
             }
 
-            plan.addView(pc);
             palletNum++;
         }
 
         TextView tvRuta = new TextView(this);
         tvRuta.setText(getString(R.string.pt_ruta));
-        tvRuta.setTextColor(MUTED);
+        tvRuta.setTextColor(MUTED2);
         tvRuta.setTextSize(12f);
+        tvRuta.setPadding(0, dp(4), 0, 0);
         plan.addView(tvRuta);
-
-        root.addView(plan);
     }
 
-    private LinearLayout card(String titulo, int bg) {
-        LinearLayout c = new LinearLayout(this);
-        c.setOrientation(LinearLayout.VERTICAL);
-        c.setBackgroundColor(bg);
-        int p = dp(14);
-        c.setPadding(p, p, p, p);
+    /**
+     * Crea una tarjeta redondeada con elevación (igual que item_task.xml:
+     * #16213e, radio 8dp, elevación 2dp, margen 4dp) y la agrega al root.
+     * Devuelve el LinearLayout interno para rellenarlo.
+     */
+    private LinearLayout card(String titulo) {
+        CardView cv = new CardView(this);
+        cv.setCardBackgroundColor(CARD);
+        cv.setRadius(dp(8));
+        cv.setCardElevation(dp(2));
+        cv.setUseCompatPadding(false);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dp(14);
-        c.setLayoutParams(lp);
+        int m = dp(4);
+        lp.setMargins(m, m, m, dp(10));
+        cv.setLayoutParams(lp);
+
+        LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(16);
+        inner.setPadding(p, p, p, p);
+        cv.addView(inner);
 
         TextView h = new TextView(this);
         h.setText(titulo);
         h.setTextColor(ACCENT);
         h.setTextSize(18f);
+        h.setTypeface(null, Typeface.BOLD);
         h.setPadding(0, 0, 0, dp(8));
-        c.addView(h);
-        return c;
+        inner.addView(h);
+
+        root.addView(cv);
+        return inner;
+    }
+
+    /**
+     * Sub-tarjeta redondeada (un pallet sugerido) dentro de la tarjeta "plan".
+     * Devuelve el LinearLayout interno para rellenarlo.
+     */
+    private LinearLayout subCard(LinearLayout parent) {
+        CardView cv = new CardView(this);
+        cv.setCardBackgroundColor(SUBCARD);
+        cv.setRadius(dp(8));
+        cv.setCardElevation(dp(1));
+        cv.setUseCompatPadding(false);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = dp(8);
+        cv.setLayoutParams(lp);
+
+        LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.VERTICAL);
+        inner.setPadding(dp(12), dp(10), dp(12), dp(10));
+        cv.addView(inner);
+
+        parent.addView(cv);
+        return inner;
     }
 
     private void addRow(LinearLayout parent, int labelRes, String value) {
