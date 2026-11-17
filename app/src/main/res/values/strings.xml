@@ -147,6 +147,7 @@
 
     <!-- ===== Menú drawer ===== -->
     <string name="nav_home">🏠 Home</string>
+    <string name="nav_modo_picking">📦 Modo Picking</string>
     <string name="nav_ajustes">⚙️ Ajustes</string>
     <string name="nav_errores">🐞 Errores</string>
     <string name="nav_acerca">ℹ️ Acerca de</string>
@@ -408,20 +409,19 @@
     <string name="appmode_picking">Picking</string>
     <string name="fab_picking_titulo">🎯 Modo Picking</string>
     <string name="fab_picking_texto">PickTracker activo: tiempos de picking.</string>
-    <string name="pt_menu">📊 PickTracker</string>
-    <string name="pt_titulo">📊 PickTracker</string>
-    <string name="pt_sin_tarea">Sin tarea en curso</string>
-    <string name="pt_tarea_actual">Tarea en curso: %1$s</string>
-    <string name="pt_hoy">Hoy: %1$d tareas · %2$d piezas · %3$d piezas/hora\nPor ubicación: %4$s (referencia 3:03)</string>
-    <string name="pt_sin_datos">Aún sin tiempos de hoy.</string>
-    <string name="pt_mejor">✅ Más rápido que tu referencia (%1$s por ubicación).</string>
-    <string name="pt_peor">⚠ Más lento que tu referencia (%1$s por ubicación).</string>
-    <string name="pt_consejo">Consejo de tareas:</string>
-    <string name="pt_empezar_ejemplo">▶ Empezar tarea de ejemplo (TASK-44625)</string>
-    <string name="pt_registrar_ubicacion">✅ Registrar ubicación hecha (+1 pieza)</string>
-    <string name="pt_leer_lista">📋 Leer toda la lista (desliza sola)</string>
-    <string name="pt_cerrar_tarea">■ Cerrar tarea actual</string>
-    <string name="pt_pendientes">Pendientes:</string>
-    <string name="pt_sin_pendientes">Sin tareas pendientes. Abre la lista de Pick Task.</string>
-    <string name="pt_progreso">%1$d/%2$d Skus, %3$d/%4$d EA · %5$s</string>
+    <string name="pt_menu">📦 Picking</string>
+    <string name="pt_titulo">📦 Picking</string>
+    <string name="pt_nueva_lectura">🔄 Nueva lectura</string>
+    <string name="pt_leyendo">Leyendo la lista… no toques la pantalla.</string>
+    <string name="pt_sin_plan">Sin lectura. Abre la Pick Task List y pulsa «Nueva lectura».</string>
+    <string name="pt_total_dia">Total del día: %1$d pallets · %2$d artículos · %3$d ubic · ~%4$d min</string>
+    <string name="pt_completadas">Completadas: %1$d / %2$d órdenes</string>
+    <string name="pt_pallet">Pallet %1$d · pasillo %2$s</string>
+    <string name="pt_pallet_cross">Pallet %1$d · cruce B/C</string>
+    <string name="pt_pallet_resumen">%1$d artículos · %2$d ubicaciones · ~%3$d min</string>
+    <string name="pt_prioridad">⭐ Casi completa (priorizar)</string>
+    <string name="pt_orden_linea">%1$s · %2$d art · %3$s</string>
+    <string name="pt_orden_zona">zona %1$s</string>
+    <string name="pt_orden_zona_ubic">zona %1$s · %2$d ubic</string>
+    <string name="pt_ruta">Empieza por lo más lejano y avanza hacia B15/C01 (entrega).</string>
 </resources>

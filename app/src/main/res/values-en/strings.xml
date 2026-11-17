@@ -147,6 +147,7 @@
 
     <!-- ===== Drawer menu ===== -->
     <string name="nav_home">🏠 Home</string>
+    <string name="nav_modo_picking">📦 Picking mode</string>
     <string name="nav_ajustes">⚙️ Settings</string>
     <string name="nav_errores">🐞 Errors</string>
     <string name="nav_acerca">ℹ️ About</string>
@@ -408,20 +409,19 @@
     <string name="appmode_picking">Picking</string>
     <string name="fab_picking_titulo">🎯 Picking Mode</string>
     <string name="fab_picking_texto">PickTracker active: picking times.</string>
-    <string name="pt_menu">📊 PickTracker</string>
-    <string name="pt_titulo">📊 PickTracker</string>
-    <string name="pt_sin_tarea">No task in progress</string>
-    <string name="pt_tarea_actual">Current task: %1$s</string>
-    <string name="pt_hoy">Today: %1$d tasks · %2$d pieces · %3$d pieces/hour\nPer location: %4$s (reference 3:03)</string>
-    <string name="pt_sin_datos">No times recorded today yet.</string>
-    <string name="pt_mejor">✅ Faster than your reference (%1$s per location).</string>
-    <string name="pt_peor">⚠ Slower than your reference (%1$s per location).</string>
-    <string name="pt_consejo">Task advice:</string>
-    <string name="pt_empezar_ejemplo">▶ Start example task (TASK-44625)</string>
-    <string name="pt_registrar_ubicacion">✅ Log a done location (+1 piece)</string>
-    <string name="pt_leer_lista">📋 Read the whole list (auto-scrolls)</string>
-    <string name="pt_cerrar_tarea">■ Close current task</string>
-    <string name="pt_pendientes">Pending:</string>
-    <string name="pt_sin_pendientes">No pending tasks. Open the Pick Task list.</string>
-    <string name="pt_progreso">%1$d/%2$d Skus, %3$d/%4$d EA · %5$s</string>
+    <string name="pt_menu">📦 Picking</string>
+    <string name="pt_titulo">📦 Picking</string>
+    <string name="pt_nueva_lectura">🔄 New reading</string>
+    <string name="pt_leyendo">Reading the list… don\'t touch the screen.</string>
+    <string name="pt_sin_plan">No reading yet. Open the Pick Task List and tap “New reading”.</string>
+    <string name="pt_total_dia">Day total: %1$d pallets · %2$d items · %3$d locs · ~%4$d min</string>
+    <string name="pt_completadas">Completed: %1$d / %2$d orders</string>
+    <string name="pt_pallet">Pallet %1$d · aisle %2$s</string>
+    <string name="pt_pallet_cross">Pallet %1$d · B/C cross</string>
+    <string name="pt_pallet_resumen">%1$d items · %2$d locations · ~%3$d min</string>
+    <string name="pt_prioridad">⭐ Almost full (prioritize)</string>
+    <string name="pt_orden_linea">%1$s · %2$d items · %3$s</string>
+    <string name="pt_orden_zona">zone %1$s</string>
+    <string name="pt_orden_zona_ubic">zone %1$s · %2$d locs</string>
+    <string name="pt_ruta">Start from the farthest point and move toward B15/C01 (drop-off).</string>
 </resources>

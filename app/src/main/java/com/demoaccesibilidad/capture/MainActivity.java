@@ -890,6 +890,17 @@ public class MainActivity extends AppCompatActivity
 
         if (id == R.id.nav_home) {
             mostrarHome();
+        } else if (id == R.id.nav_modo_picking) {
+            // Activa/desactiva el modo Picking desde el menú de la app.
+            // Al salir de Picking vuelve a Inbound. El switch de la home y su
+            // etiqueta se actualizan al reflejar el modo.
+            boolean entrar = !AppMode.isPicking(this);
+            AppMode.setMode(this, entrar ? AppMode.MODE_PICKING : AppMode.MODE_INBOUND);
+            sincronizarSwitchModo();
+            refrescarDatos();
+            Toast.makeText(this,
+                    getString(R.string.toast_modo, AppMode.nombre(this)),
+                    Toast.LENGTH_SHORT).show();
         } else if (id == R.id.nav_ajustes) {
             mostrarFragment(new AjustesFragment(), "Ajustes");
         } else if (id == R.id.nav_errores) {

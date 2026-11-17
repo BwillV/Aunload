@@ -147,6 +147,7 @@
 
     <!-- ===== 抽屉菜单 ===== -->
     <string name="nav_home">🏠 主页</string>
+    <string name="nav_modo_picking">📦 拣货模式</string>
     <string name="nav_ajustes">⚙️ 设置</string>
     <string name="nav_errores">🐞 错误</string>
     <string name="nav_acerca">ℹ️ 关于</string>
@@ -405,20 +406,19 @@
     <string name="appmode_picking">拣货</string>
     <string name="fab_picking_titulo">🎯 拣货模式</string>
     <string name="fab_picking_texto">PickTracker 已激活：拣货计时。</string>
-    <string name="pt_menu">📊 PickTracker</string>
-    <string name="pt_titulo">📊 PickTracker</string>
-    <string name="pt_sin_tarea">当前没有任务</string>
-    <string name="pt_tarea_actual">当前任务：%1$s</string>
-    <string name="pt_hoy">今天：%1$d 个任务 · %2$d 件 · %3$d 件/小时\n每个位置：%4$s（参考 3:03）</string>
-    <string name="pt_sin_datos">今天还没有记录时间。</string>
-    <string name="pt_mejor">✅ 比你的参考更快（每个位置 %1$s）。</string>
-    <string name="pt_peor">⚠ 比你的参考更慢（每个位置 %1$s）。</string>
-    <string name="pt_consejo">任务建议：</string>
-    <string name="pt_empezar_ejemplo">▶ 开始示例任务（TASK-44625）</string>
-    <string name="pt_registrar_ubicacion">✅ 记录一个完成的位置（+1 件）</string>
-    <string name="pt_leer_lista">📋 读取整个列表（自动滚动）</string>
-    <string name="pt_cerrar_tarea">■ 关闭当前任务</string>
-    <string name="pt_pendientes">待处理：</string>
-    <string name="pt_sin_pendientes">没有待处理任务。请打开 Pick Task 列表。</string>
-    <string name="pt_progreso">%1$d/%2$d SKU，%3$d/%4$d 件 · %5$s</string>
+    <string name="pt_menu">📦 拣货</string>
+    <string name="pt_titulo">📦 拣货</string>
+    <string name="pt_nueva_lectura">🔄 重新读取</string>
+    <string name="pt_leyendo">正在读取列表…请勿触碰屏幕。</string>
+    <string name="pt_sin_plan">尚无读取。请打开 Pick Task List 并点击“重新读取”。</string>
+    <string name="pt_total_dia">当日合计：%1$d 托盘 · %2$d 件 · %3$d 库位 · 约 %4$d 分钟</string>
+    <string name="pt_completadas">已完成：%1$d / %2$d 单</string>
+    <string name="pt_pallet">托盘 %1$d · 通道 %2$s</string>
+    <string name="pt_pallet_cross">托盘 %1$d · B/C 交叉</string>
+    <string name="pt_pallet_resumen">%1$d 件 · %2$d 库位 · 约 %3$d 分钟</string>
+    <string name="pt_prioridad">⭐ 接近满托（优先）</string>
+    <string name="pt_orden_linea">%1$s · %2$d 件 · %3$s</string>
+    <string name="pt_orden_zona">库区 %1$s</string>
+    <string name="pt_orden_zona_ubic">库区 %1$s · %2$d 库位</string>
+    <string name="pt_ruta">从最远处开始，向 B15/C01（交货点）推进。</string>
 </resources>

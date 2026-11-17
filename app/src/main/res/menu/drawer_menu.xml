@@ -6,6 +6,9 @@
             android:id="@+id/nav_home"
             android:title="@string/nav_home" />
         <item
+            android:id="@+id/nav_modo_picking"
+            android:title="@string/nav_modo_picking" />
+        <item
             android:id="@+id/nav_idioma"
             android:title="@string/nav_idioma" />
         <item

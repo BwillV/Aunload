@@ -123,94 +123,113 @@ public class CopyTextHelper {
 
         final WindowManager.LayoutParams params = crearParams(false);
 
-        // Ubicaciones en pantalla (ordenadas y con checkbox).
-        Button btnLista = crearBoton(context, context.getString(R.string.copy_ubicaciones), COLOR_BLUE);
-        btnLista.setOnClickListener(v -> {
-            removerOverlay(wm, root);
-            abrirListaUbicaciones(context, wm, true);
-        });
-        root.addView(btnLista);
-        addSpacer(context, root, 8);
-
-        // PickTracker (nuevo v5.15, por Muse): rendimiento y consejo de tareas.
-        // Solo en modo Picking, para que quede ordenado: en Inbound e
-        // Inventario PickTracker no aparece ni hace nada.
         if (AppMode.isPicking(context)) {
-            Button btnPickTracker = crearBoton(context, context.getString(R.string.pt_menu), COLOR_BLUE);
-            btnPickTracker.setOnClickListener(v -> {
+            // Modo Picking: el FAB muestra SOLO Copiar SKU, Copiar locación y
+            // el overlay "📦 Picking". Todo lo demás (ubicaciones en pantalla,
+            // conteo, cambio de modo, idioma, etc.) no aparece aquí: el modo
+            // se cambia desde el menú de la app y Picking lleva su propio flujo.
+            Button btnSkuP = crearBoton(context, context.getString(R.string.copy_sku), COLOR_GREEN);
+            btnSkuP.setOnClickListener(v -> {
+                removerOverlay(wm, root);
+                copiarSku(context, wm);
+            });
+            root.addView(btnSkuP);
+            addSpacer(context, root, 8);
+
+            Button btnLocP = crearBoton(context, context.getString(R.string.copy_ubicacion), COLOR_GREEN);
+            btnLocP.setOnClickListener(v -> {
+                removerOverlay(wm, root);
+                copiarDirecto(context, wm, false);
+            });
+            root.addView(btnLocP);
+            addSpacer(context, root, 8);
+
+            Button btnPicking = crearBoton(context, context.getString(R.string.pt_menu), COLOR_BLUE);
+            btnPicking.setOnClickListener(v -> {
                 removerOverlay(wm, root);
                 PickTrackerHelper.mostrar(context, wm);
             });
-            root.addView(btnPickTracker);
+            root.addView(btnPicking);
             addSpacer(context, root, 8);
-        }
+        } else {
+            // Inbound / Inventario: FAB como v5.17, pero SIN el botón de
+            // PickTracker y con el selector de modo ciclando solo
+            // Inbound ↔ Inventario (Picking se activa desde el menú de la app).
 
-        // Copiar ILP directo. (Solo en modo Inbound: en Inventario no hay ILP.)
-        if (!AppMode.isInventario(context)) {
-            Button btnIlp = crearBoton(context, context.getString(R.string.copy_ilp), COLOR_GREEN);
-            btnIlp.setOnClickListener(v -> {
+            // Ubicaciones en pantalla (ordenadas y con checkbox).
+            Button btnLista = crearBoton(context, context.getString(R.string.copy_ubicaciones), COLOR_BLUE);
+            btnLista.setOnClickListener(v -> {
                 removerOverlay(wm, root);
-                copiarDirecto(context, wm, true);
+                abrirListaUbicaciones(context, wm, true);
             });
-            root.addView(btnIlp);
+            root.addView(btnLista);
             addSpacer(context, root, 8);
-        }
 
-        // Copiar SKU directo.
-        Button btnSku = crearBoton(context, context.getString(R.string.copy_sku), COLOR_GREEN);
-        btnSku.setOnClickListener(v -> {
-            removerOverlay(wm, root);
-            copiarSku(context, wm);
-        });
-        root.addView(btnSku);
-        addSpacer(context, root, 8);
+            // Copiar ILP directo. (Solo en modo Inbound: en Inventario no hay ILP.)
+            if (!AppMode.isInventario(context)) {
+                Button btnIlp = crearBoton(context, context.getString(R.string.copy_ilp), COLOR_GREEN);
+                btnIlp.setOnClickListener(v -> {
+                    removerOverlay(wm, root);
+                    copiarDirecto(context, wm, true);
+                });
+                root.addView(btnIlp);
+                addSpacer(context, root, 8);
+            }
 
-        // Copiar ubicación directa.
-        Button btnLoc = crearBoton(context, context.getString(R.string.copy_ubicacion), COLOR_GREEN);
-        btnLoc.setOnClickListener(v -> {
-            removerOverlay(wm, root);
-            copiarDirecto(context, wm, false);
-        });
-        root.addView(btnLoc);
-        addSpacer(context, root, 8);
-
-        // Alternar Yo / Total (acción original del toque del FAB).
-        // En modo Inventario no aplica (no se cuentan pallets), así que se oculta.
-        // En modo Picking tampoco (PickTracker lleva sus propios números).
-        if (onToggleYoTotal != null && !AppMode.isInventario(context) && !AppMode.isPicking(context)) {
-            Button btnModo = crearBoton(context, context.getString(R.string.copy_alternar), COLOR_INDIGO);
-            btnModo.setOnClickListener(v -> {
+            // Copiar SKU directo.
+            Button btnSku = crearBoton(context, context.getString(R.string.copy_sku), COLOR_GREEN);
+            btnSku.setOnClickListener(v -> {
                 removerOverlay(wm, root);
-                onToggleYoTotal.run();
+                copiarSku(context, wm);
             });
-            root.addView(btnModo);
+            root.addView(btnSku);
+            addSpacer(context, root, 8);
+
+            // Copiar ubicación directa.
+            Button btnLoc = crearBoton(context, context.getString(R.string.copy_ubicacion), COLOR_GREEN);
+            btnLoc.setOnClickListener(v -> {
+                removerOverlay(wm, root);
+                copiarDirecto(context, wm, false);
+            });
+            root.addView(btnLoc);
+            addSpacer(context, root, 8);
+
+            // Alternar Yo / Total (acción original del toque del FAB).
+            // En modo Inventario no aplica (no se cuentan pallets), así que se oculta.
+            if (onToggleYoTotal != null && !AppMode.isInventario(context)) {
+                Button btnModo = crearBoton(context, context.getString(R.string.copy_alternar), COLOR_INDIGO);
+                btnModo.setOnClickListener(v -> {
+                    removerOverlay(wm, root);
+                    onToggleYoTotal.run();
+                });
+                root.addView(btnModo);
+                addSpacer(context, root, 8);
+            }
+
+            // Cambiar de modo: cicla solo Inbound ↔ Inventario (Picking NO está
+            // en el FAB; se activa/desactiva desde el menú de la app).
+            Button btnCambioModo = crearBoton(context,
+                    context.getString(R.string.copy_modo, AppMode.nombre(context)),
+                    COLOR_INDIGO);
+            btnCambioModo.setOnClickListener(v -> {
+                AppMode.setInventario(context, !AppMode.isInventario(context));
+                removerOverlay(wm, root);
+                Toast.makeText(context,
+                        context.getString(R.string.toast_modo, AppMode.nombre(context)),
+                        Toast.LENGTH_SHORT).show();
+            });
+            root.addView(btnCambioModo);
+            addSpacer(context, root, 8);
+
+            // Selector de idioma (Español / English / 中文) desde el FAB.
+            Button btnIdioma = crearBoton(context, context.getString(R.string.copy_idioma), COLOR_BLUE);
+            btnIdioma.setOnClickListener(v -> {
+                removerOverlay(wm, root);
+                mostrarMenuIdioma(ctxBase, wm);
+            });
+            root.addView(btnIdioma);
             addSpacer(context, root, 8);
         }
-
-        // Cambiar de modo (Inbound / Inventario / Picking). También disponible
-        // en la pantalla principal de la app. Toca para pasar al siguiente.
-        Button btnCambioModo = crearBoton(context,
-                context.getString(R.string.copy_modo, AppMode.nombre(context)),
-                COLOR_INDIGO);
-        btnCambioModo.setOnClickListener(v -> {
-            int modo = (AppMode.getMode(context) + 1) % 3;
-            AppMode.setMode(context, modo);
-            removerOverlay(wm, root);
-            Toast.makeText(context,
-                    context.getString(R.string.toast_modo, AppMode.nombre(context)),
-                    Toast.LENGTH_SHORT).show();
-        });
-        root.addView(btnCambioModo);
-        addSpacer(context, root, 8);
-
-        // Selector de idioma (Español / English / 中文) desde el FAB.
-        Button btnIdioma = crearBoton(context, context.getString(R.string.copy_idioma), COLOR_BLUE);
-        btnIdioma.setOnClickListener(v -> {
-            removerOverlay(wm, root);
-            mostrarMenuIdioma(ctxBase, wm);
-        });
-        root.addView(btnIdioma);
-        addSpacer(context, root, 8);
 
         // Cerrar.
         Button btnCerrar = crearBoton(context, "✕\u00A0" + context.getString(R.string.btn_cerrar), COLOR_GRAY);
