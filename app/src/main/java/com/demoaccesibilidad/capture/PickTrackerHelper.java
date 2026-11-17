@@ -104,8 +104,9 @@ public final class PickTrackerHelper {
                 try {
                     if (steps != null) {
                         for (List<String> paso : steps) {
+                            // v5.21 — SOLO la pestaña New (nunca In Progress/Done).
                             List<PickTrackerParser.ListCard> cards =
-                                    PickTrackerParser.parseList(paso);
+                                    PickTrackerParser.parseListNewOnly(paso);
                             if (cards != null && !cards.isEmpty()) {
                                 PickTrackerStore.savePendingCards(context, cards);
                             }
@@ -119,7 +120,30 @@ public final class PickTrackerHelper {
             });
         });
         content.addView(btnNueva);
-        addSpacer(context, content, 10);
+        addSpacer(context, content, 8);
+
+        // v5.21 — Botón "Reset de lectura": borra la lectura guardada (tareas,
+        // ubicaciones de detalle, SLP y checks) SIN borrar las estadísticas
+        // personales. Deja el plan vacío para volver a leer solo la pestaña New.
+        Button btnReset = crearBoton(context,
+                context.getString(R.string.pt_reset_lectura), COLOR_GRAY);
+        btnReset.setOnClickListener(v -> {
+            PickTrackerStore.clearReading(context);
+            Toast.makeText(context,
+                    context.getString(R.string.pt_reset_lectura_ok),
+                    Toast.LENGTH_SHORT).show();
+            removerOverlay(wm, root);
+            mostrar(ctxBase, wm);
+        });
+        content.addView(btnReset);
+        addSpacer(context, content, 6);
+
+        // v5.21 — Recordatorio: solo se leen tareas de la pestaña New.
+        TextView tvSoloNew = crearTexto(context,
+                context.getString(R.string.pt_solo_new), 11, false);
+        tvSoloNew.setTextColor(COLOR_HINT);
+        tvSoloNew.setPadding(0, 0, 0, dp(context, 8));
+        content.addView(tvSoloNew);
 
         // Plan de pallets a partir de las tareas pendientes guardadas.
         List<PickTrackerAdvisor.TaskInfo> pendientes =

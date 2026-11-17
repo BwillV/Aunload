@@ -453,4 +453,12 @@
     <string name="pt_js_sin_datos">暂无数据</string>
     <string name="pt_js_reset">🔄 重置今日统计</string>
     <string name="pt_js_reset_ok">今日统计已重置</string>
+    <!-- v5.21 -->
+    <string name="pt_js_plan">📋 建议托盘</string>
+    <string name="pt_solo_new">ℹ️ 仅读取 New 标签页的任务（不读 In Progress 或 Done）。</string>
+    <string name="pt_reset_lectura">🔄 重置读取</string>
+    <string name="pt_reset_lectura_ok">已清除读取。</string>
+    <string name="pt_js_reset_lectura_confirm">清除任务读取？不会清除你的个人统计。</string>
+    <string name="pt_js_reset_lectura_ok">已清除读取。在 Pick Task List（New 标签页）打开悬浮按钮 → 📦 Picking → 重新读取。</string>
+    <string name="pt_js_reset_confirm">重置今天的统计数据？</string>
 </resources>

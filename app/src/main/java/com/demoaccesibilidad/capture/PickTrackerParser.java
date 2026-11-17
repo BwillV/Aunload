@@ -90,6 +90,78 @@ public final class PickTrackerParser {
         return false;
     }
 
+    /** Cabecera de pestaña "New(n)" — captura el contador de nuevas. */
+    private static final Pattern PAT_NEW_TAB =
+            Pattern.compile("^New\\((\\d+)\\)$");
+
+    /**
+     * v5.21 — Número de la pestaña "New(n)" de la Pick Task List, o -1 si no
+     * aparece (otra pantalla o un WMS con otro diseño). Wilson pidió que SOLO
+     * se lean las tareas de la pestaña New, nunca las de In Progress ni Done.
+     */
+    public static int newTabCount(List<String> textos) {
+        if (textos == null) return -1;
+        for (String s : textos) {
+            if (s == null) continue;
+            Matcher m = PAT_NEW_TAB.matcher(s.trim());
+            if (m.matches()) {
+                try { return Integer.parseInt(m.group(1)); }
+                catch (Throwable ignored) { return -1; }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * v5.21 — ¿La lista que se ve ahora corresponde a la pestaña New?
+     *
+     * El volcado de accesibilidad NO marca qué pestaña está activa (no hay
+     * "selected"), y la lista comparte el RecyclerView entre pestañas: las
+     * tarjetas visibles son las de la pestaña activa. Reglas, de la más fuerte
+     * a la más débil:
+     *   - Sin cabecera "New(n)" → no es la Pick Task List con pestañas de este
+     *     WMS; devolvemos true para no romper otros diseños (el llamador ya
+     *     comprobó isListScreen).
+     *   - New(0) → la pestaña New NO tiene tarjetas. Si se ven tarjetas, son de
+     *     In Progress/Done → NO es New (false). Es el caso real de Wilson.
+     *   - New(n>0) → la pestaña New tiene tarjetas. Si el nº de tarjetas en
+     *     pantalla supera n, estamos viendo otra pestaña con más elementos
+     *     (p. ej. Done(84)) → false. Si cuadra (≤ n), es New → true.
+     */
+    public static boolean isNewTabActive(List<String> textos) {
+        int newN = newTabCount(textos);
+        if (newN < 0) return true; // sin pestañas New: no filtramos.
+        int cards = countTaskCards(textos);
+        if (newN == 0) {
+            // New vacía: solo es "New" si no hay ninguna tarjeta a la vista.
+            return cards == 0;
+        }
+        // New con tareas: aceptamos si lo visible no excede a New(n).
+        return cards <= newN;
+    }
+
+    /** Nº de tarjetas distintas (TASK-xxxxx) presentes en los textos. */
+    public static int countTaskCards(List<String> textos) {
+        if (textos == null) return 0;
+        java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>();
+        for (String s : textos) {
+            if (s == null) continue;
+            if (PAT_TASK.matcher(s.trim()).matches()) ids.add(s.trim());
+        }
+        return ids.size();
+    }
+
+    /**
+     * v5.21 — Igual que {@link #parseList(List)}, pero devuelve las tarjetas
+     * SOLO cuando la lista visible es la pestaña New. En cualquier otro caso
+     * (New vacía con tarjetas de otra pestaña, o pestaña distinta activa)
+     * devuelve una lista vacía: así nunca se leen tareas de In Progress/Done.
+     */
+    public static List<ListCard> parseListNewOnly(List<String> textos) {
+        if (!isNewTabActive(textos)) return new ArrayList<>();
+        return parseList(textos);
+    }
+
     private static boolean isKnownLabel(String x) {
         return "Piece Pick".equals(x)
                 || "Wave Pick(By Item)".equals(x)

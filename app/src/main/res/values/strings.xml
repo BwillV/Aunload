@@ -456,4 +456,12 @@
     <string name="pt_js_sin_datos">Sin datos aún</string>
     <string name="pt_js_reset">🔄 Reiniciar stats de hoy</string>
     <string name="pt_js_reset_ok">Estadísticas de hoy reiniciadas</string>
+    <!-- v5.21 -->
+    <string name="pt_js_plan">📋 Pallets sugeridos</string>
+    <string name="pt_solo_new">ℹ️ Solo se leen tareas de la pestaña New (no In Progress ni Done).</string>
+    <string name="pt_reset_lectura">🔄 Reset de lectura</string>
+    <string name="pt_reset_lectura_ok">Lectura borrada.</string>
+    <string name="pt_js_reset_lectura_confirm">¿Borrar la lectura de tareas? Tus estadísticas personales NO se borran.</string>
+    <string name="pt_js_reset_lectura_ok">Lectura borrada. En la Pick Task List (pestaña New), abre el FAB → 📦 Picking → Nueva lectura.</string>
+    <string name="pt_js_reset_confirm">¿Reiniciar tus estadísticas de hoy?</string>
 </resources>

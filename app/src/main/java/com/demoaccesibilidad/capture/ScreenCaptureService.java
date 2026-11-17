@@ -571,7 +571,10 @@ public class ScreenCaptureService extends AccessibilityService {
             // guard isPicking() descartaba TODO y nunca se marcaba el fin.
             List<String> t = textos;
             if (PickTrackerParser.isListScreen(t)) {
-                List<PickTrackerParser.ListCard> cards = PickTrackerParser.parseList(t);
+                // v5.21 — SOLO la pestaña New: nunca se leen tareas de In
+                // Progress ni Done (parseListNewOnly devuelve vacío si lo que
+                // se ve no es la pestaña New).
+                List<PickTrackerParser.ListCard> cards = PickTrackerParser.parseListNewOnly(t);
                 if (!cards.isEmpty()) PickTrackerStore.savePendingCards(this, cards);
                 return;
             }

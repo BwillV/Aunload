@@ -456,4 +456,12 @@
     <string name="pt_js_sin_datos">No data yet</string>
     <string name="pt_js_reset">🔄 Reset today\'s stats</string>
     <string name="pt_js_reset_ok">Today\'s statistics reset</string>
+    <!-- v5.21 -->
+    <string name="pt_js_plan">📋 Suggested pallets</string>
+    <string name="pt_solo_new">ℹ️ Only New-tab tasks are read (not In Progress or Done).</string>
+    <string name="pt_reset_lectura">🔄 Reset reading</string>
+    <string name="pt_reset_lectura_ok">Reading cleared.</string>
+    <string name="pt_js_reset_lectura_confirm">Clear the task reading? Your personal stats are NOT cleared.</string>
+    <string name="pt_js_reset_lectura_ok">Reading cleared. On the Pick Task List (New tab), open the FAB → 📦 Picking → New reading.</string>
+    <string name="pt_js_reset_confirm">Reset today\'s stats?</string>
 </resources>
