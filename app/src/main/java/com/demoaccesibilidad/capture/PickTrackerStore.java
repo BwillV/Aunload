@@ -36,6 +36,7 @@ public final class PickTrackerStore {
 
     private static final String KEY_PENDING = "pt_pending_tasks";
     private static final String KEY_TASK_LOCS = "pt_task_locs";
+    private static final String KEY_TASK_LP = "pt_task_lp"; // v5.20: SLP por tarea
     private static final String KEY_DONE = "pt_done_orders";
     private static final String KEY_CURRENT_TASK = "pt_current_task";
     private static final String KEY_READING_TS = "pt_reading_ts";
@@ -57,9 +58,21 @@ public final class PickTrackerStore {
     private static final String KEY_TOT_ART = "pt_tot_art";
     private static final String KEY_TOT_EA = "pt_tot_ea";
     private static final String KEY_TOT_SEC = "pt_tot_sec";
+    // v5.20 (CR-4) — Contadores del DÍA ANTERIOR (último día con actividad).
+    // Se usan para estimar el tiempo por pallet por la mañana, antes de haber
+    // terminado las órdenes asignadas de hoy. Se guardan al cambiar de día.
+    private static final String KEY_PREV_DAY = "pt_prev_day";
+    private static final String KEY_PREV_TASKS = "pt_prev_tasks";
+    private static final String KEY_PREV_LOCS = "pt_prev_locs";
+    private static final String KEY_PREV_ART = "pt_prev_art";
+    private static final String KEY_PREV_EA = "pt_prev_ea";
+    private static final String KEY_PREV_SEC = "pt_prev_sec";
 
-    /** Segundos por ubicación por defecto (3:03, referencia real de Wilson). */
-    public static final int BASELINE_SEC_PER_LOC = 183;
+    // v5.20 (CR-4) — Fuente del tiempo por pallet usado para las sugerencias.
+    public static final int SRC_NONE = 0;   // sin datos aún
+    public static final int SRC_PREV = 1;    // promedio del día anterior
+    public static final int SRC_TODAY = 2;   // promedio de hoy (asignadas listas)
+
     /** Tiempo máximo razonable de una tarea (6 h); por encima se descarta. */
     private static final long MAX_TASK_SEC = 6L * 3600L;
 
@@ -116,6 +129,14 @@ public final class PickTrackerStore {
                     recordCompletion(c, sec, locs, art, ea);
                 }
             }
+            // v5.20 (CR-1) — Marcar automáticamente la orden como completada
+            // (checkbox) al cerrarse la tarea. Esto es lo que el usuario echaba
+            // en falta: "no reconoce cuando termino un task, por lo tanto no
+            // marca". Se marca aunque el cronómetro no sumara tiempo (p. ej. si
+            // la tarea se abrió antes de instalar esta versión).
+            if (task != null && !task.isEmpty()) {
+                setOrderDone(c, task, true);
+            }
             prefs(c).edit()
                     .putString(KEY_CURRENT_TASK, "")
                     .remove(KEY_CUR_START_TS)
@@ -143,6 +164,56 @@ public final class PickTrackerStore {
             writeTaskLocs(c, map);
             return true;
         } catch (Throwable ignored) { return false; }
+    }
+
+    /**
+     * v5.20 — Anota el número SLP (LP destino "Scan or Input Pick to LP") de la
+     * tarea en curso, leído del detalle. Se guarda por tarea para mostrarlo
+     * junto a cada pallet/orden en la ventana de Picking.
+     */
+    public static void noteLp(Context c, String lp) {
+        if (c == null || lp == null || lp.trim().isEmpty()) return;
+        try {
+            String task = getCurrentTask(c);
+            if (task == null || task.isEmpty()) return;
+            Map<String, String> map = readTaskLp(c);
+            String v = lp.trim().toUpperCase(Locale.ROOT);
+            if (v.equals(map.get(task))) return;
+            map.put(task, v);
+            writeTaskLp(c, map);
+        } catch (Throwable ignored) { }
+    }
+
+    /** SLP guardado de una tarea, o "" si no se ha visto. */
+    public static String getTaskLp(Context c, String taskId) {
+        if (c == null || taskId == null) return "";
+        try {
+            String v = readTaskLp(c).get(taskId);
+            return v == null ? "" : v;
+        } catch (Throwable t) { return ""; }
+    }
+
+    private static Map<String, String> readTaskLp(Context c) {
+        Map<String, String> map = new LinkedHashMap<>();
+        try {
+            String saved = prefs(c).getString(KEY_TASK_LP, "");
+            if (saved == null || saved.isEmpty()) return map;
+            for (String line : saved.split(TASK_SEP)) {
+                String[] f = line.split(FIELD_SEP, -1);
+                if (f.length < 2 || f[0].isEmpty()) continue;
+                map.put(f[0], f[1]);
+            }
+        } catch (Throwable ignored) { }
+        return map;
+    }
+
+    private static void writeTaskLp(Context c, Map<String, String> map) {
+        StringBuilder out = new StringBuilder();
+        for (Map.Entry<String, String> e : map.entrySet()) {
+            if (out.length() > 0) out.append(TASK_SEP);
+            out.append(e.getKey()).append(FIELD_SEP).append(e.getValue());
+        }
+        prefs(c).edit().putString(KEY_TASK_LP, out.toString()).apply();
     }
 
     /**
@@ -205,15 +276,32 @@ public final class PickTrackerStore {
         } catch (Throwable ignored) { }
     }
 
-    /** Si cambió el día, reinicia los contadores del día (no los acumulados). */
+    /**
+     * Si cambió el día, reinicia los contadores del día (no los acumulados).
+     * v5.20 (CR-4): antes de reiniciar, si el día que termina tuvo actividad
+     * (ubicaciones > 0) se copia a los contadores del DÍA ANTERIOR, para poder
+     * estimar por la mañana el tiempo por pallet con el promedio de ayer.
+     */
     private static void rolloverDayIfNeeded(Context c) {
         try {
             SharedPreferences p = prefs(c);
             String hoy = today();
             String guardado = p.getString(KEY_STATS_DAY, "");
             if (!hoy.equals(guardado)) {
-                p.edit()
-                        .putString(KEY_STATS_DAY, hoy)
+                SharedPreferences.Editor e = p.edit();
+                // Guardar el día que termina como "día anterior" si tuvo datos.
+                int prevLocs = p.getInt(KEY_DAY_LOCS, 0);
+                long prevSec = p.getLong(KEY_DAY_SEC, 0L);
+                if (guardado != null && !guardado.isEmpty()
+                        && prevLocs > 0 && prevSec > 0L) {
+                    e.putString(KEY_PREV_DAY, guardado)
+                            .putInt(KEY_PREV_TASKS, p.getInt(KEY_DAY_TASKS, 0))
+                            .putInt(KEY_PREV_LOCS, prevLocs)
+                            .putInt(KEY_PREV_ART, p.getInt(KEY_DAY_ART, 0))
+                            .putInt(KEY_PREV_EA, p.getInt(KEY_DAY_EA, 0))
+                            .putLong(KEY_PREV_SEC, prevSec);
+                }
+                e.putString(KEY_STATS_DAY, hoy)
                         .putInt(KEY_DAY_TASKS, 0)
                         .putInt(KEY_DAY_LOCS, 0)
                         .putInt(KEY_DAY_ART, 0)
@@ -261,29 +349,69 @@ public final class PickTrackerStore {
         return s;
     }
 
-    /** ¿Hay datos propios suficientes para estimar con el promedio del usuario? */
-    public static boolean hasPersonalData(Context c) {
+    /** Estadísticas del DÍA ANTERIOR (último día con actividad), o vacías. */
+    public static Stats getStatsPrevDay(Context c) {
+        Stats s = new Stats();
         try {
             SharedPreferences p = prefs(c);
-            return p.getInt(KEY_TOT_LOCS, 0) > 0 && p.getLong(KEY_TOT_SEC, 0L) > 0L;
-        } catch (Throwable t) { return false; }
+            s.tasks = p.getInt(KEY_PREV_TASKS, 0);
+            s.locations = p.getInt(KEY_PREV_LOCS, 0);
+            s.articles = p.getInt(KEY_PREV_ART, 0);
+            s.ea = p.getInt(KEY_PREV_EA, 0);
+            s.seconds = p.getLong(KEY_PREV_SEC, 0L);
+        } catch (Throwable ignored) { }
+        return s;
     }
 
     /**
-     * Segundos por ubicación a usar para estimar (acumulado propio si existe,
-     * si no el valor por defecto {@link #BASELINE_SEC_PER_LOC}).
+     * v5.20 (CR-1/CR-4) — ¿Ya se terminaron las órdenes asignadas de HOY?
+     * Asignadas = las tareas leídas de la lista (pestaña New del WMS). Se
+     * consideran terminadas cuando todas están marcadas como completadas y hay
+     * al menos una. Antes de eso seguimos estimando con el día anterior.
      */
-    public static int secPerLocation(Context c) {
+    public static boolean assignedFinishedToday(Context c) {
         try {
-            SharedPreferences p = prefs(c);
-            int locs = p.getInt(KEY_TOT_LOCS, 0);
-            long sec = p.getLong(KEY_TOT_SEC, 0L);
-            if (locs > 0 && sec > 0L) {
-                int v = (int) (sec / locs);
-                if (v > 0) return v;
-            }
-        } catch (Throwable ignored) { }
-        return BASELINE_SEC_PER_LOC;
+            int pending = getPendingTasks(c).size();
+            int done = getDoneCount(c);
+            return pending > 0 && done >= pending;
+        } catch (Throwable t) { return false; }
+    }
+
+    private static boolean hasData(Stats s) {
+        return s != null && s.locations > 0 && s.seconds > 0L;
+    }
+
+    /**
+     * v5.20 (CR-4) — Fuente del tiempo por pallet para las sugerencias:
+     *   - SRC_TODAY: ya terminó las asignadas de hoy y hay datos de hoy.
+     *   - SRC_PREV:  aún no termina; se usa el promedio del día anterior.
+     *   - SRC_NONE:  no hay datos (ni de hoy aplicable ni de ayer) → "sin datos".
+     * Nota: ya no existe el valor por defecto 3:03; sin datos propios no se
+     * inventa un tiempo.
+     */
+    public static int adviceSource(Context c) {
+        Stats hoy = getStatsToday(c);
+        Stats ayer = getStatsPrevDay(c);
+        if (assignedFinishedToday(c) && hasData(hoy)) return SRC_TODAY;
+        if (hasData(ayer)) return SRC_PREV;
+        return SRC_NONE;
+    }
+
+    /**
+     * Segundos por ubicación a usar para estimar el tiempo por pallet, según
+     * {@link #adviceSource(Context)}. Devuelve 0 si no hay datos ("sin datos
+     * aún"): el llamador debe mostrar ese estado, no un tiempo inventado.
+     */
+    public static int secPerLocationForAdvice(Context c) {
+        int src = adviceSource(c);
+        if (src == SRC_TODAY) {
+            long v = getStatsToday(c).secPerLocation();
+            if (v > 0) return (int) v;
+        } else if (src == SRC_PREV) {
+            long v = getStatsPrevDay(c).secPerLocation();
+            if (v > 0) return (int) v;
+        }
+        return 0;
     }
 
     /** Reinicia TODAS las estadísticas personales (día + acumulado + tarea en curso). */
@@ -297,6 +425,8 @@ public final class PickTrackerStore {
                     .remove(KEY_DAY_EA).remove(KEY_DAY_SEC)
                     .remove(KEY_TOT_TASKS).remove(KEY_TOT_LOCS).remove(KEY_TOT_ART)
                     .remove(KEY_TOT_EA).remove(KEY_TOT_SEC)
+                    .remove(KEY_PREV_DAY).remove(KEY_PREV_TASKS).remove(KEY_PREV_LOCS)
+                    .remove(KEY_PREV_ART).remove(KEY_PREV_EA).remove(KEY_PREV_SEC)
                     .apply();
         } catch (Throwable ignored) { }
     }
@@ -409,6 +539,7 @@ public final class PickTrackerStore {
             prefs(c).edit()
                     .remove(KEY_PENDING)
                     .remove(KEY_TASK_LOCS)
+                    .remove(KEY_TASK_LP)
                     .remove(KEY_DONE)
                     .remove(KEY_CURRENT_TASK)
                     .remove(KEY_READING_TS)

@@ -53,6 +53,8 @@ public final class PickTrackerParser {
             Pattern.compile("^[A-Z]{1,3}\\d{1,3}-\\d{1,4}-\\d{1,3}$");
     public static final Pattern PAT_PROGRESS = Pattern.compile(
             "(\\d+)\\s*/\\s*(\\d+)\\s*Skus,\\s*(\\d+)\\s*/\\s*(\\d+)\\s*EA Picked");
+    /** LP destino de la tarea ("SLP-317118"), visible en el detalle. */
+    public static final Pattern PAT_LP = Pattern.compile("^(SLP-\\d{3,})$");
     private static final Pattern PAT_VLG =
             Pattern.compile("^([A-Z]\\d{2})-[A-Z]\\d{2} High$");
     private static final Pattern PAT_LOCS_LIST = Pattern.compile(
@@ -190,6 +192,17 @@ public final class PickTrackerParser {
         if (loc == null) return null;
         return PAT_LOCATION.matcher(loc.trim()).matches()
                 ? loc.trim().toUpperCase(java.util.Locale.ROOT) : null;
+    }
+
+    /** LP destino "SLP-xxxxxx" del detalle, o null si no aparece. */
+    public static String detailLp(List<String> textos) {
+        if (textos == null) return null;
+        for (String s : textos) {
+            if (s == null) continue;
+            Matcher m = PAT_LP.matcher(s.trim());
+            if (m.matches()) return m.group(1);
+        }
+        return null;
     }
 
     /** Progreso "A / B Skus, C / D EA Picked" del detalle, o null. */

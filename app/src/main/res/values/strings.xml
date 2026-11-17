@@ -434,4 +434,26 @@
     <string name="pt_stats_reset_ok">Estadísticas reiniciadas</string>
     <string name="pt_fuente_propia">⏱ Tiempos por pallet con TUS datos (%1$s/ubicación).</string>
     <string name="pt_fuente_default">⏱ Tiempos por pallet con valor por defecto (%1$s/ubicación).</string>
+    <!-- v5.20 — overlay sin datos, fuente y SLP -->
+    <string name="pt_total_dia_sin">Total del día: %1$d pallets · %2$d artículos · %3$d ubic</string>
+    <string name="pt_pallet_resumen_sin">%1$d artículos · %2$d ubicaciones</string>
+    <string name="pt_fuente_hoy">⏱ Tiempos por pallet con tus datos de HOY (%1$s/ubicación).</string>
+    <string name="pt_fuente_ayer">⏱ Tiempos por pallet con tus datos de AYER (%1$s/ubicación).</string>
+    <string name="pt_fuente_sin">⏱ Sin datos aún para estimar el tiempo por pallet.</string>
+    <string name="pt_orden_slp">🏷 LP %1$s</string>
+    <!-- v5.20 — Pantalla de Picking (stats del día, formato jefa) -->
+    <string name="pt_js_titulo">📦 Picking — Mis estadísticas</string>
+    <string name="pt_js_hoy">Hoy</string>
+    <string name="pt_js_ayer">Ayer</string>
+    <string name="pt_js_tasks">Tareas</string>
+    <string name="pt_js_total_inv">Inventario total (EA)</string>
+    <string name="pt_js_total_loc">Ubicaciones totales</string>
+    <string name="pt_js_picked_inv">Inventario recogido (EA)</string>
+    <string name="pt_js_picked_loc">Ubicaciones recogidas</string>
+    <string name="pt_js_progress">Progreso</string>
+    <string name="pt_js_time">Tiempo</string>
+    <string name="pt_js_time_loc">Tiempo por ubicación</string>
+    <string name="pt_js_sin_datos">Sin datos aún</string>
+    <string name="pt_js_reset">🔄 Reiniciar stats de hoy</string>
+    <string name="pt_js_reset_ok">Estadísticas de hoy reiniciadas</string>
 </resources>

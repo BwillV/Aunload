@@ -514,7 +514,8 @@ public class FloatingButtonService extends Service {
         if (AppMode.isPicking(this)) {
             if (currentColor != COLOR_PICKING) {
                 if (fab != null) {
-                    fab.setImageDrawable(null);
+                    // v5.20 — icono de picking (caja) para distinguir el modo.
+                    fab.setImageResource(R.drawable.ic_picking_white);
                     fab.setBackgroundTintList(ColorStateList.valueOf(COLOR_PICKING));
                 }
                 currentColor = COLOR_PICKING;

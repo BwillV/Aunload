@@ -434,4 +434,26 @@
     <string name="pt_stats_reset_ok">Statistics reset</string>
     <string name="pt_fuente_propia">⏱ Per-pallet times from YOUR data (%1$s/location).</string>
     <string name="pt_fuente_default">⏱ Per-pallet times using default value (%1$s/location).</string>
+    <!-- v5.20 — overlay no-data, source and SLP -->
+    <string name="pt_total_dia_sin">Day total: %1$d pallets · %2$d items · %3$d locs</string>
+    <string name="pt_pallet_resumen_sin">%1$d items · %2$d locations</string>
+    <string name="pt_fuente_hoy">⏱ Pallet times from your TODAY data (%1$s/location).</string>
+    <string name="pt_fuente_ayer">⏱ Pallet times from your YESTERDAY data (%1$s/location).</string>
+    <string name="pt_fuente_sin">⏱ No data yet to estimate pallet time.</string>
+    <string name="pt_orden_slp">🏷 LP %1$s</string>
+    <!-- v5.20 — Picking screen (day stats, supervisor format) -->
+    <string name="pt_js_titulo">📦 Picking — My statistics</string>
+    <string name="pt_js_hoy">Today</string>
+    <string name="pt_js_ayer">Yesterday</string>
+    <string name="pt_js_tasks">Tasks</string>
+    <string name="pt_js_total_inv">Total inventory (EA)</string>
+    <string name="pt_js_total_loc">Total locations</string>
+    <string name="pt_js_picked_inv">Picked inventory (EA)</string>
+    <string name="pt_js_picked_loc">Picked locations</string>
+    <string name="pt_js_progress">Progress</string>
+    <string name="pt_js_time">Time</string>
+    <string name="pt_js_time_loc">Time per location</string>
+    <string name="pt_js_sin_datos">No data yet</string>
+    <string name="pt_js_reset">🔄 Reset today\'s stats</string>
+    <string name="pt_js_reset_ok">Today\'s statistics reset</string>
 </resources>

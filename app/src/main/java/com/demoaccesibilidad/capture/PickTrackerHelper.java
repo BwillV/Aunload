@@ -60,13 +60,28 @@ public final class PickTrackerHelper {
         final Context context = LocaleHelper.wrap(ctxBase);
         final OverlayRoot root = crearRoot(context);
 
+        // ── CR-3 (v5.20): TODO el contenido va dentro de un ScrollView exterior
+        //    acotado al 80% de la pantalla, para que en los PDAs pequeños nada
+        //    quede cortado y se pueda bajar hasta el final. El botón "Cerrar"
+        //    queda FUERA del scroll, siempre visible abajo. ──
+        MaxHeightScrollView outerScroll = new MaxHeightScrollView(context,
+                (int) (context.getResources().getDisplayMetrics().heightPixels * 0.80f));
+        outerScroll.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        final LinearLayout content = new LinearLayout(context);
+        content.setOrientation(LinearLayout.VERTICAL);
+        outerScroll.addView(content);
+
         TextView titulo = crearTexto(context,
                 context.getString(R.string.pt_titulo), 18, true);
         titulo.setPadding(0, 0, 0, dp(context, 8));
-        root.addView(titulo);
+        content.addView(titulo);
 
-        // ── Panel de estadísticas personales (v5.19), solo de este escáner ──
-        agregarPanelEstadisticas(context, root, ctxBase, wm);
+        // v5.20 (CR-3/CR-7): el panel "Mis estadísticas" se QUITÓ de aquí.
+        // Las estadísticas del día viven ahora en la pantalla de Picking de la
+        // app (menú → 📦 Modo Picking). En el FAB solo van las herramientas y
+        // el plan de pallets.
 
         // Botón "Nueva lectura": lee toda la lista con scroll automático.
         Button btnNueva = crearBoton(context,
@@ -103,8 +118,8 @@ public final class PickTrackerHelper {
                 mostrar(ctxBase, wm);
             });
         });
-        root.addView(btnNueva);
-        addSpacer(context, root, 10);
+        content.addView(btnNueva);
+        addSpacer(context, content, 10);
 
         // Plan de pallets a partir de las tareas pendientes guardadas.
         List<PickTrackerAdvisor.TaskInfo> pendientes =
@@ -115,15 +130,17 @@ public final class PickTrackerHelper {
                     context.getString(R.string.pt_sin_plan), 14, false);
             vacio.setTextColor(COLOR_HINT);
             vacio.setPadding(0, 0, 0, dp(context, 10));
-            root.addView(vacio);
+            content.addView(vacio);
         } else {
             List<PickTrackerAdvisor.Pallet> pallets =
                     PickTrackerAdvisor.plan(pendientes);
 
-            // Promedio PERSONAL por ubicación (o valor por defecto 3:03) para
-            // estimar el tiempo por pallet con las estadísticas de Wilson.
-            final int secPorUbic = PickTrackerStore.secPerLocation(context);
-            final boolean datosPropios = PickTrackerStore.hasPersonalData(context);
+            // CR-4 (v5.20): tiempo por ubicación según las estadísticas de
+            // Wilson (día anterior hasta terminar las asignadas de hoy, luego
+            // las de hoy). 0 = "sin datos aún" (ya no se usa el 3:03 por defecto).
+            final int secPorUbic = PickTrackerStore.secPerLocationForAdvice(context);
+            final int fuente = PickTrackerStore.adviceSource(context);
+            final boolean sinTiempo = secPorUbic <= 0;
 
             // Resumen del día (todas las pallets).
             int totalArt = 0, totalLoc = 0, totalSec = 0, totalOrders = 0;
@@ -134,24 +151,32 @@ public final class PickTrackerHelper {
                 totalOrders += p.orders.size();
             }
             TextView tvTotal = crearTexto(context,
-                    context.getString(R.string.pt_total_dia,
-                            pallets.size(), totalArt, totalLoc,
-                            PickTrackerAdvisor.minutesOf(totalSec)),
+                    sinTiempo
+                        ? context.getString(R.string.pt_total_dia_sin,
+                                pallets.size(), totalArt, totalLoc)
+                        : context.getString(R.string.pt_total_dia,
+                                pallets.size(), totalArt, totalLoc,
+                                PickTrackerAdvisor.minutesOf(totalSec)),
                     13, true);
             tvTotal.setTextColor(COLOR_GOLD);
             tvTotal.setPadding(0, 0, 0, dp(context, 4));
-            root.addView(tvTotal);
+            content.addView(tvTotal);
 
-            // Nota: ¿los tiempos por pallet son con datos propios o por defecto?
-            TextView tvFuente = crearTexto(context,
-                    context.getString(
-                            datosPropios ? R.string.pt_fuente_propia
-                                         : R.string.pt_fuente_default,
-                            PickTrackerStore.formatMmSs(secPorUbic)),
-                    11, false);
-            tvFuente.setTextColor(datosPropios ? COLOR_GREEN : COLOR_HINT);
+            // Nota: ¿de dónde sale el tiempo por pallet? (hoy / ayer / sin datos)
+            String fuenteTxt;
+            if (fuente == PickTrackerStore.SRC_TODAY) {
+                fuenteTxt = context.getString(R.string.pt_fuente_hoy,
+                        PickTrackerStore.formatMmSs(secPorUbic));
+            } else if (fuente == PickTrackerStore.SRC_PREV) {
+                fuenteTxt = context.getString(R.string.pt_fuente_ayer,
+                        PickTrackerStore.formatMmSs(secPorUbic));
+            } else {
+                fuenteTxt = context.getString(R.string.pt_fuente_sin);
+            }
+            TextView tvFuente = crearTexto(context, fuenteTxt, 11, false);
+            tvFuente.setTextColor(sinTiempo ? COLOR_HINT : COLOR_GREEN);
             tvFuente.setPadding(0, 0, 0, dp(context, 6));
-            root.addView(tvFuente);
+            content.addView(tvFuente);
 
             TextView tvDone = crearTexto(context,
                     context.getString(R.string.pt_completadas,
@@ -159,17 +184,9 @@ public final class PickTrackerHelper {
                     12, false);
             tvDone.setTextColor(COLOR_HINT);
             tvDone.setPadding(0, 0, 0, dp(context, 8));
-            root.addView(tvDone);
+            content.addView(tvDone);
 
-            // Lista desplazable de pallets.
-            ScrollView scroll = new ScrollView(context);
-            int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.5f);
-            scroll.setLayoutParams(new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, maxH));
-            LinearLayout lista = new LinearLayout(context);
-            lista.setOrientation(LinearLayout.VERTICAL);
-            scroll.addView(lista);
-
+            // Lista de pallets (sin scroll interno: el scroll exterior maneja todo).
             int palletNum = 1;
             for (PickTrackerAdvisor.Pallet p : pallets) {
                 LinearLayout card = new LinearLayout(context);
@@ -186,9 +203,12 @@ public final class PickTrackerHelper {
                 card.addView(tvCab);
 
                 TextView tvRes = crearTexto(context,
-                        context.getString(R.string.pt_pallet_resumen,
-                                p.totalArticles(), p.totalLocations(),
-                                PickTrackerAdvisor.minutesOf(p.estimatedSeconds(secPorUbic))),
+                        sinTiempo
+                            ? context.getString(R.string.pt_pallet_resumen_sin,
+                                    p.totalArticles(), p.totalLocations())
+                            : context.getString(R.string.pt_pallet_resumen,
+                                    p.totalArticles(), p.totalLocations(),
+                                    PickTrackerAdvisor.minutesOf(p.estimatedSeconds(secPorUbic))),
                         12, false);
                 tvRes.setTextColor(COLOR_HINT);
                 tvRes.setPadding(0, dp(context, 2), 0, dp(context, 4));
@@ -224,10 +244,14 @@ public final class PickTrackerHelper {
                     String zonaLoc = t.locCount() > 0
                             ? context.getString(R.string.pt_orden_zona_ubic, t.zone, t.locCount())
                             : context.getString(R.string.pt_orden_zona, t.zone);
-                    TextView tvOrden = crearTexto(context,
-                            context.getString(R.string.pt_orden_linea,
-                                    t.id, t.articles, zonaLoc),
-                            13, false);
+                    // v5.20 — SLP (LP) junto a la orden, si ya se vio en el detalle.
+                    String linea = context.getString(R.string.pt_orden_linea,
+                            t.id, t.articles, zonaLoc);
+                    String slp = PickTrackerStore.getTaskLp(context, t.id);
+                    if (slp != null && !slp.isEmpty()) {
+                        linea += "\n" + context.getString(R.string.pt_orden_slp, slp);
+                    }
+                    TextView tvOrden = crearTexto(context, linea, 13, false);
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
                     lp.leftMargin = dp(context, 4);
@@ -237,20 +261,19 @@ public final class PickTrackerHelper {
                     card.addView(fila);
                 }
 
-                lista.addView(card);
-                addSpacer(context, lista, 8);
+                content.addView(card);
+                addSpacer(context, content, 8);
                 palletNum++;
             }
-
-            root.addView(scroll);
-            addSpacer(context, root, 8);
 
             TextView tvRuta = crearTexto(context,
                     context.getString(R.string.pt_ruta), 12, false);
             tvRuta.setTextColor(COLOR_HINT);
             tvRuta.setPadding(0, 0, 0, dp(context, 8));
-            root.addView(tvRuta);
+            content.addView(tvRuta);
         }
+
+        root.addView(outerScroll);
 
         final WindowManager.LayoutParams params = crearParams(false);
 
@@ -270,81 +293,22 @@ public final class PickTrackerHelper {
     }
 
     /**
-     * Panel de estadísticas personales (v5.19): tarjeta con las métricas del
-     * DÍA y ACUMULADAS de este escáner (solo de Wilson, 100% local, sin
-     * Firebase), al estilo de la "pantalla de la jefa" pero para una sola
-     * persona. Incluye el botón "Reiniciar mis estadísticas".
+     * ScrollView que nunca crece más allá de un alto máximo (px). Permite que el
+     * overlay de Picking se ajuste al contenido pero sin salirse de la pantalla
+     * del PDA (CR-3): si el contenido es más alto, se activa el scroll.
      */
-    private static void agregarPanelEstadisticas(final Context context,
-                                                 final OverlayRoot root,
-                                                 final Context ctxBase,
-                                                 final WindowManager wm) {
-        PickTrackerStore.Stats hoy = PickTrackerStore.getStatsToday(context);
-        PickTrackerStore.Stats tot = PickTrackerStore.getStatsTotal(context);
-
-        LinearLayout card = new LinearLayout(context);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundColor(COLOR_CARD);
-        card.setPadding(dp(context, 12), dp(context, 10),
-                dp(context, 12), dp(context, 10));
-
-        TextView tit = crearTexto(context,
-                context.getString(R.string.pt_stats_titulo), 14, true);
-        tit.setTextColor(COLOR_GOLD);
-        tit.setPadding(0, 0, 0, dp(context, 4));
-        card.addView(tit);
-
-        if (tot.isEmpty()) {
-            TextView sin = crearTexto(context,
-                    context.getString(R.string.pt_stats_sin_datos), 12, false);
-            sin.setTextColor(COLOR_HINT);
-            card.addView(sin);
-        } else {
-            // Línea "Hoy".
-            TextView lHoy = crearTexto(context,
-                    context.getString(R.string.pt_stats_hoy_linea,
-                            hoy.tasks, hoy.locations, hoy.ea,
-                            PickTrackerStore.formatDur(hoy.seconds)),
-                    12, false);
-            lHoy.setTextColor(COLOR_TEXT);
-            card.addView(lHoy);
-            // Línea "Acumulado".
-            TextView lTot = crearTexto(context,
-                    context.getString(R.string.pt_stats_total_linea,
-                            tot.tasks, tot.locations, tot.ea,
-                            PickTrackerStore.formatDur(tot.seconds)),
-                    12, false);
-            lTot.setTextColor(COLOR_TEXT);
-            card.addView(lTot);
-            // Línea de promedios (acumulados): por ubicación, por tarea, EA/h.
-            TextView lProm = crearTexto(context,
-                    context.getString(R.string.pt_stats_promedios,
-                            PickTrackerStore.formatMmSs(tot.secPerLocation()),
-                            PickTrackerStore.formatDur(tot.secPerTask()),
-                            tot.eaPerHour()),
-                    12, true);
-            lProm.setTextColor(COLOR_GREEN);
-            lProm.setPadding(0, dp(context, 2), 0, 0);
-            card.addView(lProm);
+    private static class MaxHeightScrollView extends ScrollView {
+        private final int maxHeightPx;
+        MaxHeightScrollView(Context c, int maxHeightPx) {
+            super(c);
+            this.maxHeightPx = maxHeightPx;
+            setFillViewport(false);
         }
-
-        root.addView(card);
-        addSpacer(context, root, 6);
-
-        // Botón "Reiniciar mis estadísticas".
-        Button btnReset = crearBoton(context,
-                context.getString(R.string.pt_stats_reset), COLOR_GRAY);
-        btnReset.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        btnReset.setOnClickListener(v -> {
-            PickTrackerStore.resetStats(context);
-            Toast.makeText(context,
-                    context.getString(R.string.pt_stats_reset_ok),
-                    Toast.LENGTH_SHORT).show();
-            removerOverlay(wm, root);
-            mostrar(ctxBase, wm);
-        });
-        root.addView(btnReset);
-        addSpacer(context, root, 10);
+        @Override
+        protected void onMeasure(int widthSpec, int heightSpec) {
+            int hs = MeasureSpec.makeMeasureSpec(maxHeightPx, MeasureSpec.AT_MOST);
+            super.onMeasure(widthSpec, hs);
+        }
     }
 
     // ── Helpers de overlay (mismo patrón que CopyTextHelper) ──

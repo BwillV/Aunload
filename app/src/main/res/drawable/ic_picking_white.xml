@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+    <!-- Caja/paquete de picking (open box) para distinguir el modo Picking. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2L4,5.5v2.17l8,3.33l8,-3.33V5.5L12,2zM4,9.5V18l7.25,3.17V12.67L4,9.5zM12.75,21.17L20,18V9.5l-7.25,3.17V21.17z"/>
+</vector>

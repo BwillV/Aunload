@@ -916,16 +916,9 @@ public class MainActivity extends AppCompatActivity
         if (id == R.id.nav_home) {
             mostrarHome();
         } else if (id == R.id.nav_modo_picking) {
-            // Activa/desactiva el modo Picking desde el menú de la app.
-            // Al salir de Picking vuelve a Inbound. El switch de la home y su
-            // etiqueta se actualizan al reflejar el modo.
-            boolean entrar = !AppMode.isPicking(this);
-            AppMode.setMode(this, entrar ? AppMode.MODE_PICKING : AppMode.MODE_INBOUND);
-            sincronizarSwitchModo();
-            refrescarDatos();
-            Toast.makeText(this,
-                    getString(R.string.toast_modo, AppMode.nombre(this)),
-                    Toast.LENGTH_SHORT).show();
+            // v5.20: abre la pantalla de Picking (stats del día) SIN cambiar de
+            // modo. El cambio de modo se hace con el selector de la home.
+            startActivity(new android.content.Intent(this, PickingActivity.class));
         } else if (id == R.id.nav_ajustes) {
             mostrarFragment(new AjustesFragment(), "Ajustes");
         } else if (id == R.id.nav_errores) {

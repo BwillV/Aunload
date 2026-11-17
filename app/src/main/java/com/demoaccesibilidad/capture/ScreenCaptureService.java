@@ -562,7 +562,13 @@ public class ScreenCaptureService extends AccessibilityService {
     private void procesarPickTrackerSiAplica(List<String> textos) {
         try {
             if (textos == null || textos.isEmpty()) return;
-            if (!AppMode.isPicking(this)) return;
+            // v5.20 (CR-1) — Ya NO depende del modo de la app. Se procesan las
+            // pantallas de Pick Task del WMS SIEMPRE que se reconozcan de forma
+            // inequívoca (lista "Pick Task List", detalle "Navigate up"+TASK-,
+            // diálogo "All steps finished..."). Ninguna de esas firmas aparece
+            // en las pantallas de inbound/inventario, así que no las afecta.
+            // Motivo: Wilson hace picking con la app en modo Inventario; el
+            // guard isPicking() descartaba TODO y nunca se marcaba el fin.
             List<String> t = textos;
             if (PickTrackerParser.isListScreen(t)) {
                 List<PickTrackerParser.ListCard> cards = PickTrackerParser.parseList(t);
@@ -576,15 +582,27 @@ public class ScreenCaptureService extends AccessibilityService {
                 }
                 String loc = PickTrackerParser.detailLocation(t);
                 if (loc != null) PickTrackerStore.noteLocation(this, loc);
+                // v5.20 — SLP (LP destino) de la tarea, para mostrarlo junto al pallet.
+                String lp = PickTrackerParser.detailLp(t);
+                if (lp != null) PickTrackerStore.noteLp(this, lp);
                 PickTrackerParser.Progress p = PickTrackerParser.parseProgress(t);
                 if (p != null) {
                     PickTrackerStore.updateProgress(this,
                             p.skusDone, p.skusTotal, p.eaDone, p.eaTotal);
+                    // v5.20 (CR-1) — Fin de tarea también por progreso completo:
+                    // todas las Skus y todas las EA recogidas. Cierra la tarea
+                    // (suma estadísticas + marca la orden como completada).
+                    if (p.skusTotal > 0 && p.eaTotal > 0
+                            && p.skusDone >= p.skusTotal && p.eaDone >= p.eaTotal) {
+                        PickTrackerStore.endTask(this);
+                    }
                 }
                 return;
             }
             // "Close step now?" no necesita acción: la ubicación ya quedó
             // anotada cuando apareció en el detalle.
+            // "All steps finished..." cierra la tarea en curso (suma stats y
+            // marca la orden como completada automáticamente).
             if (PickTrackerParser.isCloseTaskDialog(t)) {
                 PickTrackerStore.endTask(this);
             }

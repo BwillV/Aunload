@@ -35,6 +35,11 @@
             android:exported="false"
             android:label="Detalle Task"
             android:theme="@style/Theme.PalletTracker.Detail" />
+        <activity
+            android:name=".PickingActivity"
+            android:exported="false"
+            android:label="@string/pt_js_titulo"
+            android:theme="@style/Theme.PalletTracker.Detail" />
 
         <!-- Servicio de accesibilidad para captura de pantalla -->
         <service

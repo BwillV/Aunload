@@ -431,4 +431,26 @@
     <string name="pt_stats_reset_ok">统计已重置</string>
     <string name="pt_fuente_propia">⏱ 每托盘时间按你的数据（%1$s/库位）。</string>
     <string name="pt_fuente_default">⏱ 每托盘时间按默认值（%1$s/库位）。</string>
+    <!-- v5.20 — 无数据、来源与 SLP -->
+    <string name="pt_total_dia_sin">当日合计：%1$d 托盘 · %2$d 件 · %3$d 库位</string>
+    <string name="pt_pallet_resumen_sin">%1$d 件 · %2$d 库位</string>
+    <string name="pt_fuente_hoy">⏱ 根据你【今天】的数据估算每托盘用时（%1$s/库位）。</string>
+    <string name="pt_fuente_ayer">⏱ 根据你【昨天】的数据估算每托盘用时（%1$s/库位）。</string>
+    <string name="pt_fuente_sin">⏱ 暂无数据，无法估算每托盘用时。</string>
+    <string name="pt_orden_slp">🏷 LP %1$s</string>
+    <!-- v5.20 — 拣货界面（当日统计，主管格式） -->
+    <string name="pt_js_titulo">📦 拣货 — 我的统计</string>
+    <string name="pt_js_hoy">今天</string>
+    <string name="pt_js_ayer">昨天</string>
+    <string name="pt_js_tasks">任务</string>
+    <string name="pt_js_total_inv">总库存（EA）</string>
+    <string name="pt_js_total_loc">总库位数</string>
+    <string name="pt_js_picked_inv">已拣库存（EA）</string>
+    <string name="pt_js_picked_loc">已拣库位</string>
+    <string name="pt_js_progress">进度</string>
+    <string name="pt_js_time">耗时</string>
+    <string name="pt_js_time_loc">每库位耗时</string>
+    <string name="pt_js_sin_datos">暂无数据</string>
+    <string name="pt_js_reset">🔄 重置今日统计</string>
+    <string name="pt_js_reset_ok">今日统计已重置</string>
 </resources>
