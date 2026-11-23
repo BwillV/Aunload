@@ -245,34 +245,47 @@ public final class PickTrackerAdvisor {
      * cercana a la entrega.
      */
     /**
-     * v5.23 — Empaca las órdenes de UN pasillo siguiendo las reglas de Wilson:
-     *   - Se prefiere juntar las órdenes grandes con las PEQUEÑAS (cada grande
-     *     siembra una pallet y se le añaden pequeñas que quepan en el límite).
-     *   - Solo si no quedan pequeñas con las que juntar, se emparejan dos
-     *     grandes entre sí (p. ej. dos de 10 = 20), prefiriendo las de MENOS
-     *     ubicaciones; como última opción se juntan igual mientras quepan.
-     *   - Sin tope de nº de órdenes: el único límite es {@link #PALLET_CAPACITY}
-     *     artículos.
+     * v5.29 — Empaca las órdenes de UN pasillo siguiendo las reglas de Wilson:
+     *   - Clasificación por tarea:
+     *       · PEQUEÑA  = ≤ {@link #SMALL_ORDER_MAX} artículos (se junta libremente).
+     *       · LIGERA   = grande (&gt;6 art) pero con ≤ {@link #MAX_MERGE_LOCS}
+     *                    ubicaciones → se puede juntar normalmente (regla:
+     *                    "se pueden juntar task de más de 7 artículos si no
+     *                    pasan de 3 ubicaciones").
+     *       · PESADA   = grande con &gt; {@link #MAX_MERGE_LOCS} ubicaciones →
+     *                    normalmente va sola, PERO como ÚLTIMO RECURSO se
+     *                    emparejan dos (p. ej. dos de 10 = 20) aunque tengan
+     *                    muchas ubicaciones ("júntalas sin importar lo anterior
+     *                    si no hay alternativa").
+     *   - Se rellena SIEMPRE hasta {@link #PALLET_CAPACITY} artículos, sin tope
+     *     de nº de órdenes (se pueden juntar más de 3 tareas).
+     *   - Prioridad: 1º juntar grandes con pequeñas; 2º emparejar dos ligeras;
+     *     3º emparejar dos pesadas (último recurso, preferir pocas ubicaciones);
+     *     4º rellenar los huecos que queden con pequeñas sobrantes.
      */
     private static List<Pallet> packAisle(List<TaskInfo> group) {
         List<Pallet> out = new ArrayList<>();
         if (group == null || group.isEmpty()) return out;
 
         List<TaskInfo> smalls = new ArrayList<>();
-        List<TaskInfo> larges = new ArrayList<>();
+        List<TaskInfo> lights = new ArrayList<>();   // grandes con ≤3 ubicaciones
+        List<TaskInfo> heavies = new ArrayList<>();   // grandes con >3 ubicaciones
         for (TaskInfo t : group) {
             if (t == null) continue;
-            if (t.isSmall()) smalls.add(t); else larges.add(t);
+            if (t.isSmall()) smalls.add(t);
+            else if (t.locCount() <= MAX_MERGE_LOCS) lights.add(t);
+            else heavies.add(t);
         }
         // Lo más lejano a la entrega primero (orden de recorrido).
         Collections.sort(smalls, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
-        Collections.sort(larges, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
+        Collections.sort(lights, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
+        Collections.sort(heavies, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
 
         boolean[] smallUsed = new boolean[smalls.size()];
 
-        // Fase 1: cada grande siembra una pallet y recoge pequeñas que quepan.
-        List<Pallet> largePallets = new ArrayList<>();
-        for (TaskInfo L : larges) {
+        // Fase 1: cada LIGERA siembra una pallet y recoge pequeñas que quepan.
+        List<Pallet> seeded = new ArrayList<>();
+        for (TaskInfo L : lights) {
             Pallet p = new Pallet();
             p.orders.add(L);
             for (int i = 0; i < smalls.size(); i++) {
@@ -282,37 +295,48 @@ public final class PickTrackerAdvisor {
                     smallUsed[i] = true;
                 }
             }
-            largePallets.add(p);
+            seeded.add(p);
         }
 
-        // Fase 2: emparejar pallets que quedaron con UNA sola grande (ninguna
-        // pequeña pudo entrar). Se juntan dos grandes solo aquí (ya no había
-        // pequeñas). Preferimos las de menos ubicaciones.
-        List<Pallet> singlesLarge = new ArrayList<>();
-        for (Pallet p : largePallets) {
-            if (p.orders.size() == 1) singlesLarge.add(p);
+        // Fase 2: emparejar pallets que quedaron con UNA sola ligera (ninguna
+        // pequeña entró). Dos ligeras juntas (p. ej. dos de 10 = 20); se
+        // prefieren las de MENOS ubicaciones.
+        List<Pallet> singleLight = new ArrayList<>();
+        for (Pallet p : seeded) {
+            if (p.orders.size() == 1) singleLight.add(p);
             else out.add(p);
         }
-        Collections.sort(singlesLarge,
+        Collections.sort(singleLight,
                 (a, b) -> Integer.compare(a.totalLocations(), b.totalLocations()));
-        boolean[] used = new boolean[singlesLarge.size()];
-        for (int i = 0; i < singlesLarge.size(); i++) {
-            if (used[i]) continue;
-            Pallet a = singlesLarge.get(i);
-            for (int j = i + 1; j < singlesLarge.size(); j++) {
-                if (used[j]) continue;
-                Pallet b = singlesLarge.get(j);
-                if (a.totalArticles() + b.totalArticles() <= PALLET_CAPACITY) {
-                    a.orders.addAll(b.orders);
-                    used[j] = true;
-                    break;
+        pairPallets(singleLight, out);
+
+        // Fase 3: PESADAS. Cada una arranca en su pallet; como último recurso se
+        // emparejan dos que quepan en el límite, prefiriendo las de menos
+        // ubicaciones ("dos de 10 aunque tengan muchas ubicaciones").
+        List<Pallet> heavyPallets = new ArrayList<>();
+        for (TaskInfo H : heavies) {
+            Pallet p = new Pallet();
+            p.orders.add(H);
+            heavyPallets.add(p);
+        }
+        Collections.sort(heavyPallets,
+                (a, b) -> Integer.compare(a.totalLocations(), b.totalLocations()));
+        pairPallets(heavyPallets, out);
+
+        // Fase 4: rellenar huecos de cualquier pallet con pequeñas sobrantes
+        // (último recurso para no dejar pallets a medias). Lo más lejano primero.
+        for (Pallet p : out) {
+            if (p.totalArticles() >= PALLET_CAPACITY) continue;
+            for (int i = 0; i < smalls.size(); i++) {
+                if (smallUsed[i]) continue;
+                if (p.totalArticles() + smalls.get(i).articles <= PALLET_CAPACITY) {
+                    p.orders.add(smalls.get(i));
+                    smallUsed[i] = true;
                 }
             }
-            used[i] = true;
-            out.add(a);
         }
 
-        // Fase 3: pequeñas sobrantes empaquetadas juntas (hasta el límite).
+        // Fase 5: pequeñas que sobren, empaquetadas juntas (hasta el límite).
         Pallet cur = null;
         for (int i = 0; i < smalls.size(); i++) {
             if (smallUsed[i]) continue;
@@ -332,18 +356,45 @@ public final class PickTrackerAdvisor {
         return out;
     }
 
+    /**
+     * v5.29 — Empareja de a dos los pallets de UNA sola orden de la lista dada
+     * (que debe venir ordenada por nº de ubicaciones ascendente para preferir
+     * las de menos ubicaciones) mientras la suma de artículos quepa en el
+     * límite. El resultado (emparejado o suelto) se añade a {@code out}.
+     */
+    private static void pairPallets(List<Pallet> singles, List<Pallet> out) {
+        boolean[] used = new boolean[singles.size()];
+        for (int i = 0; i < singles.size(); i++) {
+            if (used[i]) continue;
+            Pallet a = singles.get(i);
+            for (int j = i + 1; j < singles.size(); j++) {
+                if (used[j]) continue;
+                Pallet b = singles.get(j);
+                if (a.totalArticles() + b.totalArticles() <= PALLET_CAPACITY) {
+                    a.orders.addAll(b.orders);
+                    used[j] = true;
+                    break;
+                }
+            }
+            used[i] = true;
+            out.add(a);
+        }
+    }
+
     public static List<Pallet> plan(List<TaskInfo> tasks) {
         List<Pallet> pallets = new ArrayList<>();
         if (tasks == null || tasks.isEmpty()) return pallets;
 
         List<TaskInfo> pool = new ArrayList<>();
-        // 1) Van solas en su pallet: las órdenes que solas llegan o superan el
-        //    límite de artículos, Y las que tienen más de MAX_MERGE_LOCS
-        //    ubicaciones (v5.23: Wilson no quiere juntar tareas de muchas
-        //    ubicaciones aunque tengan pocos artículos).
+        // 1) Van solas en su pallet SOLO las órdenes que por sí solas ya llegan
+        //    o superan el límite de artículos (≥ PALLET_CAPACITY).
+        //    v5.29: ya NO se manda sola una tarea solo por tener >3 ubicaciones;
+        //    las de muchas ubicaciones (PESADAS) se pueden emparejar como último
+        //    recurso dentro de packAisle (regla: "junta dos de 10 aunque tengan
+        //    muchas ubicaciones si no hay alternativa"), siempre ≤ 20 artículos.
         for (TaskInfo t : tasks) {
             if (t == null) continue;
-            if (t.articles >= SOLO_ORDER_MIN || t.locCount() > MAX_MERGE_LOCS) {
+            if (t.articles >= SOLO_ORDER_MIN) {
                 Pallet p = new Pallet();
                 p.orders.add(t);
                 pallets.add(p);
