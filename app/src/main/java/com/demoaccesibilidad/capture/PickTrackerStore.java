@@ -112,13 +112,12 @@ public final class PickTrackerStore {
             // cronómetro y se suman las estadísticas personales de ESTA tarea.
             String task = getCurrentTask(c);
             long start = prefs(c).getLong(KEY_CUR_START_TS, 0L);
-            // v5.26 — Wilson: "quiero que SIEMPRE lea las tareas que voy
-            // terminando aunque no haya sugerido bien". Antes la tarea solo
-            // contaba si se había cronometrado (start > 0). Ahora toda tarea que
-            // se cierra suma +1 a las estadísticas, aunque no se haya
-            // cronometrado ni sugerido. El tiempo y las ubicaciones solo se
-            // aportan si SÍ hubo cronómetro, para no ensuciar el promedio
-            // "tiempo por ubicación" con tareas sin medir.
+            // v5.27 — Wilson: "quiero que lo cronometres SIEMPRE". Toda tarea
+            // que se cierra suma +1 a las estadísticas y aporta SIEMPRE su
+            // tiempo medido y sus ubicaciones capturadas. Antes (v5.26) el
+            // tiempo/ubicaciones solo contaban "si hubo cronómetro"; ya no se
+            // descarta: si el detalle se abrió (start > 0) se registra el
+            // tiempo real, y las ubicaciones vistas se cuentan siempre.
             if (task != null && !task.isEmpty()) {
                 long sec = 0L;
                 if (start > 0L) {
@@ -132,12 +131,10 @@ public final class PickTrackerStore {
                     if (f != null) art = Integer.parseInt(f[2]);
                 } catch (Throwable ignored) { }
                 int locs = 0;
-                if (sec > 0L) {
-                    try {
-                        List<String> list = readTaskLocs(c).get(task);
-                        if (list != null) locs = list.size();
-                    } catch (Throwable ignored) { }
-                }
+                try {
+                    List<String> list = readTaskLocs(c).get(task);
+                    if (list != null) locs = list.size();
+                } catch (Throwable ignored) { }
                 recordCompletion(c, sec, locs, art, ea);
             }
             // v5.20 (CR-1) — Marcar automáticamente la orden como completada
