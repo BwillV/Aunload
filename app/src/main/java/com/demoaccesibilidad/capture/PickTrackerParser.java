@@ -132,21 +132,25 @@ public final class PickTrackerParser {
         int newN = newTabCount(textos);
         if (newN < 0) return true; // sin pestañas New: no filtramos.
         int cards = countTaskCards(textos);
-        // v5.23 — Señal fuerte: el WMS muestra "Empty" cuando la pestaña New no
-        // tiene tareas. Si vemos "Empty" y además hay tarjetas, esas tarjetas
-        // son de In Progress/Done (otra pestaña activa) → NO es New.
-        if (hasEmptyMarker(textos) && cards > 0) return false;
         if (newN == 0) {
             // New vacía: solo es "New" si no hay ninguna tarjeta a la vista.
+            // Aquí el marcador "Empty" sí ayuda: si hay tarjetas, son de otra
+            // pestaña (In Progress/Done) → NO es New.
+            if (hasEmptyMarker(textos) && cards > 0) return false;
             return cards == 0;
         }
-        // v5.25 — New con tareas (New(n>0)) y sin marcador "Empty": lo visible
-        // es la pestaña New → true. Antes exigíamos cards<=newN, pero el lector
-        // acumula nodos del RecyclerView al hacer scroll, así que un solo paso
-        // suele traer MÁS tarjetas que New(n) aunque SEA la pestaña New. Esa
-        // comparación (8<=5) devolvía vacío en cada paso → "sale vacío al dar
-        // New reading". Las guardas que de verdad detectan Done/In Progress son
-        // "Empty"+tarjetas y New(0)+tarjetas (ambas arriba); esas se mantienen.
+        // v5.28 — New con tareas (New(n>0)): la pestaña New SÍ tiene tareas, así
+        // que lo visible es la lista New → true.
+        //
+        // CAUSA REAL DEL "sale vacío" (v5.23–v5.27): antes se comprobaba
+        // `hasEmptyMarker && cards>0 → false` ANTES de este punto. Con
+        // flagIncludeNotImportantViews (accessibility_config.xml) el volcado
+        // incluye el placeholder "Empty" de las pestañas que están fuera de
+        // pantalla. Aun con New(5) y tarjetas reales en pantalla, ese "Empty"
+        // suelto hacía devolver false en TODOS los pasos → no se guardaba nada
+        // → "el scroll baja pero sale vacío". Con New(n>0) la pestaña New no
+        // está vacía por definición, por lo que ese "Empty" nunca es de New y
+        // no debe anular la lectura.
         return true;
     }
 
