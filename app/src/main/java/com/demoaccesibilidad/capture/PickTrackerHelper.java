@@ -111,14 +111,16 @@ public final class PickTrackerHelper {
                                 PickTrackerStore.savePendingCards(context, cards);
                             }
                         }
-                        // v5.23 (req 1) — Guardia agregada: si tras leer todos
-                        // los pasos se guardaron MÁS tareas que las que la
-                        // cabecera New(n) dice tener, es que se leyó otra pestaña
-                        // (In Progress/Done). Se descarta la lectura completa.
-                        int newMax = PickTrackerParser.maxNewTabCount(steps);
-                        if (newMax >= 0
-                                && PickTrackerStore.getPendingTasks(context).size() > newMax) {
-                            PickTrackerStore.clearReading(context);
+                        // v5.24 (fail-open) — NO se borra la lectura por un
+                        // conteo que no cuadra. El scroll del lector acumula
+                        // tarjetas de varios pasos (nodos reciclados/pegados por
+                        // el RecyclerView del WMS), así que la unión casi siempre
+                        // supera a New(n) aunque cada paso por separado sí cuadre.
+                        // Las versiones v5.21–v5.23 borraban todo en ese caso y
+                        // dejaban la lectura vacía ("no lee nada"). Ahora se
+                        // conserva lo leído de la pestaña New paso a paso; solo
+                        // se avisa (sin borrar) cuando NO se obtuvo ninguna tarea.
+                        if (PickTrackerStore.getPendingTasks(context).isEmpty()) {
                             Toast.makeText(context,
                                     context.getString(R.string.pt_no_new),
                                     Toast.LENGTH_LONG).show();
