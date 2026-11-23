@@ -140,8 +140,14 @@ public final class PickTrackerParser {
             // New vacía: solo es "New" si no hay ninguna tarjeta a la vista.
             return cards == 0;
         }
-        // New con tareas: aceptamos si lo visible no excede a New(n).
-        return cards <= newN;
+        // v5.25 — New con tareas (New(n>0)) y sin marcador "Empty": lo visible
+        // es la pestaña New → true. Antes exigíamos cards<=newN, pero el lector
+        // acumula nodos del RecyclerView al hacer scroll, así que un solo paso
+        // suele traer MÁS tarjetas que New(n) aunque SEA la pestaña New. Esa
+        // comparación (8<=5) devolvía vacío en cada paso → "sale vacío al dar
+        // New reading". Las guardas que de verdad detectan Done/In Progress son
+        // "Empty"+tarjetas y New(0)+tarjetas (ambas arriba); esas se mantienen.
+        return true;
     }
 
     /** ¿Aparece el marcador "Empty" (estado vacío de la pestaña New)? */
