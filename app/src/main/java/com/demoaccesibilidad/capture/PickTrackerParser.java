@@ -132,12 +132,42 @@ public final class PickTrackerParser {
         int newN = newTabCount(textos);
         if (newN < 0) return true; // sin pestañas New: no filtramos.
         int cards = countTaskCards(textos);
+        // v5.23 — Señal fuerte: el WMS muestra "Empty" cuando la pestaña New no
+        // tiene tareas. Si vemos "Empty" y además hay tarjetas, esas tarjetas
+        // son de In Progress/Done (otra pestaña activa) → NO es New.
+        if (hasEmptyMarker(textos) && cards > 0) return false;
         if (newN == 0) {
             // New vacía: solo es "New" si no hay ninguna tarjeta a la vista.
             return cards == 0;
         }
         // New con tareas: aceptamos si lo visible no excede a New(n).
         return cards <= newN;
+    }
+
+    /** ¿Aparece el marcador "Empty" (estado vacío de la pestaña New)? */
+    private static boolean hasEmptyMarker(List<String> textos) {
+        if (textos == null) return false;
+        for (String s : textos) {
+            if (s != null && "Empty".equalsIgnoreCase(s.trim())) return true;
+        }
+        return false;
+    }
+
+    /**
+     * v5.23 — Guardia agregada: nº máximo de tareas que la pestaña New puede
+     * tener según su cabecera "New(n)" en cualquiera de los pasos leídos. El
+     * llamador la usa para descartar lecturas que trajeron más tareas que las
+     * que New dice tener (señal clara de que se leyó In Progress/Done). -1 si
+     * nunca se vio la cabecera New.
+     */
+    public static int maxNewTabCount(List<List<String>> pasos) {
+        int max = -1;
+        if (pasos == null) return max;
+        for (List<String> paso : pasos) {
+            int n = newTabCount(paso);
+            if (n > max) max = n;
+        }
+        return max;
     }
 
     /** Nº de tarjetas distintas (TASK-xxxxx) presentes en los textos. */

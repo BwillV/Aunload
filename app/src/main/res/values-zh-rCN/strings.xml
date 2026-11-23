@@ -437,6 +437,9 @@
     <string name="pt_fuente_hoy">⏱ 根据你【今天】的数据估算每托盘用时（%1$s/库位）。</string>
     <string name="pt_fuente_ayer">⏱ 根据你【昨天】的数据估算每托盘用时（%1$s/库位）。</string>
     <string name="pt_fuente_sin">⏱ 暂无数据，无法估算每托盘用时。</string>
+    <string name="pt_fuente_base">⏱ 基础估算 ~%1$s/库位（暂无你的实际用时）。</string>
+    <string name="pt_pallets_completados">已完成托盘：%1$d / %2$d · %3$d / %4$d 单</string>
+    <string name="pt_no_new">似乎你不在 New 标签页。请打开 New 再重新读取。</string>
     <string name="pt_orden_slp">🏷 LP %1$s</string>
     <!-- v5.20 — 拣货界面（当日统计，主管格式） -->
     <string name="pt_js_titulo">📦 拣货 — 我的统计</string>

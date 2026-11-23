@@ -275,18 +275,21 @@ public class PickingActivity extends AppCompatActivity {
         solo.setPadding(0, 0, 0, dp(8));
         plan.addView(solo);
 
-        // Fuente del estimado de tiempo por pallet (siempre visible).
+        // v5.23 (req 2): tiempo estimado por pallet SIEMPRE visible. Con datos
+        // propios (hoy/ayer) se usan; si no, un estimado base (~3 min/ubic).
+        final boolean usaBase = spl <= 0;
+        final int secUsar = usaBase ? PickTrackerAdvisor.SECONDS_PER_LOCATION : spl;
         TextView fuente = new TextView(this);
-        fuente.setTextColor(spl > 0 ? GREEN : MUTED);
+        fuente.setTextColor(usaBase ? GOLD : GREEN);
         fuente.setTextSize(12f);
         fuente.setPadding(0, 0, 0, dp(8));
-        String mmss = PickTrackerStore.formatMmSs(spl);
-        if (src == PickTrackerStore.SRC_TODAY) {
+        String mmss = PickTrackerStore.formatMmSs(secUsar);
+        if (!usaBase && src == PickTrackerStore.SRC_TODAY) {
             fuente.setText(getString(R.string.pt_fuente_hoy, mmss));
-        } else if (src == PickTrackerStore.SRC_PREV) {
+        } else if (!usaBase && src == PickTrackerStore.SRC_PREV) {
             fuente.setText(getString(R.string.pt_fuente_ayer, mmss));
         } else {
-            fuente.setText(getString(R.string.pt_fuente_sin));
+            fuente.setText(getString(R.string.pt_fuente_base, mmss));
         }
         plan.addView(fuente);
 
@@ -300,27 +303,35 @@ public class PickingActivity extends AppCompatActivity {
         }
 
         List<PickTrackerAdvisor.Pallet> pallets = PickTrackerAdvisor.plan(pend);
-        final boolean sinTiempo = spl <= 0;
 
         int totalArt = 0, totalLoc = 0, totalSec = 0, totalOrders = 0;
         for (PickTrackerAdvisor.Pallet p : pallets) {
             totalArt += p.totalArticles();
             totalLoc += p.totalLocations();
-            totalSec += p.estimatedSeconds(spl);
+            totalSec += p.estimatedSeconds(secUsar);
             totalOrders += p.orders.size();
         }
         TextView tvTotal = new TextView(this);
-        tvTotal.setText(sinTiempo
-                ? getString(R.string.pt_total_dia_sin, pallets.size(), totalArt, totalLoc)
-                : getString(R.string.pt_total_dia, pallets.size(), totalArt, totalLoc,
-                        PickTrackerAdvisor.minutesOf(totalSec)));
+        tvTotal.setText(getString(R.string.pt_total_dia, pallets.size(), totalArt, totalLoc,
+                PickTrackerAdvisor.minutesOf(totalSec)));
         tvTotal.setTextColor(GOLD);
         tvTotal.setTextSize(13f);
         tvTotal.setPadding(0, 0, 0, dp(4));
         plan.addView(tvTotal);
 
+        // v5.23 (req 7): PALLETS completados (todas sus órdenes marcadas), no
+        // tareas como pallets. Las órdenes marcadas van aparte.
+        int palletsDone = 0;
+        for (PickTrackerAdvisor.Pallet p : pallets) {
+            boolean all = !p.orders.isEmpty();
+            for (PickTrackerAdvisor.TaskInfo o : p.orders) {
+                if (!PickTrackerStore.isOrderDone(this, o.id)) { all = false; break; }
+            }
+            if (all) palletsDone++;
+        }
         TextView tvDone = new TextView(this);
-        tvDone.setText(getString(R.string.pt_completadas,
+        tvDone.setText(getString(R.string.pt_pallets_completados,
+                palletsDone, pallets.size(),
                 PickTrackerStore.getDoneCount(this), totalOrders));
         tvDone.setTextColor(MUTED);
         tvDone.setTextSize(12f);
@@ -341,10 +352,8 @@ public class PickingActivity extends AppCompatActivity {
             pc.addView(tvCab);
 
             TextView tvRes = new TextView(this);
-            tvRes.setText(sinTiempo
-                    ? getString(R.string.pt_pallet_resumen_sin, p.totalArticles(), p.totalLocations())
-                    : getString(R.string.pt_pallet_resumen, p.totalArticles(), p.totalLocations(),
-                            PickTrackerAdvisor.minutesOf(p.estimatedSeconds(spl))));
+            tvRes.setText(getString(R.string.pt_pallet_resumen, p.totalArticles(), p.totalLocations(),
+                    PickTrackerAdvisor.minutesOf(p.estimatedSeconds(secUsar))));
             tvRes.setTextColor(MUTED);
             tvRes.setTextSize(12f);
             tvRes.setPadding(0, dp(2), 0, dp(4));

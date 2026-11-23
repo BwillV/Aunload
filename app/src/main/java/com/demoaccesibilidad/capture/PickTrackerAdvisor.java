@@ -42,14 +42,26 @@ public final class PickTrackerAdvisor {
 
     private PickTrackerAdvisor() { }
 
-    /** Capacidad de una pallet, en ARTÍCULOS (no cajas). Fácil de cambiar. */
-    public static final int PALLET_CAPACITY = 17;
+    /** Capacidad de una pallet, en ARTÍCULOS (no cajas). Fácil de cambiar.
+     *  v5.23: Wilson subió el límite a 20 artículos por pallet. */
+    public static final int PALLET_CAPACITY = 20;
     /** Una orden con este número de artículos o más va sola en su pallet. */
     public static final int SOLO_ORDER_MIN = PALLET_CAPACITY;
     /** Orden pequeña: menos artículos que (SMALL_ORDER_MAX + 1), es decir < 7. */
     public static final int SMALL_ORDER_MAX = 6;
-    /** Máximo de órdenes por pallet (normal 2, hasta 3 si caben). */
-    public static final int MAX_ORDERS_PER_PALLET = 3;
+    /**
+     * v5.23 — Máximo de ubicaciones de una tarea para poder juntarla con otras.
+     * Wilson: "Se pueden juntar task que tengan más de 7 artículos, pero que no
+     * pasen de tres ubicaciones por tarea". Una tarea con más de 3 ubicaciones
+     * recorre demasiado y va sola.
+     */
+    public static final int MAX_MERGE_LOCS = 3;
+    /**
+     * v5.23 — Ya NO hay tope fijo de órdenes por pallet: Wilson permite juntar
+     * más de tres tareas en una pallet mientras no se superen los
+     * {@link #PALLET_CAPACITY} artículos. Se deja la constante como referencia.
+     */
+    public static final int MAX_ORDERS_PER_PALLET = 99;
     /** Segundos estimados por ubicación (~3 min). */
     public static final int SECONDS_PER_LOCATION = 180;
     /** Artículos mínimos para marcar "pallet casi completa" con 1–2 ubicaciones. */
@@ -232,15 +244,106 @@ public final class PickTrackerAdvisor {
      * Cada pallet trae sus órdenes ya ordenadas de la más lejana a la más
      * cercana a la entrega.
      */
+    /**
+     * v5.23 — Empaca las órdenes de UN pasillo siguiendo las reglas de Wilson:
+     *   - Se prefiere juntar las órdenes grandes con las PEQUEÑAS (cada grande
+     *     siembra una pallet y se le añaden pequeñas que quepan en el límite).
+     *   - Solo si no quedan pequeñas con las que juntar, se emparejan dos
+     *     grandes entre sí (p. ej. dos de 10 = 20), prefiriendo las de MENOS
+     *     ubicaciones; como última opción se juntan igual mientras quepan.
+     *   - Sin tope de nº de órdenes: el único límite es {@link #PALLET_CAPACITY}
+     *     artículos.
+     */
+    private static List<Pallet> packAisle(List<TaskInfo> group) {
+        List<Pallet> out = new ArrayList<>();
+        if (group == null || group.isEmpty()) return out;
+
+        List<TaskInfo> smalls = new ArrayList<>();
+        List<TaskInfo> larges = new ArrayList<>();
+        for (TaskInfo t : group) {
+            if (t == null) continue;
+            if (t.isSmall()) smalls.add(t); else larges.add(t);
+        }
+        // Lo más lejano a la entrega primero (orden de recorrido).
+        Collections.sort(smalls, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
+        Collections.sort(larges, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
+
+        boolean[] smallUsed = new boolean[smalls.size()];
+
+        // Fase 1: cada grande siembra una pallet y recoge pequeñas que quepan.
+        List<Pallet> largePallets = new ArrayList<>();
+        for (TaskInfo L : larges) {
+            Pallet p = new Pallet();
+            p.orders.add(L);
+            for (int i = 0; i < smalls.size(); i++) {
+                if (smallUsed[i]) continue;
+                if (p.totalArticles() + smalls.get(i).articles <= PALLET_CAPACITY) {
+                    p.orders.add(smalls.get(i));
+                    smallUsed[i] = true;
+                }
+            }
+            largePallets.add(p);
+        }
+
+        // Fase 2: emparejar pallets que quedaron con UNA sola grande (ninguna
+        // pequeña pudo entrar). Se juntan dos grandes solo aquí (ya no había
+        // pequeñas). Preferimos las de menos ubicaciones.
+        List<Pallet> singlesLarge = new ArrayList<>();
+        for (Pallet p : largePallets) {
+            if (p.orders.size() == 1) singlesLarge.add(p);
+            else out.add(p);
+        }
+        Collections.sort(singlesLarge,
+                (a, b) -> Integer.compare(a.totalLocations(), b.totalLocations()));
+        boolean[] used = new boolean[singlesLarge.size()];
+        for (int i = 0; i < singlesLarge.size(); i++) {
+            if (used[i]) continue;
+            Pallet a = singlesLarge.get(i);
+            for (int j = i + 1; j < singlesLarge.size(); j++) {
+                if (used[j]) continue;
+                Pallet b = singlesLarge.get(j);
+                if (a.totalArticles() + b.totalArticles() <= PALLET_CAPACITY) {
+                    a.orders.addAll(b.orders);
+                    used[j] = true;
+                    break;
+                }
+            }
+            used[i] = true;
+            out.add(a);
+        }
+
+        // Fase 3: pequeñas sobrantes empaquetadas juntas (hasta el límite).
+        Pallet cur = null;
+        for (int i = 0; i < smalls.size(); i++) {
+            if (smallUsed[i]) continue;
+            TaskInfo s = smalls.get(i);
+            if (cur == null || cur.totalArticles() + s.articles > PALLET_CAPACITY) {
+                cur = new Pallet();
+                out.add(cur);
+            }
+            cur.orders.add(s);
+        }
+
+        // Dentro de cada pallet: lo más lejano a la entrega primero.
+        for (Pallet p : out) {
+            Collections.sort(p.orders,
+                    (x, y) -> Double.compare(taskFarthest(y), taskFarthest(x)));
+        }
+        return out;
+    }
+
     public static List<Pallet> plan(List<TaskInfo> tasks) {
         List<Pallet> pallets = new ArrayList<>();
         if (tasks == null || tasks.isEmpty()) return pallets;
 
         List<TaskInfo> pool = new ArrayList<>();
-        // 1) Órdenes que solas llegan o superan el límite → pallet propio.
+        // 1) Van solas en su pallet: las órdenes que solas llegan o superan el
+        //    límite de artículos, Y las que tienen más de MAX_MERGE_LOCS
+        //    ubicaciones (v5.23: Wilson no quiere juntar tareas de muchas
+        //    ubicaciones aunque tengan pocos artículos).
         for (TaskInfo t : tasks) {
             if (t == null) continue;
-            if (t.articles >= SOLO_ORDER_MIN) {
+            if (t.articles >= SOLO_ORDER_MIN || t.locCount() > MAX_MERGE_LOCS) {
                 Pallet p = new Pallet();
                 p.orders.add(t);
                 pallets.add(p);
@@ -249,7 +352,7 @@ public final class PickTrackerAdvisor {
             }
         }
 
-        // 2) Empaque por pasillo (B con B, C con C), lo más lejano primero.
+        // 2) Empaque por pasillo (B con B, C con C).
         Map<String, List<TaskInfo>> byAisle = new LinkedHashMap<>();
         for (TaskInfo t : pool) {
             String a = aisleOf(t);
@@ -259,24 +362,7 @@ public final class PickTrackerAdvisor {
         }
         List<Pallet> perAisle = new ArrayList<>();
         for (Map.Entry<String, List<TaskInfo>> e : byAisle.entrySet()) {
-            List<TaskInfo> g = e.getValue();
-            // Lo más lejano a la entrega primero (orden de recorrido).
-            Collections.sort(g, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
-            Pallet cur = null;
-            for (TaskInfo t : g) {
-                if (cur == null) {
-                    cur = new Pallet();
-                    cur.orders.add(t);
-                    perAisle.add(cur);
-                } else if (cur.orders.size() < MAX_ORDERS_PER_PALLET
-                        && cur.totalArticles() + t.articles <= PALLET_CAPACITY) {
-                    cur.orders.add(t);
-                } else {
-                    cur = new Pallet();
-                    cur.orders.add(t);
-                    perAisle.add(cur);
-                }
-            }
+            perAisle.addAll(packAisle(e.getValue()));
         }
 
         // 3) Cruce de restos en la frontera: un pallet de 1 sola orden de B

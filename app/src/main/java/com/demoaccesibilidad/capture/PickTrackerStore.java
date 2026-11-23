@@ -517,6 +517,10 @@ public final class PickTrackerStore {
                         if (!v.isEmpty() && !locs.contains(v)) locs.add(v);
                     }
                 }
+                // v5.23 (req 1) — Descartar tarjetas sin ubicación NI artículos:
+                // son tarjetas cortadas/basura (solo el TASK-xxxxx) que salían
+                // en las sugerencias "sin ubicación ni ítems". No se muestran.
+                if (articles <= 0 && locs.isEmpty()) continue;
                 String zone = f[1];
                 if ((zone == null || zone.isEmpty() || "?".equals(zone)) && !locs.isEmpty()) {
                     zone = PickTrackerAdvisor.zoneFromLocation(locs.get(0));

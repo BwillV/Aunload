@@ -440,6 +440,9 @@
     <string name="pt_fuente_hoy">⏱ Tiempos por pallet con tus datos de HOY (%1$s/ubicación).</string>
     <string name="pt_fuente_ayer">⏱ Tiempos por pallet con tus datos de AYER (%1$s/ubicación).</string>
     <string name="pt_fuente_sin">⏱ Sin datos aún para estimar el tiempo por pallet.</string>
+    <string name="pt_fuente_base">⏱ Estimado base ~%1$s/ubic (aún sin tus tiempos reales).</string>
+    <string name="pt_pallets_completados">Pallets completados: %1$d / %2$d · %3$d / %4$d órdenes</string>
+    <string name="pt_no_new">Parece que no estabas en la pestaña New. Abre la pestaña New y vuelve a leer.</string>
     <string name="pt_orden_slp">🏷 LP %1$s</string>
     <!-- v5.20 — Pantalla de Picking (stats del día, formato jefa) -->
     <string name="pt_js_titulo">📦 Picking — Mis estadísticas</string>

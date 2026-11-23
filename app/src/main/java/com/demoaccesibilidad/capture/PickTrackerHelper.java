@@ -111,6 +111,18 @@ public final class PickTrackerHelper {
                                 PickTrackerStore.savePendingCards(context, cards);
                             }
                         }
+                        // v5.23 (req 1) — Guardia agregada: si tras leer todos
+                        // los pasos se guardaron MÁS tareas que las que la
+                        // cabecera New(n) dice tener, es que se leyó otra pestaña
+                        // (In Progress/Done). Se descarta la lectura completa.
+                        int newMax = PickTrackerParser.maxNewTabCount(steps);
+                        if (newMax >= 0
+                                && PickTrackerStore.getPendingTasks(context).size() > newMax) {
+                            PickTrackerStore.clearReading(context);
+                            Toast.makeText(context,
+                                    context.getString(R.string.pt_no_new),
+                                    Toast.LENGTH_LONG).show();
+                        }
                     }
                 } catch (Throwable t) {
                     PalletTrackerApp.logException(context.getApplicationContext(),
@@ -159,12 +171,14 @@ public final class PickTrackerHelper {
             List<PickTrackerAdvisor.Pallet> pallets =
                     PickTrackerAdvisor.plan(pendientes);
 
-            // CR-4 (v5.20): tiempo por ubicación según las estadísticas de
-            // Wilson (día anterior hasta terminar las asignadas de hoy, luego
-            // las de hoy). 0 = "sin datos aún" (ya no se usa el 3:03 por defecto).
-            final int secPorUbic = PickTrackerStore.secPerLocationForAdvice(context);
+            // v5.23 (req 2): el tiempo estimado por pallet SIEMPRE se muestra.
+            // Si hay datos propios se usan (hoy/ayer); si no, se usa un estimado
+            // base (~3 min/ubicación) claramente etiquetado como tal.
+            final int secPropio = PickTrackerStore.secPerLocationForAdvice(context);
             final int fuente = PickTrackerStore.adviceSource(context);
-            final boolean sinTiempo = secPorUbic <= 0;
+            final boolean usaBase = secPropio <= 0;
+            final int secPorUbic = usaBase
+                    ? PickTrackerAdvisor.SECONDS_PER_LOCATION : secPropio;
 
             // Resumen del día (todas las pallets).
             int totalArt = 0, totalLoc = 0, totalSec = 0, totalOrders = 0;
@@ -175,35 +189,44 @@ public final class PickTrackerHelper {
                 totalOrders += p.orders.size();
             }
             TextView tvTotal = crearTexto(context,
-                    sinTiempo
-                        ? context.getString(R.string.pt_total_dia_sin,
-                                pallets.size(), totalArt, totalLoc)
-                        : context.getString(R.string.pt_total_dia,
-                                pallets.size(), totalArt, totalLoc,
-                                PickTrackerAdvisor.minutesOf(totalSec)),
+                    context.getString(R.string.pt_total_dia,
+                            pallets.size(), totalArt, totalLoc,
+                            PickTrackerAdvisor.minutesOf(totalSec)),
                     13, true);
             tvTotal.setTextColor(COLOR_GOLD);
             tvTotal.setPadding(0, 0, 0, dp(context, 4));
             content.addView(tvTotal);
 
-            // Nota: ¿de dónde sale el tiempo por pallet? (hoy / ayer / sin datos)
+            // Nota: ¿de dónde sale el tiempo por pallet? (hoy / ayer / base)
             String fuenteTxt;
-            if (fuente == PickTrackerStore.SRC_TODAY) {
+            if (!usaBase && fuente == PickTrackerStore.SRC_TODAY) {
                 fuenteTxt = context.getString(R.string.pt_fuente_hoy,
                         PickTrackerStore.formatMmSs(secPorUbic));
-            } else if (fuente == PickTrackerStore.SRC_PREV) {
+            } else if (!usaBase && fuente == PickTrackerStore.SRC_PREV) {
                 fuenteTxt = context.getString(R.string.pt_fuente_ayer,
                         PickTrackerStore.formatMmSs(secPorUbic));
             } else {
-                fuenteTxt = context.getString(R.string.pt_fuente_sin);
+                fuenteTxt = context.getString(R.string.pt_fuente_base,
+                        PickTrackerStore.formatMmSs(secPorUbic));
             }
             TextView tvFuente = crearTexto(context, fuenteTxt, 11, false);
-            tvFuente.setTextColor(sinTiempo ? COLOR_HINT : COLOR_GREEN);
+            tvFuente.setTextColor(usaBase ? COLOR_GOLD : COLOR_GREEN);
             tvFuente.setPadding(0, 0, 0, dp(context, 6));
             content.addView(tvFuente);
 
+            // v5.23 (req 7): se cuentan PALLETS completados (todas sus órdenes
+            // marcadas), no tareas como pallets. Las órdenes van aparte.
+            int palletsDone = 0;
+            for (PickTrackerAdvisor.Pallet p : pallets) {
+                boolean all = !p.orders.isEmpty();
+                for (PickTrackerAdvisor.TaskInfo o : p.orders) {
+                    if (!PickTrackerStore.isOrderDone(context, o.id)) { all = false; break; }
+                }
+                if (all) palletsDone++;
+            }
             TextView tvDone = crearTexto(context,
-                    context.getString(R.string.pt_completadas,
+                    context.getString(R.string.pt_pallets_completados,
+                            palletsDone, pallets.size(),
                             PickTrackerStore.getDoneCount(context), totalOrders),
                     12, false);
             tvDone.setTextColor(COLOR_HINT);
@@ -227,12 +250,9 @@ public final class PickTrackerHelper {
                 card.addView(tvCab);
 
                 TextView tvRes = crearTexto(context,
-                        sinTiempo
-                            ? context.getString(R.string.pt_pallet_resumen_sin,
-                                    p.totalArticles(), p.totalLocations())
-                            : context.getString(R.string.pt_pallet_resumen,
-                                    p.totalArticles(), p.totalLocations(),
-                                    PickTrackerAdvisor.minutesOf(p.estimatedSeconds(secPorUbic))),
+                        context.getString(R.string.pt_pallet_resumen,
+                                p.totalArticles(), p.totalLocations(),
+                                PickTrackerAdvisor.minutesOf(p.estimatedSeconds(secPorUbic))),
                         12, false);
                 tvRes.setTextColor(COLOR_HINT);
                 tvRes.setPadding(0, dp(context, 2), 0, dp(context, 4));

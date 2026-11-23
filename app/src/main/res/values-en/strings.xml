@@ -440,6 +440,9 @@
     <string name="pt_fuente_hoy">⏱ Pallet times from your TODAY data (%1$s/location).</string>
     <string name="pt_fuente_ayer">⏱ Pallet times from your YESTERDAY data (%1$s/location).</string>
     <string name="pt_fuente_sin">⏱ No data yet to estimate pallet time.</string>
+    <string name="pt_fuente_base">⏱ Base estimate ~%1$s/loc (no personal times yet).</string>
+    <string name="pt_pallets_completados">Pallets done: %1$d / %2$d · %3$d / %4$d orders</string>
+    <string name="pt_no_new">Looks like you weren\'t on the New tab. Open New and read again.</string>
     <string name="pt_orden_slp">🏷 LP %1$s</string>
     <!-- v5.20 — Picking screen (day stats, supervisor format) -->
     <string name="pt_js_titulo">📦 Picking — My statistics</string>
