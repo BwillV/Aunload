@@ -112,22 +112,33 @@ public final class PickTrackerStore {
             // cronómetro y se suman las estadísticas personales de ESTA tarea.
             String task = getCurrentTask(c);
             long start = prefs(c).getLong(KEY_CUR_START_TS, 0L);
-            if (task != null && !task.isEmpty() && start > 0L) {
-                long sec = (System.currentTimeMillis() - start) / 1000L;
-                if (sec > 0L && sec < MAX_TASK_SEC) {
-                    int locs = 0;
+            // v5.26 — Wilson: "quiero que SIEMPRE lea las tareas que voy
+            // terminando aunque no haya sugerido bien". Antes la tarea solo
+            // contaba si se había cronometrado (start > 0). Ahora toda tarea que
+            // se cierra suma +1 a las estadísticas, aunque no se haya
+            // cronometrado ni sugerido. El tiempo y las ubicaciones solo se
+            // aportan si SÍ hubo cronómetro, para no ensuciar el promedio
+            // "tiempo por ubicación" con tareas sin medir.
+            if (task != null && !task.isEmpty()) {
+                long sec = 0L;
+                if (start > 0L) {
+                    long s = (System.currentTimeMillis() - start) / 1000L;
+                    if (s > 0L && s < MAX_TASK_SEC) sec = s;
+                }
+                int ea = prefs(c).getInt(KEY_CUR_EA, 0);
+                int art = 0;
+                try {
+                    String[] f = readPending(c).get(task);
+                    if (f != null) art = Integer.parseInt(f[2]);
+                } catch (Throwable ignored) { }
+                int locs = 0;
+                if (sec > 0L) {
                     try {
                         List<String> list = readTaskLocs(c).get(task);
                         if (list != null) locs = list.size();
                     } catch (Throwable ignored) { }
-                    int ea = prefs(c).getInt(KEY_CUR_EA, 0);
-                    int art = 0;
-                    try {
-                        String[] f = readPending(c).get(task);
-                        if (f != null) art = Integer.parseInt(f[2]);
-                    } catch (Throwable ignored) { }
-                    recordCompletion(c, sec, locs, art, ea);
                 }
+                recordCompletion(c, sec, locs, art, ea);
             }
             // v5.20 (CR-1) — Marcar automáticamente la orden como completada
             // (checkbox) al cerrarse la tarea. Esto es lo que el usuario echaba
@@ -517,10 +528,15 @@ public final class PickTrackerStore {
                         if (!v.isEmpty() && !locs.contains(v)) locs.add(v);
                     }
                 }
-                // v5.23 (req 1) — Descartar tarjetas sin ubicación NI artículos:
-                // son tarjetas cortadas/basura (solo el TASK-xxxxx) que salían
-                // en las sugerencias "sin ubicación ni ítems". No se muestran.
-                if (articles <= 0 && locs.isEmpty()) continue;
+                // v5.26 (diagnóstico real 23/11 07:11) — Una sugerencia SIN
+                // ubicación no es accionable: aunque tenga artículos, es la
+                // "sugerencia que no tiene nada" que reportó Wilson (p. ej.
+                // TASK-52431: 1 orden y sin "Suggest Location" por quedar
+                // cortada al borde del scroll). Si NINGUNA lectura capturó una
+                // ubicación para la tarjeta, no se muestra. savePendingCards
+                // fusiona y conserva la ubicación si CUALQUIER paso la vio, así
+                // que esto solo descarta tarjetas realmente sin bin.
+                if (locs.isEmpty()) continue;
                 String zone = f[1];
                 if ((zone == null || zone.isEmpty() || "?".equals(zone)) && !locs.isEmpty()) {
                     zone = PickTrackerAdvisor.zoneFromLocation(locs.get(0));
