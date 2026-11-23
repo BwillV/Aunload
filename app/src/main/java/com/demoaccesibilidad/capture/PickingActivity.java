@@ -338,6 +338,11 @@ public class PickingActivity extends AppCompatActivity {
         tvDone.setPadding(0, 0, 0, dp(8));
         plan.addView(tvDone);
 
+        // ETA: si empiezas AHORA y haces los pallets/tareas en orden, ¿a qué
+        // hora terminas cada uno? Acumulado desde ahora.
+        final long etaBase = System.currentTimeMillis();
+        int etaAcc = 0;
+
         int palletNum = 1;
         for (PickTrackerAdvisor.Pallet p : pallets) {
             LinearLayout pc = subCard(plan);
@@ -358,6 +363,16 @@ public class PickingActivity extends AppCompatActivity {
             tvRes.setTextSize(12f);
             tvRes.setPadding(0, dp(2), 0, dp(4));
             pc.addView(tvRes);
+
+            // Hora a la que terminas este pallet si empiezas ahora (acumulado).
+            final int palletSec = p.estimatedSeconds(secUsar);
+            TextView tvTermP = new TextView(this);
+            tvTermP.setText(getString(R.string.pt_pallet_termina,
+                    PickTrackerAdvisor.clockAfter(etaBase, etaAcc + palletSec)));
+            tvTermP.setTextColor(GREEN);
+            tvTermP.setTextSize(12f);
+            tvTermP.setPadding(0, 0, 0, dp(4));
+            pc.addView(tvTermP);
 
             if (p.hasPriority()) {
                 TextView tvPrio = new TextView(this);
@@ -394,6 +409,12 @@ public class PickingActivity extends AppCompatActivity {
                 if (slp != null && !slp.isEmpty()) {
                     linea += "\n" + getString(R.string.pt_orden_slp, slp);
                 }
+                // Estimado por tarea + hora a la que terminas esta tarea.
+                int tSec = PickTrackerAdvisor.taskSeconds(t, secUsar);
+                etaAcc += tSec;
+                linea += "\n" + getString(R.string.pt_tarea_tiempo,
+                        PickTrackerAdvisor.minutesOf(tSec),
+                        PickTrackerAdvisor.clockAfter(etaBase, etaAcc));
                 TextView tvOrden = new TextView(this);
                 tvOrden.setText(linea);
                 tvOrden.setTextColor(FG);

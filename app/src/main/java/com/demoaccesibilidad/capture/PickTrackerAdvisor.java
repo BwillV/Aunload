@@ -268,26 +268,48 @@ public final class PickTrackerAdvisor {
         if (group == null || group.isEmpty()) return out;
 
         List<TaskInfo> smalls = new ArrayList<>();
-        List<TaskInfo> lights = new ArrayList<>();   // grandes con ≤3 ubicaciones
-        List<TaskInfo> heavies = new ArrayList<>();   // grandes con >3 ubicaciones
+        List<TaskInfo> bigs = new ArrayList<>();   // TODAS las grandes (> SMALL_ORDER_MAX art)
         for (TaskInfo t : group) {
             if (t == null) continue;
             if (t.isSmall()) smalls.add(t);
-            else if (t.locCount() <= MAX_MERGE_LOCS) lights.add(t);
-            else heavies.add(t);
+            else bigs.add(t);
         }
-        // Lo más lejano a la entrega primero (orden de recorrido).
+        // Pequeñas: lo más lejano a la entrega primero (orden de recorrido).
         Collections.sort(smalls, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
-        Collections.sort(lights, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
-        Collections.sort(heavies, (a, b) -> Double.compare(taskFarthest(b), taskFarthest(a)));
+        // Grandes: primero las de MENOS ubicaciones (ligeras antes que pesadas) y,
+        // a igualdad, lo más lejano primero. Así las ligeras arrancan pallets
+        // "normales" y las pesadas también reciben pequeñas antes de emparejarse.
+        Collections.sort(bigs, (a, b) -> {
+            int c = Integer.compare(a.locCount(), b.locCount());
+            if (c != 0) return c;
+            return Double.compare(taskFarthest(b), taskFarthest(a));
+        });
 
         boolean[] smallUsed = new boolean[smalls.size()];
 
-        // Fase 1: cada LIGERA siembra una pallet y recoge pequeñas que quepan.
-        List<Pallet> seeded = new ArrayList<>();
-        for (TaskInfo L : lights) {
+        // Cada grande siembra su propia pallet.
+        List<Pallet> bigPallets = new ArrayList<>();
+        for (TaskInfo B : bigs) {
             Pallet p = new Pallet();
-            p.orders.add(L);
+            p.orders.add(B);
+            bigPallets.add(p);
+        }
+
+        // PRIORIDAD 1 — juntar GRANDES con PEQUEÑAS (lo que pide Wilson).
+        // Primera pasada: una pequeña a CADA grande (reparto), para que el máximo
+        // de grandes consiga pareja pequeña y se eviten los grande+grande.
+        for (Pallet p : bigPallets) {
+            for (int i = 0; i < smalls.size(); i++) {
+                if (smallUsed[i]) continue;
+                if (p.totalArticles() + smalls.get(i).articles <= PALLET_CAPACITY) {
+                    p.orders.add(smalls.get(i));
+                    smallUsed[i] = true;
+                    break;
+                }
+            }
+        }
+        // Segunda pasada: rellenar cada grande con más pequeñas hasta el límite.
+        for (Pallet p : bigPallets) {
             for (int i = 0; i < smalls.size(); i++) {
                 if (smallUsed[i]) continue;
                 if (p.totalArticles() + smalls.get(i).articles <= PALLET_CAPACITY) {
@@ -295,48 +317,21 @@ public final class PickTrackerAdvisor {
                     smallUsed[i] = true;
                 }
             }
-            seeded.add(p);
         }
 
-        // Fase 2: emparejar pallets que quedaron con UNA sola ligera (ninguna
-        // pequeña entró). Dos ligeras juntas (p. ej. dos de 10 = 20); se
-        // prefieren las de MENOS ubicaciones.
-        List<Pallet> singleLight = new ArrayList<>();
-        for (Pallet p : seeded) {
-            if (p.orders.size() == 1) singleLight.add(p);
+        // PRIORIDAD 2 (ÚLTIMO RECURSO) — grande+grande: solo las grandes que
+        // quedaron SOLAS (no hubo ninguna pequeña que juntarles) se emparejan
+        // entre sí si caben en el límite, prefiriendo las de MENOS ubicaciones.
+        List<Pallet> singleBigs = new ArrayList<>();
+        for (Pallet p : bigPallets) {
+            if (p.orders.size() == 1) singleBigs.add(p);
             else out.add(p);
         }
-        Collections.sort(singleLight,
+        Collections.sort(singleBigs,
                 (a, b) -> Integer.compare(a.totalLocations(), b.totalLocations()));
-        pairPallets(singleLight, out);
+        pairPallets(singleBigs, out);
 
-        // Fase 3: PESADAS. Cada una arranca en su pallet; como último recurso se
-        // emparejan dos que quepan en el límite, prefiriendo las de menos
-        // ubicaciones ("dos de 10 aunque tengan muchas ubicaciones").
-        List<Pallet> heavyPallets = new ArrayList<>();
-        for (TaskInfo H : heavies) {
-            Pallet p = new Pallet();
-            p.orders.add(H);
-            heavyPallets.add(p);
-        }
-        Collections.sort(heavyPallets,
-                (a, b) -> Integer.compare(a.totalLocations(), b.totalLocations()));
-        pairPallets(heavyPallets, out);
-
-        // Fase 4: rellenar huecos de cualquier pallet con pequeñas sobrantes
-        // (último recurso para no dejar pallets a medias). Lo más lejano primero.
-        for (Pallet p : out) {
-            if (p.totalArticles() >= PALLET_CAPACITY) continue;
-            for (int i = 0; i < smalls.size(); i++) {
-                if (smallUsed[i]) continue;
-                if (p.totalArticles() + smalls.get(i).articles <= PALLET_CAPACITY) {
-                    p.orders.add(smalls.get(i));
-                    smallUsed[i] = true;
-                }
-            }
-        }
-
-        // Fase 5: pequeñas que sobren, empaquetadas juntas (hasta el límite).
+        // Pequeñas que sobren, empaquetadas juntas (hasta el límite).
         Pallet cur = null;
         for (int i = 0; i < smalls.size(); i++) {
             if (smallUsed[i]) continue;
@@ -476,6 +471,32 @@ public final class PickTrackerAdvisor {
     public static int minutesOf(int seconds) {
         if (seconds <= 0) return 0;
         return (seconds + 30) / 60;
+    }
+
+    /**
+     * Segundos estimados de UNA tarea = nº de ubicaciones × segundos por
+     * ubicación (mismo modelo que la pallet). Si no se pasa el promedio propio,
+     * usa el estimado base ({@link #SECONDS_PER_LOCATION}).
+     */
+    public static int taskSeconds(TaskInfo t, int secPerLocation) {
+        if (t == null) return 0;
+        int spl = secPerLocation > 0 ? secPerLocation : SECONDS_PER_LOCATION;
+        return t.locCount() * spl;
+    }
+
+    /**
+     * Hora de reloj ("HH:mm") a la que se termina si se empieza en
+     * {@code startMillis} y se trabaja {@code addSeconds} segundos. Sirve para
+     * mostrar "a qué hora terminaré" por pallet y por tarea.
+     */
+    public static String clockAfter(long startMillis, int addSeconds) {
+        long end = startMillis + (long) Math.max(0, addSeconds) * 1000L;
+        try {
+            return new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                    .format(new java.util.Date(end));
+        } catch (Throwable ignored) {
+            return "";
+        }
     }
 
     /**

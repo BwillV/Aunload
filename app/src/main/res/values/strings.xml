@@ -419,6 +419,8 @@
     <string name="pt_pallet">Pallet %1$d · pasillo %2$s</string>
     <string name="pt_pallet_cross">Pallet %1$d · cruce B/C</string>
     <string name="pt_pallet_resumen">%1$d artículos · %2$d ubicaciones · ~%3$d min</string>
+    <string name="pt_pallet_termina">🕒 Si empiezas ahora, terminas ~%1$s</string>
+    <string name="pt_tarea_tiempo">~%1$d min · terminas ~%2$s</string>
     <string name="pt_prioridad">⭐ Casi completa (priorizar)</string>
     <string name="pt_orden_linea">%1$s · %2$d art · %3$s</string>
     <string name="pt_orden_zona">zona %1$s</string>

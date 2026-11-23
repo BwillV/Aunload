@@ -416,6 +416,8 @@
     <string name="pt_pallet">托盘 %1$d · 通道 %2$s</string>
     <string name="pt_pallet_cross">托盘 %1$d · B/C 交叉</string>
     <string name="pt_pallet_resumen">%1$d 件 · %2$d 库位 · 约 %3$d 分钟</string>
+    <string name="pt_pallet_termina">🕒 现在开始，约 %1$s 完成</string>
+    <string name="pt_tarea_tiempo">约 %1$d 分钟 · 约 %2$s 完成</string>
     <string name="pt_prioridad">⭐ 接近满托（优先）</string>
     <string name="pt_orden_linea">%1$s · %2$d 件 · %3$s</string>
     <string name="pt_orden_zona">库区 %1$s</string>

@@ -235,6 +235,10 @@ public final class PickTrackerHelper {
             tvDone.setPadding(0, 0, 0, dp(context, 8));
             content.addView(tvDone);
 
+            // ETA: si empiezas ahora, ¿a qué hora terminas cada pallet/tarea?
+            final long etaBase = System.currentTimeMillis();
+            int etaAcc = 0;
+
             // Lista de pallets (sin scroll interno: el scroll exterior maneja todo).
             int palletNum = 1;
             for (PickTrackerAdvisor.Pallet p : pallets) {
@@ -259,6 +263,16 @@ public final class PickTrackerHelper {
                 tvRes.setTextColor(COLOR_HINT);
                 tvRes.setPadding(0, dp(context, 2), 0, dp(context, 4));
                 card.addView(tvRes);
+
+                // Hora a la que terminas este pallet (acumulado desde ahora).
+                final int palletSec = p.estimatedSeconds(secPorUbic);
+                TextView tvTermP = crearTexto(context,
+                        context.getString(R.string.pt_pallet_termina,
+                                PickTrackerAdvisor.clockAfter(etaBase, etaAcc + palletSec)),
+                        12, false);
+                tvTermP.setTextColor(COLOR_GREEN);
+                tvTermP.setPadding(0, 0, 0, dp(context, 4));
+                card.addView(tvTermP);
 
                 if (p.hasPriority()) {
                     TextView tvPrio = crearTexto(context,
@@ -297,6 +311,12 @@ public final class PickTrackerHelper {
                     if (slp != null && !slp.isEmpty()) {
                         linea += "\n" + context.getString(R.string.pt_orden_slp, slp);
                     }
+                    // Estimado por tarea + hora a la que la terminas.
+                    int tSec = PickTrackerAdvisor.taskSeconds(t, secPorUbic);
+                    etaAcc += tSec;
+                    linea += "\n" + context.getString(R.string.pt_tarea_tiempo,
+                            PickTrackerAdvisor.minutesOf(tSec),
+                            PickTrackerAdvisor.clockAfter(etaBase, etaAcc));
                     TextView tvOrden = crearTexto(context, linea, 13, false);
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
